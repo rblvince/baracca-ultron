@@ -39,10 +39,35 @@ def test_accumulate_tokens_dedup():
         b.TOKENS_PATH = old_tokens_path
 
 
+def test_write_state_calls_supabase_upsert():
+    import supabase_client
+    calls = []
+    old_upsert = supabase_client.upsert
+    supabase_client.upsert = lambda table, row, on_conflict=None: calls.append((table, row, on_conflict)) or 200
+    old_cfg = supabase_client.load_config
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    tmp_dir = tempfile.mkdtemp()
+    old_state_path = b.STATE_PATH
+    b.STATE_PATH = os.path.join(tmp_dir, "state.json")
+    try:
+        b.write_state(status="thinking", room="qa")
+        assert len(calls) == 1, calls
+        table, row, on_conflict = calls[0]
+        assert table == "agent_state", table
+        assert row["status"] == "thinking" and row["room"] == "qa", row
+        assert row["user_id"] == "test-user", row
+        assert on_conflict == "user_id", on_conflict
+    finally:
+        supabase_client.upsert = old_upsert
+        supabase_client.load_config = old_cfg
+        b.STATE_PATH = old_state_path
+
+
 def main():
     test_classify_bash_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
+    test_write_state_calls_supabase_upsert()
     print("barracks.py: tutti i controlli passati")
 
 
