@@ -16,9 +16,6 @@ import sys
 import time
 
 import session_track
-
-# Import supabase_client from farm/hooks (different directory in this worktree)
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "farm", "hooks"))
 import supabase_client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
