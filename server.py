@@ -12,6 +12,9 @@ import re
 import subprocess
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import sys as _sys
+_sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hooks"))
+import supabase_client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Ultron vault")
@@ -181,6 +184,14 @@ def read_subagents():
     return {"list": fresh}
 
 
+def config_payload():
+    """Solo url + chiave anonima — MAI la service-role key, anche se presente
+    nello stesso file di config. La chiave anonima non è un segreto nel
+    modello di Supabase: la sicurezza la fa la Row Level Security lato DB."""
+    cfg = supabase_client.load_config()
+    return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", "")}
+
+
 def build_vault_snapshot():
     return {
         "identity": parse_identity(),
@@ -215,6 +226,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(read_sessions())
         elif self.path == "/api/subagents":
             self._send_json(read_subagents())
+        elif self.path == "/api/config":
+            self._send_json(config_payload())
         elif self.path in ("/", "/farm.html", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
         else:
