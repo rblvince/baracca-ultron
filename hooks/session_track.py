@@ -77,6 +77,16 @@ def spawn_subagent(room, agent, task):
     data["next_id"] = sid + 1
     _save(SUBAGENTS_PATH, data)
 
+    cfg = supabase_client.load_config()
+    user_id = cfg.get("SUPABASE_USER_ID")
+    if user_id:
+        try:
+            supabase_client.insert("subagents", {
+                "user_id": user_id, "room": room, "agent": agent, "task": task,
+            })
+        except Exception:
+            pass
+
 
 def reap_subagent():
     """Un sub-agente è rientrato (SubagentStop): toglie il più vecchio ancora
@@ -88,3 +98,11 @@ def reap_subagent():
     if data.get("list"):
         data["list"].pop(0)
         _save(SUBAGENTS_PATH, data)
+
+    cfg = supabase_client.load_config()
+    user_id = cfg.get("SUPABASE_USER_ID")
+    if user_id:
+        try:
+            supabase_client.delete_oldest("subagents", {"user_id": user_id})
+        except Exception:
+            pass
