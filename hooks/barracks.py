@@ -24,6 +24,12 @@ TOKENS_PATH = os.path.join(HERE, "..", "state", "tokens.json")
 VAULT = os.path.expanduser("~/Ultron vault")
 AGENT_HOME = os.path.expanduser("~/my-agent")
 
+# le colonne che agent_state ha davvero (supabase/schema.sql): write_state()
+# accetta **kw aperti, ma a Supabase va solo quello che la tabella conosce —
+# una colonna inventata farebbe fallire in silenzio tutta la scrittura.
+AGENT_STATE_COLUMNS = ("user_id", "status", "room", "node", "agent", "task",
+                       "area", "tool", "tokens", "line", "ts")
+
 # --- i reparti della baracca -------------------------------------------
 # vault  ARCHIVIO      qualsiasi cosa dentro il vault
 # ricerca RICERCA      leggere, cercare, guardare fuori
@@ -92,6 +98,7 @@ def write_state(**kw):
         if user_id:
             row = dict(data)
             row["user_id"] = user_id
+            row = {k: v for k, v in row.items() if k in AGENT_STATE_COLUMNS}
             supabase_client.upsert("agent_state", row, on_conflict="user_id")
     except Exception:
         pass

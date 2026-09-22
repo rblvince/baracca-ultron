@@ -20,6 +20,10 @@ SESSIONS_PATH = os.path.join(HERE, "..", "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "..", "state", "subagents.json")
 MAX_AGE_MS = 60 * 60 * 1000  # un'ora: oltre, la sessione/coda è morta per davvero
 
+# le colonne che sessions ha davvero (supabase/schema.sql): update_session()
+# accetta **fields aperti, a Supabase va solo ciò che la tabella conosce.
+SESSION_COLUMNS = ("user_id", "transcript_path", "status", "room", "node", "ts")
+
 
 def _load(path, default):
     try:
@@ -55,16 +59,18 @@ def update_session(session_key, **fields):
     data[session_key] = entry
     _save(SESSIONS_PATH, data)
 
-    cfg = supabase_client.load_config()
-    user_id = cfg.get("SUPABASE_USER_ID")
-    if user_id:
-        row = dict(entry)
-        row["transcript_path"] = session_key
-        row["user_id"] = user_id
-        try:
+    # il file locale è già salvato: da qui in giù è tutto "in più", e niente
+    # di quello che succede a Supabase può far saltare l'hook
+    try:
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if user_id:
+            row = dict(entry)
+            row["transcript_path"] = session_key
+            row["user_id"] = user_id
+            row = {k: v for k, v in row.items() if k in SESSION_COLUMNS}
             supabase_client.upsert("sessions", row, on_conflict="user_id,transcript_path")
-        except Exception:
-            pass
+    except Exception:
+        pass
 
 
 def spawn_subagent(room, agent, task):
@@ -77,15 +83,14 @@ def spawn_subagent(room, agent, task):
     data["next_id"] = sid + 1
     _save(SUBAGENTS_PATH, data)
 
-    cfg = supabase_client.load_config()
-    user_id = cfg.get("SUPABASE_USER_ID")
-    if user_id:
-        try:
+    try:
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if user_id:
             supabase_client.insert("subagents", {
                 "user_id": user_id, "room": room, "agent": agent, "task": task,
             })
-        except Exception:
-            pass
+    except Exception:
+        pass
 
 
 def reap_subagent():
@@ -99,10 +104,9 @@ def reap_subagent():
         data["list"].pop(0)
         _save(SUBAGENTS_PATH, data)
 
-    cfg = supabase_client.load_config()
-    user_id = cfg.get("SUPABASE_USER_ID")
-    if user_id:
-        try:
+    try:
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if user_id:
             supabase_client.delete_oldest("subagents", {"user_id": user_id})
-        except Exception:
-            pass
+    except Exception:
+        pass
