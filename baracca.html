@@ -292,6 +292,7 @@
 
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 <div id="app">
@@ -2288,6 +2289,22 @@ function simulate(){
   }
   renderTasks();
 }
+
+/* ============================================== SUPABASE (Giro 1, dietro flag)
+   USE_SUPABASE parte false: nessun comportamento visibile cambia finché non
+   lo si attiva a mano dopo aver verificato che i dati arrivano davvero. */
+var USE_SUPABASE = false;
+var supaClient = null;
+
+function initSupabase(cfg){
+  if(!cfg || !cfg.url || !cfg.anon_key) return;
+  supaClient = supabase.createClient(cfg.url, cfg.anon_key);
+}
+
+fetch("/api/config", {cache:"no-store"})
+  .then(function(r){ return r.ok ? r.json() : null; })
+  .then(function(cfg){ if(cfg) initSupabase(cfg); })
+  .catch(function(){});
 
 var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
 /* Il ponte con Claude Code: gli hook scrivono un file, il server lo serve,
