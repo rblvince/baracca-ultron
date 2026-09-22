@@ -63,7 +63,13 @@ alter table sessions enable row level security;
 alter table subagents enable row level security;
 alter table token_usage enable row level security;
 
-create policy "solo il proprietario" on agent_state for all using (auth.uid() = user_id);
-create policy "solo il proprietario" on sessions for all using (auth.uid() = user_id);
-create policy "solo il proprietario" on subagents for all using (auth.uid() = user_id);
-create policy "solo il proprietario" on token_usage for all using (auth.uid() = user_id);
+create policy "solo il proprietario" on agent_state for select using (auth.uid() = user_id);
+create policy "solo il proprietario" on sessions for select using (auth.uid() = user_id);
+create policy "solo il proprietario" on subagents for select using (auth.uid() = user_id);
+create policy "solo il proprietario" on token_usage for select using (auth.uid() = user_id);
+
+-- Realtime: senza questo, Supabase non emette MAI postgres_changes su questa
+-- tabella pur rispondendo SUBSCRIBED. replica identity full serve perché
+-- Realtime possa valutare la RLS sulla riga e popolare payload.old.
+alter publication supabase_realtime add table agent_state;
+alter table agent_state replica identity full;
