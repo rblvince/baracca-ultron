@@ -17,7 +17,7 @@ import time
 
 import session_track
 
-# Add farm/hooks to path to find supabase_client
+# Import supabase_client from farm/hooks (different directory in this worktree)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "farm", "hooks"))
 import supabase_client
 
@@ -89,12 +89,15 @@ def write_state(**kw):
         os.replace(tmp, STATE_PATH)   # atomica: la pagina non legge mai un JSON a metà
     except OSError:
         pass
-    cfg = supabase_client.load_config()
-    user_id = cfg.get("SUPABASE_USER_ID")
-    if user_id:
-        row = dict(data)
-        row["user_id"] = user_id
-        supabase_client.upsert("agent_state", row, on_conflict="user_id")
+    try:
+        cfg = supabase_client.load_config()
+        user_id = cfg.get("SUPABASE_USER_ID")
+        if user_id:
+            row = dict(data)
+            row["user_id"] = user_id
+            supabase_client.upsert("agent_state", row, on_conflict="user_id")
+    except Exception:
+        pass
 
 
 def load_tokens():
