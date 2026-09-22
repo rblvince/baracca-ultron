@@ -146,7 +146,9 @@ def last_assistant_usage(transcript_path):
 def accumulate_tokens(room, transcript_path):
     """Somma i token dell'ultimo turno assistant nel reparto dato, deduplicando
     per uuid così un turno con più tool in parallelo non si conta più volte.
-    Ritorna il totale cumulativo per reparto, o None se non c'è nulla da sommare."""
+    Ritorna il totale cumulativo per reparto, o None se non c'è nulla da sommare.
+    In più, manda il delta di QUESTO turno a Supabase come riga aggregata
+    per giorno/reparto (RPC increment_token_usage, mai una riga per evento)."""
     if not room:
         return None
     uuid, usage = last_assistant_usage(transcript_path)
@@ -157,13 +159,31 @@ def accumulate_tokens(room, transcript_path):
         return tokens.get("rooms")
     bucket = tokens.setdefault("rooms", {})
     r = bucket.setdefault(room, {"in": 0, "out": 0, "cread": 0, "cwrite": 0})
-    r["in"] += usage.get("input_tokens", 0) or 0
-    r["out"] += usage.get("output_tokens", 0) or 0
-    r["cread"] += usage.get("cache_read_input_tokens", 0) or 0
-    r["cwrite"] += usage.get("cache_creation_input_tokens", 0) or 0
+    d_in = usage.get("input_tokens", 0) or 0
+    d_out = usage.get("output_tokens", 0) or 0
+    d_cread = usage.get("cache_read_input_tokens", 0) or 0
+    d_cwrite = usage.get("cache_creation_input_tokens", 0) or 0
+    r["in"] += d_in
+    r["out"] += d_out
+    r["cread"] += d_cread
+    r["cwrite"] += d_cwrite
     if uuid:
         tokens["_last"] = uuid
     save_tokens(tokens)
+
+    try:
+        cfg = supabase_client.load_config()
+        user_id = cfg.get("SUPABASE_USER_ID")
+        if user_id:
+            supabase_client.rpc("increment_token_usage", {
+                "p_user_id": user_id,
+                "p_day": time.strftime("%Y-%m-%d"),
+                "p_room": room,
+                "p_input": d_in, "p_output": d_out,
+                "p_cache_read": d_cread, "p_cache_write": d_cwrite,
+            })
+    except Exception:
+        pass
     return bucket
 
 
