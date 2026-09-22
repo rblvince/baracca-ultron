@@ -2299,8 +2299,10 @@ function simulate(){
 }
 
 /* ============================================== SUPABASE (Giro 1, dietro flag)
-   USE_SUPABASE parte false: nessun comportamento visibile cambia finché non
-   lo si attiva a mano dopo aver verificato che i dati arrivano davvero. */
+   USE_SUPABASE parte false e lo alza solo il callback SUBSCRIBED di
+   subscribeRealtime(), cioè quando Realtime ha confermato di essere vivo;
+   un errore di canale lo riabbassa e poll() riprende. Finché è false non
+   cambia niente di visibile: la pagina resta sul poll HTTP di sempre. */
 var USE_SUPABASE = false;
 var supaClient = null;
 
@@ -2327,6 +2329,11 @@ function attemptLogin(){
     }
     hideLoginGate();
     subscribeRealtime();
+  }).catch(function(){
+    /* rifiuto a livello di rete: la promise esplode invece di tornare {error},
+       quindi senza questo la pagina resterebbe muta e inerte per sempre. */
+    document.getElementById("supaLoginErr").textContent = "rete non raggiungibile";
+    showOffline();
   });
 }
 
@@ -2338,27 +2345,47 @@ function ensureAuthThenSubscribe(){
       showLoginGate();
       document.getElementById("supaLoginBtn").addEventListener("click", attemptLogin);
     }
-  });
+  }).catch(showOffline);
+}
+
+/* una riga di agent_state appena arrivata (da Realtime o dalla select
+   iniziale): stessa identica contabilità in tutti e due i casi. */
+function acceptLiveRow(s){
+  if(!s) return;
+  try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
+  if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; }
+  lastSeen = Date.now(); LAST_STATE = s;
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
 }
 
 function subscribeRealtime(){
   if(!supaClient) return;
   supaClient.channel("agent_state_changes")
     .on("postgres_changes", {event:"*", schema:"public", table:"agent_state"}, function(payload){
-      var s = payload.new; if(!s) return;
-      try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
-      if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; }
-      lastSeen = Date.now(); LAST_STATE = s;
-      if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+      acceptLiveRow(payload.new);
     })
     .subscribe(function(status){
       if(status === "SUBSCRIBED"){
+        /* solo QUI: Realtime ha confermato davvero. Prima di questo momento
+           poll() deve restare vivo, altrimenti un login mai fatto o un canale
+           che non parte lascerebbe la pagina senza nessuna fonte di dati. */
+        USE_SUPABASE = true;
         var pill = document.getElementById("mode");
         if(pill && pill.textContent === "OFFLINE"){ pill.className = "pill demo"; pill.textContent = "DEMO"; }
       } else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT"){
+        USE_SUPABASE = false; // torna al poll: meglio HTTP che niente
         showOffline();
       }
     });
+  /* lettura iniziale: postgres_changes manda solo i cambiamenti FUTURI, quindi
+     senza questa la pagina resterebbe vuota finché Ultron non tocca un tool. */
+  supaClient.auth.getSession().then(function(res){
+    var session = res.data && res.data.session;
+    if(!session) return;
+    return supaClient.from("agent_state").select("*")
+      .eq("user_id", session.user.id).maybeSingle()
+      .then(function(r){ if(r && r.data) acceptLiveRow(r.data); });
+  }).catch(function(){});
 }
 
 function showOffline(){
@@ -2374,7 +2401,9 @@ fetch("/api/config", {cache:"no-store"})
   .then(function(r){ return r.ok ? r.json() : null; })
   .then(function(cfg){
     if(cfg) initSupabase(cfg);
-    if(supaClient){ USE_SUPABASE = true; ensureAuthThenSubscribe(); }
+    /* niente USE_SUPABASE qui: la config che esiste non vuol dire che i dati
+       arrivino. Lo alza solo il callback SUBSCRIBED di subscribeRealtime(). */
+    if(supaClient) ensureAuthThenSubscribe();
   })
   .catch(function(){});
 
@@ -2382,18 +2411,23 @@ var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
 /* Il ponte con Claude Code: gli hook scrivono un file, il server lo serve,
    la pagina lo chiede quattro volte al secondo. Se non risponde nessuno,
    resta in DEMO e il simulatore continua a girare. */
-function poll(){
-  if(USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
-  /* se una sessione LIVE smette di mandare eventi (crash, kill, chiusura
-     a metà), non restare bloccati in eterno sull'ultima posa (es. "aspetta
-     una decisione" o "richiama un rinforzo") — torna in DEMO e lascia
-     che il simulatore rianimi la scena. */
+/* se una sessione LIVE smette di mandare eventi (crash, kill, chiusura
+   a metà), non restare bloccati in eterno sull'ultima posa (es. "aspetta
+   una decisione" o "richiama un rinforzo") — torna in DEMO e lascia
+   che il simulatore rianimi la scena. Gira sempre, con o senza Supabase:
+   una sicurezza che vale solo in una delle due modalità non è una sicurezza. */
+function checkStaleWatchdog(){
   if(LIVE && lastTs && Date.now()-lastTs > 900000){
     LIVE = false; STATE.status = "idle";
     var p = document.getElementById("mode");
     p.className = "pill demo"; p.textContent = "DEMO";
     logEvent("deleg","sessione silenziosa da 15 min · torno alla demo");
   }
+}
+setInterval(checkStaleWatchdog, 60000);
+
+function poll(){
+  if(USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(s){
