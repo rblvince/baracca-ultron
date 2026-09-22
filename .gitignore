@@ -1,0 +1,10 @@
+# stato live (runtime, si riscrive continuamente, non è codice)
+state/
+*.pyc
+__pycache__/
+
+# macOS
+.DS_Store
+
+# log
+*.log
