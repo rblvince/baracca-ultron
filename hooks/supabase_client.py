@@ -9,6 +9,7 @@ Non solleva mai: un hook che esplode bloccherebbe la tool call reale."""
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 
 CONFIG_PATH = os.path.expanduser("~/.config/baracca/.env")
@@ -24,7 +25,10 @@ def load_config():
                     continue
                 k, v = line.split("=", 1)
                 cfg[k.strip()] = v.strip()
-    except OSError:
+    except Exception:
+        # volutamente larghissimo: un .env non UTF-8 alza UnicodeDecodeError,
+        # non OSError. Questa funzione è chiamata fuori dai try dei chiamanti,
+        # quindi deve essere davvero incapace di sollevare.
         pass
     return cfg
 
@@ -45,8 +49,12 @@ def _do_request(method, url, key, body=None, extra_headers=None):
     for k, v in (extra_headers or {}).items():
         req.add_header(k, v)
     try:
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=1) as resp:
             return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        # un rifiuto del server (400/409/...) non è "non configurato" né
+        # "niente rete": lo status torna su, così una scrittura rotta si vede
+        return e.code, None
     except (urllib.error.URLError, OSError):
         return None, None
 
@@ -92,7 +100,8 @@ def delete_oldest(table, filters):
     url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
         return None
-    query = "&".join(k + "=eq." + str(v) for k, v in filters.items())
+    query = "&".join(k + "=eq." + urllib.parse.quote(str(v), safe="")
+                     for k, v in filters.items())
     select_url = url + "/rest/v1/" + table + "?" + query + "&order=created_at.asc&limit=1&select=id"
     status, body = _do_request("GET", select_url, key)
     if status != 200 or not body:

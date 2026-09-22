@@ -8,3 +8,7 @@ __pycache__/
 
 # log
 *.log
+
+# segreti: mai un .env vero nel repo (.env.example non finisce in .env)
+.env
+*.env

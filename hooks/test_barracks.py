@@ -57,6 +57,11 @@ def test_write_state_calls_supabase_upsert():
         assert row["status"] == "thinking" and row["room"] == "qa", row
         assert row["user_id"] == "test-user", row
         assert on_conflict == "user_id", on_conflict
+        # la scrittura locale resta la fonte di verità: Supabase è in più, non al posto
+        assert os.path.exists(b.STATE_PATH), b.STATE_PATH
+        with open(b.STATE_PATH, encoding="utf-8") as f:
+            local = json.load(f)
+        assert local["status"] == "thinking" and local["room"] == "qa", local
     finally:
         supabase_client.upsert = old_upsert
         supabase_client.load_config = old_cfg

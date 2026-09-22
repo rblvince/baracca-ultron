@@ -92,8 +92,35 @@ def test_reap_subagent_calls_delete_oldest():
         st.SUBAGENTS_PATH = old_path
 
 
+def test_update_session_survives_broken_load_config():
+    """load_config() non deve MAI far saltare l'hook: se esplode comunque,
+    la scrittura locale deve essere già andata a buon fine e update_session()
+    deve tornare normalmente."""
+    import json
+    import supabase_client
+    old_cfg = supabase_client.load_config
+
+    def boom():
+        raise RuntimeError("config marcia")
+
+    supabase_client.load_config = boom
+    tmp_dir = tempfile.mkdtemp()
+    old_sessions_path = st.SESSIONS_PATH
+    st.SESSIONS_PATH = os.path.join(tmp_dir, "sessions.json")
+    try:
+        st.update_session("/path/t.jsonl", status="writing", room="prod")
+        with open(st.SESSIONS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["/path/t.jsonl"]["status"] == "writing", data
+        assert data["/path/t.jsonl"]["room"] == "prod", data
+    finally:
+        supabase_client.load_config = old_cfg
+        st.SESSIONS_PATH = old_sessions_path
+
+
 def main():
     test_update_session_calls_supabase_upsert()
+    test_update_session_survives_broken_load_config()
     test_update_session_without_key_does_nothing()
     test_spawn_subagent_calls_supabase_insert()
     test_reap_subagent_calls_delete_oldest()
