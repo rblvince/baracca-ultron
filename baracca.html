@@ -41,6 +41,7 @@
   .pill{font-family:var(--arc);font-size:9px;padding:5px 7px;border:2px solid var(--bg);border-radius:6px;}
   .pill.demo{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);}
   .pill.live{background:var(--green-dk);color:#eafff5;box-shadow:inset 0 2px 0 var(--green);}
+  .pill.offline{ background:var(--red); color:#fff; }
   .pill.talk{background:#1f5a7a;color:#eaf6ff;box-shadow:inset 0 2px 0 var(--blue);cursor:pointer;appearance:none;-webkit-appearance:none;}
   .pill.talk:hover{box-shadow:inset 0 2px 0 var(--blue), 0 0 6px var(--blue);}
   .pill.talk:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
@@ -295,6 +296,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
+<div id="supaLogin" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:sans-serif;color:#fff">
+  <p>Accesso Baracca</p>
+  <input id="supaEmail" type="email" placeholder="email" style="padding:6px">
+  <input id="supaPass" type="password" placeholder="password" style="padding:6px">
+  <button id="supaLoginBtn" style="padding:6px 12px">Entra</button>
+  <p id="supaLoginErr" style="color:#ff5a4a;font-size:12px"></p>
+</div>
 <div id="app">
   <div class="top">
     <div class="brand">LA BARACCA DI <span>ULTRON</span></div>
@@ -2301,9 +2309,73 @@ function initSupabase(cfg){
   supaClient = supabase.createClient(cfg.url, cfg.anon_key);
 }
 
+function showLoginGate(){
+  document.getElementById("supaLogin").style.display = "flex";
+}
+
+function hideLoginGate(){
+  document.getElementById("supaLogin").style.display = "none";
+}
+
+function attemptLogin(){
+  var email = document.getElementById("supaEmail").value;
+  var pass = document.getElementById("supaPass").value;
+  supaClient.auth.signInWithPassword({email: email, password: pass}).then(function(res){
+    if(res.error){
+      document.getElementById("supaLoginErr").textContent = res.error.message;
+      return;
+    }
+    hideLoginGate();
+    subscribeRealtime();
+  });
+}
+
+function ensureAuthThenSubscribe(){
+  supaClient.auth.getSession().then(function(res){
+    if(res.data && res.data.session){
+      subscribeRealtime();
+    } else {
+      showLoginGate();
+      document.getElementById("supaLoginBtn").addEventListener("click", attemptLogin);
+    }
+  });
+}
+
+function subscribeRealtime(){
+  if(!supaClient) return;
+  supaClient.channel("agent_state_changes")
+    .on("postgres_changes", {event:"*", schema:"public", table:"agent_state"}, function(payload){
+      var s = payload.new; if(!s) return;
+      try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
+      if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; }
+      lastSeen = Date.now(); LAST_STATE = s;
+      if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+    })
+    .subscribe(function(status){
+      if(status === "SUBSCRIBED"){
+        var pill = document.getElementById("mode");
+        if(pill && pill.textContent === "OFFLINE"){ pill.className = "pill demo"; pill.textContent = "DEMO"; }
+      } else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT"){
+        showOffline();
+      }
+    });
+}
+
+function showOffline(){
+  var pill = document.getElementById("mode");
+  if(pill){ pill.className = "pill offline"; pill.textContent = "OFFLINE"; }
+  try{
+    var cached = localStorage.getItem("baracca_last_state");
+    if(cached) applyLive(JSON.parse(cached));
+  }catch(e){}
+}
+
 fetch("/api/config", {cache:"no-store"})
   .then(function(r){ return r.ok ? r.json() : null; })
-  .then(function(cfg){ if(cfg) initSupabase(cfg); })
+  .then(function(cfg){
+    if(cfg) initSupabase(cfg);
+    if(supaClient){ USE_SUPABASE = true; ensureAuthThenSubscribe(); }
+  })
   .catch(function(){});
 
 var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
@@ -2311,6 +2383,7 @@ var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
    la pagina lo chiede quattro volte al secondo. Se non risponde nessuno,
    resta in DEMO e il simulatore continua a girare. */
 function poll(){
+  if(USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
   /* se una sessione LIVE smette di mandare eventi (crash, kill, chiusura
      a metà), non restare bloccati in eterno sull'ultima posa (es. "aspetta
      una decisione" o "richiama un rinforzo") — torna in DEMO e lascia
