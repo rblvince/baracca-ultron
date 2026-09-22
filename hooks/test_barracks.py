@@ -63,11 +63,43 @@ def test_write_state_calls_supabase_upsert():
         b.STATE_PATH = old_state_path
 
 
+def test_accumulate_tokens_calls_rpc_with_deltas():
+    import supabase_client
+    calls = []
+    old_rpc = supabase_client.rpc
+    supabase_client.rpc = lambda fn, params: calls.append((fn, params)) or 200
+    old_cfg = supabase_client.load_config
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    tmp_dir = tempfile.mkdtemp()
+    transcript = os.path.join(tmp_dir, "t.jsonl")
+    entry = {"type": "assistant", "uuid": "xyz", "message": {"usage": {
+        "input_tokens": 3, "output_tokens": 7,
+        "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}}
+    with open(transcript, "w", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        b.accumulate_tokens("qa", transcript)
+        assert len(calls) == 1, calls
+        fn, params = calls[0]
+        assert fn == "increment_token_usage", fn
+        assert params["p_room"] == "qa", params
+        assert params["p_input"] == 3 and params["p_output"] == 7, params
+        assert params["p_user_id"] == "test-user", params
+        assert "p_day" in params, params
+    finally:
+        supabase_client.rpc = old_rpc
+        supabase_client.load_config = old_cfg
+        b.TOKENS_PATH = old_tokens_path
+
+
 def main():
     test_classify_bash_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
     test_write_state_calls_supabase_upsert()
+    test_accumulate_tokens_calls_rpc_with_deltas()
     print("barracks.py: tutti i controlli passati")
 
 
