@@ -2418,7 +2418,7 @@ var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
    una sicurezza che vale solo in una delle due modalità non è una sicurezza. */
 function checkStaleWatchdog(){
   if(LIVE && lastTs && Date.now()-lastTs > 900000){
-    LIVE = false; STATE.status = "idle";
+    LIVE = false; STATE.status = "idle"; USE_SUPABASE = false;
     var p = document.getElementById("mode");
     p.className = "pill demo"; p.textContent = "DEMO";
     logEvent("deleg","sessione silenziosa da 15 min · torno alla demo");
