@@ -46,9 +46,57 @@ def test_update_session_without_key_does_nothing():
         supabase_client.upsert = old_upsert
 
 
+def test_spawn_subagent_calls_supabase_insert():
+    import supabase_client
+    calls = []
+    old_insert = supabase_client.insert
+    supabase_client.insert = lambda table, row: calls.append((table, row)) or 201
+    old_cfg = supabase_client.load_config
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    tmp_dir = tempfile.mkdtemp()
+    old_path = st.SUBAGENTS_PATH
+    st.SUBAGENTS_PATH = os.path.join(tmp_dir, "subagents.json")
+    try:
+        st.spawn_subagent("qa", "qualita-1", "run tests")
+        assert len(calls) == 1, calls
+        table, row = calls[0]
+        assert table == "subagents", table
+        assert row["room"] == "qa" and row["agent"] == "qualita-1", row
+        assert row["user_id"] == "test-user", row
+    finally:
+        supabase_client.insert = old_insert
+        supabase_client.load_config = old_cfg
+        st.SUBAGENTS_PATH = old_path
+
+
+def test_reap_subagent_calls_delete_oldest():
+    import supabase_client
+    calls = []
+    old_del = supabase_client.delete_oldest
+    supabase_client.delete_oldest = lambda table, filters: calls.append((table, filters)) or 200
+    old_cfg = supabase_client.load_config
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    tmp_dir = tempfile.mkdtemp()
+    old_path = st.SUBAGENTS_PATH
+    st.SUBAGENTS_PATH = os.path.join(tmp_dir, "subagents.json")
+    try:
+        st._save(st.SUBAGENTS_PATH, {"next_id": 2, "list": [{"id": 1, "room": "qa", "ts": 0}]})
+        st.reap_subagent()
+        assert len(calls) == 1, calls
+        table, filters = calls[0]
+        assert table == "subagents", table
+        assert filters == {"user_id": "test-user"}, filters
+    finally:
+        supabase_client.delete_oldest = old_del
+        supabase_client.load_config = old_cfg
+        st.SUBAGENTS_PATH = old_path
+
+
 def main():
     test_update_session_calls_supabase_upsert()
     test_update_session_without_key_does_nothing()
+    test_spawn_subagent_calls_supabase_insert()
+    test_reap_subagent_calls_delete_oldest()
     print("session_track.py: tutti i controlli passati")
 
 
