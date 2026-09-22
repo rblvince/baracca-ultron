@@ -13,6 +13,7 @@ JS esattamente come già fa con lo stato del titolare.
 import json
 import os
 import time
+import supabase_client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_PATH = os.path.join(HERE, "..", "state", "sessions.json")
@@ -42,7 +43,8 @@ def _save(path, data):
 def update_session(session_key, **fields):
     """Un terminale (identificato dal suo transcript_path) ha appena fatto
     qualcosa: scrive la sua istantanea, scartando le sessioni troppo vecchie
-    così il file non cresce all'infinito con terminali chiusi da settimane."""
+    così il file non cresce all'infinito con terminali chiusi da settimane.
+    Doppia scrittura: anche su Supabase, stesso identico contenuto."""
     if not session_key:
         return
     now = int(time.time() * 1000)
@@ -52,6 +54,17 @@ def update_session(session_key, **fields):
     entry["ts"] = now
     data[session_key] = entry
     _save(SESSIONS_PATH, data)
+
+    cfg = supabase_client.load_config()
+    user_id = cfg.get("SUPABASE_USER_ID")
+    if user_id:
+        row = dict(entry)
+        row["transcript_path"] = session_key
+        row["user_id"] = user_id
+        try:
+            supabase_client.upsert("sessions", row, on_conflict="user_id,transcript_path")
+        except Exception:
+            pass
 
 
 def spawn_subagent(room, agent, task):
