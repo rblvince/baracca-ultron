@@ -56,10 +56,46 @@ def test_parse_missions_reads_only_mission_steps():
         {"done": False, "text": "Passo 1 — Nota da fare", "todo": ["primo: tocca File", "secondo"]}]}], got
 
 
+def test_panels_route_serves_only_the_bundle():
+    import tempfile
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+    import server as srv
+    tmp = tempfile.mkdtemp()
+    os.makedirs(os.path.join(tmp, "panels", "dist"))
+    with open(os.path.join(tmp, "panels", "dist", "panels.js"), "w") as f:
+        f.write("window.x=1;")
+    with open(os.path.join(tmp, "panels", "package.json"), "w") as f:
+        f.write("{}")
+    old_here = srv.HERE
+    srv.HERE = tmp
+    httpd = HTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % httpd.server_address[1]
+    try:
+        with urllib.request.urlopen(base + "/panels/panels.js?v=3") as r:
+            assert r.status == 200, r.status
+            assert r.headers["Content-Type"] == "text/javascript", r.headers["Content-Type"]
+            assert r.read() == b"window.x=1;"
+        for bad in ("/panels/package.json", "/panels/dist/panels.js", "/panels/../server.py", "/panels/"):
+            try:
+                urllib.request.urlopen(base + bad)
+                assert False, "doveva essere 404: " + bad
+            except urllib.error.HTTPError as e:
+                assert e.code == 404, (bad, e.code)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        srv.HERE = old_here
+
+
 def main():
     test_parse_missions_reads_only_mission_steps()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
+    test_panels_route_serves_only_the_bundle()
     print("server.py: tutti i controlli passati")
 
 
