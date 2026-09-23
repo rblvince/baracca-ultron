@@ -76,7 +76,7 @@ def _with_patch_oldest(returns):
     calls = []
     it = iter(returns)
     old_patch, old_cfg = supabase_client.patch_oldest, supabase_client.load_config
-    supabase_client.patch_oldest = lambda table, filters, nulls, values: calls.append((table, filters, nulls, values)) or next(it)
+    supabase_client.patch_oldest = lambda table, filters, nulls, values, extra=None: calls.append((table, filters, nulls, values, extra)) or next(it)
     supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "u1"}
     tmp_dir = tempfile.mkdtemp()
     old_path = st.SUBAGENTS_PATH
@@ -93,21 +93,24 @@ def test_reap_subagent_closes_by_agent_id():
     try:
         st.reap_subagent("ag-2")
         assert len(calls) == 1, calls
-        table, filters, nulls, values = calls[0]
+        table, filters, nulls, values, extra = calls[0]
         assert table == "subagents", table
         assert filters == {"user_id": "u1", "agent_id": "ag-2"}, filters
         assert nulls == ["finished_at"], nulls
         assert set(values) == {"finished_at"} and values["finished_at"].endswith("+00:00"), values
+        assert extra is None, extra
     finally:
         restore()
 
 
 def test_reap_subagent_falls_back_to_fifo():
+    """Il fallback FIFO non deve mai chiudere una riga già reclamata da un
+    altro sub-agente in corso: agent_id deve essere fra le colonne NULL."""
     calls, restore = _with_patch_oldest([None, 204])
     try:
         st.reap_subagent("ag-sconosciuto")
         assert len(calls) == 2, calls
-        assert calls[1][1] == {"user_id": "u1"} and calls[1][2] == ["finished_at"], calls
+        assert calls[1][1] == {"user_id": "u1"} and calls[1][2] == ["finished_at", "agent_id"], calls
     finally:
         restore()
 
@@ -116,7 +119,7 @@ def test_reap_subagent_without_id_is_fifo():
     calls, restore = _with_patch_oldest([204])
     try:
         st.reap_subagent()
-        assert len(calls) == 1 and calls[0][1] == {"user_id": "u1"}, calls
+        assert len(calls) == 1 and calls[0][1] == {"user_id": "u1"} and calls[0][2] == ["finished_at", "agent_id"], calls
     finally:
         restore()
 
@@ -125,7 +128,33 @@ def test_claim_subagent_sets_agent_id_on_oldest_unclaimed():
     calls, restore = _with_patch_oldest([204])
     try:
         st.claim_subagent("ag-1")
-        assert calls == [("subagents", {"user_id": "u1"}, ["agent_id", "finished_at"], {"agent_id": "ag-1"})], calls
+        assert len(calls) == 1, calls
+        table, filters, nulls, values, extra = calls[0]
+        assert table == "subagents" and filters == {"user_id": "u1"}, calls[0]
+        assert nulls == ["agent_id", "finished_at"], nulls
+        assert values == {"agent_id": "ag-1"}, values
+        assert extra and len(extra) == 1 and extra[0].startswith("created_at=gte."), extra
+    finally:
+        restore()
+
+
+def test_claim_subagent_excludes_stale_orphan_rows():
+    """Una riga orfana (PreToolUse senza SubagentStart che l'ha mai reclamata)
+    resta sempre la più vecchia: senza un filtro temporale ogni claim
+    successiva la reclamerebbe al posto giusto, spostando di una posizione
+    ogni riga del diario da lì in poi. Il filtro deve valere ~60s, non "da
+    sempre" (altrimenti l'orfana resta comunque reclamabile per sempre)."""
+    import urllib.parse
+    from datetime import datetime, timezone
+    calls, restore = _with_patch_oldest([204])
+    try:
+        before = datetime.now(timezone.utc)
+        st.claim_subagent("ag-2")
+        extra = calls[0][4]
+        raw = extra[0][len("created_at=gte."):]
+        cutoff = datetime.fromisoformat(urllib.parse.unquote(raw))
+        delta = (before - cutoff).total_seconds()
+        assert 55 <= delta <= 65, delta
     finally:
         restore()
 
@@ -174,6 +203,7 @@ def main():
     test_reap_subagent_falls_back_to_fifo()
     test_reap_subagent_without_id_is_fifo()
     test_claim_subagent_sets_agent_id_on_oldest_unclaimed()
+    test_claim_subagent_excludes_stale_orphan_rows()
     test_claim_subagent_without_id_does_nothing()
     print("session_track.py: tutti i controlli passati")
 

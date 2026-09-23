@@ -91,19 +91,22 @@ def rpc(fn_name, params):
     return status
 
 
-def patch_oldest(table, filters, null_columns, values):
+def patch_oldest(table, filters, null_columns, values, extra=None):
     """Aggiorna la riga più vecchia (per created_at) che soddisfa i filtri di
-    uguaglianza (dict campo->valore) e ha NULL in tutte le null_columns.
-    Due chiamate REST, perché PostgREST non supporta "update + limit 1":
-    select dell'id più vecchio, poi PATCH per id. Ritorna lo stato HTTP del
-    PATCH, oppure None se manca la config, la rete non risponde o nessuna
-    riga corrisponde."""
+    uguaglianza (dict campo->valore), ha NULL in tutte le null_columns e (se
+    passati) soddisfa i filtri grezzi PostgREST in `extra` (es.
+    ["created_at=gte." + urllib.parse.quote(iso, safe="")] — già URL-encoded
+    dal chiamante). Due chiamate REST, perché PostgREST non supporta "update +
+    limit 1": select dell'id più vecchio, poi PATCH per id. Ritorna lo stato
+    HTTP del PATCH, oppure None se manca la config, la rete non risponde o
+    nessuna riga corrisponde."""
     cfg = load_config()
     url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
         return None
     parts = [k + "=eq." + urllib.parse.quote(str(v), safe="") for k, v in filters.items()]
     parts += [c + "=is.null" for c in null_columns]
+    parts += list(extra or [])
     select_url = (url + "/rest/v1/" + table + "?" + "&".join(parts)
                   + "&order=created_at.asc&limit=1&select=id")
     status, body = _do_request("GET", select_url, key)

@@ -220,6 +220,35 @@ def test_delete_oldest_is_gone():
     assert not hasattr(sc, "delete_oldest")
 
 
+def test_patch_oldest_extra_filter_in_select_url():
+    """extra passa filtri PostgREST grezzi (già URL-encoded dal chiamante) che
+    finiscono nella select ma non nel PATCH: serve a claim_subagent per
+    escludere le righe orfane più vecchie di 60s."""
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old_cfg, old_open = sc.CONFIG_PATH, sc.urllib.request.urlopen
+    sc.CONFIG_PATH = tmp
+    seen = []
+    sc.urllib.request.urlopen = _fake_urlopen_sequence([(200, b'[{"id": 9}]'), (204, b"")], seen)
+    try:
+        cutoff_encoded = sc.urllib.parse.quote("2026-09-23T12:00:00+00:00", safe="")
+        status = sc.patch_oldest("subagents", {"user_id": "u1"}, ["agent_id"], {"agent_id": "ag-1"},
+                                  extra=["created_at=gte." + cutoff_encoded])
+        assert status == 204, status
+        method, select_url, _ = seen[0]
+        assert method == "GET", method
+        assert "created_at=gte." + cutoff_encoded in select_url, select_url
+        assert select_url.index("agent_id=is.null") < select_url.index("created_at=gte."), select_url
+        assert select_url.endswith("&order=created_at.asc&limit=1&select=id"), select_url
+        method, patch_url, body = seen[1]
+        assert method == "PATCH", method
+        assert "created_at" not in patch_url, patch_url
+        assert json.loads(body) == {"agent_id": "ag-1"}, body
+    finally:
+        sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
+        os.remove(tmp)
+
+
 def main():
     test_load_config_parses_env_file()
     test_load_config_missing_file_returns_empty_dict()
@@ -229,6 +258,7 @@ def main():
     test_patch_oldest_no_row_returns_none()
     test_patch_oldest_network_error_returns_none()
     test_delete_oldest_is_gone()
+    test_patch_oldest_extra_filter_in_select_url()
     test_upsert_builds_correct_request(None)
     test_upsert_network_error_returns_none_never_raises()
     test_upsert_missing_config_returns_none()
