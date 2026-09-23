@@ -132,3 +132,13 @@ Tutti dentro un nuovo `<div class="dgroup">STORICO</div>` in fondo a `#dashv`, c
 
 - **Bundle committato:** se si modifica `panels/src` e si dimentica la build, la pagina serve la versione vecchia. Mitigazione: lo script `npm run build` è l'unico modo documentato, e il README del repo lo dice.
 - **Subagenti senza rientro:** se `SubagentStop` non arriva mai, la riga resta "in corso" per sempre. Accettato: è lo stesso limite FIFO già dichiarato per la coda locale.
+
+## Aggiornamenti dal piano (2026-09-23)
+
+Emersi leggendo il codice e i dati veri mentre si scriveva il piano (`docs/superpowers/plans/2026-09-23-react-storico.md`):
+
+- **Bug che svuotava la coda subagenti:** gli hook riconoscevano solo il tool `Task`, ma oggi si chiama `Agent`. `state/subagents.json` era fermo a `next_id: 1` e la tabella `subagents` vuota. Fix: `SUBAGENT_TOOLS = ("Task", "Agent")` in `barracks.py` e matcher `Task|Agent` in `~/my-agent/.claude/settings.json` (quest'ultimo dopo il merge, con conferma).
+- **Abbinamento preciso:** secondo la documentazione ufficiale degli hook, `SubagentStart` e `SubagentStop` portano `agent_id`, mentre `PreToolUse` porta la `description` ma non l'id. Quindi la riga nasce a `PreToolUse`, `SubagentStart` le assegna l'`agent_id` (colonna `agent_id text` in `002_history.sql`), `SubagentStop` chiude quella riga. Senza id si ricade sul FIFO. Serve una voce `SubagentStart` in `settings.json`.
+- **`delete_oldest` diventa `patch_oldest`**, generica (filtri di uguaglianza + colonne che devono essere NULL), usata sia per l'assegnazione dell'id sia per la chiusura.
+- **Resa cache:** `cache_read / (input + cache_read + cache_write)`. Con `cache_write` al denominatore; nei dati veri `input` vale poche centinaia contro milioni di letture, e senza le scritture il numero sarebbe sempre ~100%.
+- **CSS dei pannelli** nel blocco stile di `baracca.html` (usa le variabili della sala comando); `#storico{display:contents}` perché i pannelli React diventino celle della griglia di `#dashv`.
