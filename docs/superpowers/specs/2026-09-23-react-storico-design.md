@@ -2,6 +2,8 @@
 
 Status: design approvato a sezioni da Vincent (2026-09-23), in attesa della revisione di questa spec scritta.
 
+**Rapporto con la missione del vault "Supabase nella Baracca" (unione decisa da Vincent, 2026-09-23):** questa spec sostituisce i Passi 1-3 della missione, che li prevedevano in vanilla. Il Passo 0 della missione (`set_state.py` che scrive anche su `agent_state`) è un prerequisito, portato avanti da un'altra sessione: questa spec parte dopo il suo commit e non tocca `set_state.py`.
+
 ## Scope
 
 Il Giro 2 (React sulla UI a pannelli, mai sul canvas) è diviso in tre sotto-progetti, ognuno con spec → piano → esecuzione:
@@ -79,6 +81,7 @@ L'upsert di `update_session` (merge-duplicates) invia solo le colonne che conosc
 ## Modifiche agli hook
 
 - `supabase_client.finish_oldest(table, filters, column)`: stesso schema a due chiamate di `delete_oldest` (select dell'id più vecchio per `created_at` con `column=is.null`, poi `PATCH ?id=eq.<id>` impostando `column` a now in ISO 8601). Non solleva mai eccezioni, ritorna lo stato HTTP o `None`.
+- **Prima di scrivere l'hook, controllare il payload vero di `SubagentStop`** (idea presa dalla missione): se porta un identificativo che si può abbinare alla riga creata alla partenza del Task, `reap_subagent()` chiude quella riga precisa e l'id si salva alla partenza in una colonna `task_id text` (aggiunta a `002_history.sql`). Se non lo porta, resta il FIFO descritto sotto. La scelta si decide sul payload reale catturato da un hook, non sulla documentazione.
 - `session_track.reap_subagent()` chiama `finish_oldest("subagents", {"user_id": ...}, "finished_at")` al posto di `delete_oldest`. La coda locale `state/subagents.json` (quella che legge la pagina via `/api/subagents`) non cambia: continua a togliere l'elemento più vecchio.
 - `delete_oldest` viene rimossa insieme al suo test (nessun altro chiamante, verificato con grep).
 
