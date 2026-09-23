@@ -43,6 +43,12 @@ describe('TokenHistory', () => {
     expect(screen.getByText('ERRORE')).toBeTruthy();
     expect(screen.getAllByText('100').length).toBeGreaterThan(0);   // totale, asse e dettaglio
   });
+  it('etichette asse X: prima a sinistra, ultima a destra, non tagliate dal viewBox', () => {
+    const { container } = render(<TokenHistory state={{ data: [tok('2026-09-22', 'prod', 0, 100)], error: false }} rooms={ROOMS} days={DAYS} />);
+    const labels = [...container.querySelectorAll('.tk-lbl[text-anchor]')];
+    expect(labels[0].getAttribute('text-anchor')).toBe('start');
+    expect(labels[labels.length - 1].getAttribute('text-anchor')).toBe('end');
+  });
 });
 
 describe('SubagentLog', () => {
