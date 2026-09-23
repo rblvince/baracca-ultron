@@ -45,6 +45,9 @@ QA_WORDS = ("test", "pytest", "jest", "lint", "eslint", "ruff", "mypy",
             "build", "tsc", "vitest", "git diff", "git status", "check")
 PUB_WORDS = ("git push", "deploy", "publish", "npm publish", "rsync",
              "scp ", "gh release", "vercel", "netlify")
+# skill di verifica (code-review, security-review, verification-before-completion):
+# sono collaudo, non "tutto il resto"
+QA_SKILL_WORDS = ("review", "verification")
 
 SUBAGENT_ROOM = {
     "ricerca": "ricerca", "research": "ricerca", "explore": "ricerca",
@@ -253,6 +256,11 @@ def classify(payload):
         if any(w in cmd for w in QA_WORDS):
             return "thinking", "qa", None, "qualita-1", cmd[:50]
         return "writing", "prod", None, "produzione-1", cmd[:50]
+
+    # il language server segnala errori e una skill di review li cerca: collaudo
+    skill = str(ti.get("skill") or "").lower()
+    if tool == "LSP" or (tool == "Skill" and any(w in skill for w in QA_SKILL_WORDS)):
+        return "thinking", "qa", None, "qualita-1", (skill or tool)[:50]
 
     if tool in WRITE_TOOLS:
         return "writing", ("vault" if in_vault else "prod"), node, \
