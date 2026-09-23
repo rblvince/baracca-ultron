@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fmtDay, fmtTokens, orderedRooms, roomOf, stripedRooms, tokenDays, tokenSummary } from './logic';
+import { fmtDay, fmtTokens, orderedRooms, roomFill, roomOf, stripedRooms, tokenDays, tokenSummary } from './logic';
 import { PanelHeader, PanelPending } from './PanelHeader';
 import type { Room, TokenUsageRow } from './types';
 import type { TableState } from './useTable';
@@ -76,7 +76,7 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
           : <>
               <span>{fmtTokens(shown.total)}</span>
               {orderedRooms(shown.byRoom, rooms).map((r) => (
-                <span key={r.id}><i style={{ background: r.col }} />{r.n} {fmtTokens(shown.byRoom[r.id])}</span>
+                <span key={r.id}><i style={{ background: roomFill(r, striped) }} />{r.n} {fmtTokens(shown.byRoom[r.id])}</span>
               ))}
             </>}
       </div>

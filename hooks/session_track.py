@@ -10,11 +10,14 @@ un'istantanea fresca dei soli campi noti in quel momento, non un merge con
 quella precedente — il client accumula sul proprio oggetto di stato lato
 JS esattamente come già fa con lo stato del titolare.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import time
+import urllib.parse
 import supabase_client
+
+CLAIM_WINDOW_S = 60  # una riga PreToolUse più vecchia di questo non è più reclamabile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_PATH = os.path.join(HERE, "..", "state", "sessions.json")
@@ -96,17 +99,26 @@ def spawn_subagent(room, agent, task):
 
 def claim_subagent(agent_id):
     """Un sub-agente è appena partito (SubagentStart): la riga creata un istante
-    prima da PreToolUse (la più vecchia ancora senza agent_id) prende il suo id,
-    così al rientro si chiude la riga giusta anche con più sub-agenti insieme.
-    ponytail: due partenze nello stesso istante possono scambiarsi i compiti
-    (le claim sono FIFO); la durata resta comunque quella del sub-agente giusto."""
+    prima da PreToolUse (la più vecchia ancora senza agent_id, tra quelle degli
+    ultimi CLAIM_WINDOW_S secondi) prende il suo id, così al rientro si chiude
+    la riga giusta anche con più sub-agenti insieme. Il filtro temporale
+    esclude le righe orfane (PreToolUse il cui sub-agente non è mai partito:
+    permesso negato, Esc, un altro hook che blocca): senza, restando sempre le
+    più vecchie, si beccherebbero ogni claim successiva, spostando di una
+    posizione ogni riga del diario da lì in poi.
+    ponytail: solo le righe create negli ultimi 60s sono reclamabili; due
+    partenze entro quella finestra possono ancora scambiarsi i compiti fra
+    loro (le claim restano FIFO all'interno della finestra), ma un'orfana più
+    vecchia di 60s non ruba più nulla."""
     if not agent_id:
         return
     try:
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
+            cutoff = datetime.now(timezone.utc) - timedelta(seconds=CLAIM_WINDOW_S)
+            extra = ["created_at=gte." + urllib.parse.quote(cutoff.isoformat(), safe="")]
             supabase_client.patch_oldest("subagents", {"user_id": user_id},
-                                         ["agent_id", "finished_at"], {"agent_id": agent_id})
+                                         ["agent_id", "finished_at"], {"agent_id": agent_id}, extra=extra)
     except Exception:
         pass
 
@@ -131,6 +143,9 @@ def reap_subagent(agent_id=None):
                 done = supabase_client.patch_oldest("subagents", {"user_id": user_id, "agent_id": agent_id},
                                                     ["finished_at"], now)
             if done is None:
-                supabase_client.patch_oldest("subagents", {"user_id": user_id}, ["finished_at"], now)
+                # fallback FIFO: mai chiudere una riga già in mano a un altro
+                # sub-agente ancora in corso (agent_id non NULL), o la sua
+                # durata verrebbe troncata da uno stop che non è il suo
+                supabase_client.patch_oldest("subagents", {"user_id": user_id}, ["finished_at", "agent_id"], now)
     except Exception:
         pass
