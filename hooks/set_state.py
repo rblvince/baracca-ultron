@@ -27,4 +27,7 @@ def main():
     session_track.update_session(payload.get("transcript_path"), status=status)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        pass  # un hook che esplode bloccherebbe la tool call reale
