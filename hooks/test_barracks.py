@@ -99,12 +99,43 @@ def test_accumulate_tokens_calls_rpc_with_deltas():
         b.TOKENS_PATH = old_tokens_path
 
 
+def test_classify_agent_tool_same_as_task():
+    old = b.classify({"tool_name": "Task", "tool_input": {"subagent_type": "qualita"}})
+    new = b.classify({"tool_name": "Agent", "tool_input": {"subagent_type": "qualita"}})
+    assert old == new, (old, new)
+
+
+def test_main_pretooluse_agent_spawns_subagent():
+    import io
+    import session_track
+    spawned = []
+    old_spawn, old_upd = session_track.spawn_subagent, session_track.update_session
+    old_write = b.write_state
+    session_track.spawn_subagent = lambda room, agent, task: spawned.append((room, agent, task))
+    session_track.update_session = lambda *a, **k: None
+    b.write_state = lambda **k: None
+    old_stdin, old_argv = sys.stdin, sys.argv
+    sys.stdin = io.StringIO(json.dumps({
+        "hook_event_name": "PreToolUse", "tool_name": "Agent",
+        "tool_input": {"subagent_type": "Explore", "description": "cerca file"}}))
+    sys.argv = ["barracks.py"]
+    try:
+        b.main()
+        assert spawned == [("ricerca", "ricerca-1", "cerca file")], spawned
+    finally:
+        session_track.spawn_subagent, session_track.update_session = old_spawn, old_upd
+        b.write_state = old_write
+        sys.stdin, sys.argv = old_stdin, old_argv
+
+
 def main():
     test_classify_bash_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
     test_write_state_calls_supabase_upsert()
     test_accumulate_tokens_calls_rpc_with_deltas()
+    test_classify_agent_tool_same_as_task()
+    test_main_pretooluse_agent_spawns_subagent()
     print("barracks.py: tutti i controlli passati")
 
 
