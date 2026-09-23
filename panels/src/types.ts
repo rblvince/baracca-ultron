@@ -38,3 +38,14 @@ export type SessionRow = {
 
 // Giorno in cui la migrazione 002 è stata applicata: da qui parte il diario.
 export const HISTORY_SINCE = '2026-09-23';
+
+// Elenco delle colonne, verificato contro schema.sql da schema.test.ts.
+// Il tipo Exact fa fallire tsc se un elenco non copre esattamente il suo tipo.
+type Exact<T, L extends readonly (keyof T)[]> = [keyof T] extends [L[number]] ? L : never;
+const cols = <T>() => <L extends readonly (keyof T)[]>(l: Exact<T, L>) => l;
+
+export const COLUMNS = {
+  token_usage: cols<TokenUsageRow>()(['user_id', 'day', 'room', 'input', 'output', 'cache_read', 'cache_write'] as const),
+  subagents: cols<SubagentRow>()(['id', 'user_id', 'room', 'agent', 'task', 'created_at', 'finished_at', 'agent_id'] as const),
+  sessions: cols<SessionRow>()(['id', 'user_id', 'transcript_path', 'status', 'room', 'node', 'ts', 'created_at'] as const),
+};
