@@ -1,12 +1,12 @@
 import { durationMs, fmtClock, fmtDay, formatDuration, groupByDay, roomFill, roomOf, stripedRooms } from './logic';
-import { PanelHeader } from './PanelHeader';
+import { PanelHeader, PanelPending } from './PanelHeader';
 import { HISTORY_SINCE, type Room, type SubagentRow } from './types';
 import type { TableState } from './useTable';
 
 export function SubagentLog({ state, rooms }: { state: TableState<SubagentRow>; rooms: Room[] }) {
   const header = <PanelHeader title="DIARIO SUBAGENTI" sub="ultimi 7 giorni" error={state.error} />;
   if (state.data === null) {
-    return <div className="dp c6">{header}<div className="empty">{state.error ? 'dati non raggiungibili' : 'caricamento…'}</div></div>;
+    return <PanelPending cls="dp c6" header={header} error={state.error} />;
   }
   if (state.data.length === 0) {
     return <div className="dp c6">{header}<div className="empty">Il diario parte dal {fmtDay(HISTORY_SINCE)}: ancora nessun subagente registrato.</div></div>;
