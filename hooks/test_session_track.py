@@ -69,27 +69,74 @@ def test_spawn_subagent_calls_supabase_insert():
         st.SUBAGENTS_PATH = old_path
 
 
-def test_reap_subagent_calls_delete_oldest():
+def _with_patch_oldest(returns):
+    """Sostituisce patch_oldest con un finto che registra le chiamate e
+    restituisce, in ordine, i valori di `returns`. Ritorna (calls, restore)."""
     import supabase_client
     calls = []
-    old_del = supabase_client.delete_oldest
-    supabase_client.delete_oldest = lambda table, filters: calls.append((table, filters)) or 200
-    old_cfg = supabase_client.load_config
-    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    it = iter(returns)
+    old_patch, old_cfg = supabase_client.patch_oldest, supabase_client.load_config
+    supabase_client.patch_oldest = lambda table, filters, nulls, values: calls.append((table, filters, nulls, values)) or next(it)
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "u1"}
     tmp_dir = tempfile.mkdtemp()
     old_path = st.SUBAGENTS_PATH
     st.SUBAGENTS_PATH = os.path.join(tmp_dir, "subagents.json")
-    try:
-        st._save(st.SUBAGENTS_PATH, {"next_id": 2, "list": [{"id": 1, "room": "qa", "ts": 0}]})
-        st.reap_subagent()
-        assert len(calls) == 1, calls
-        table, filters = calls[0]
-        assert table == "subagents", table
-        assert filters == {"user_id": "test-user"}, filters
-    finally:
-        supabase_client.delete_oldest = old_del
-        supabase_client.load_config = old_cfg
+
+    def restore():
+        supabase_client.patch_oldest, supabase_client.load_config = old_patch, old_cfg
         st.SUBAGENTS_PATH = old_path
+    return calls, restore
+
+
+def test_reap_subagent_closes_by_agent_id():
+    calls, restore = _with_patch_oldest([204])
+    try:
+        st.reap_subagent("ag-2")
+        assert len(calls) == 1, calls
+        table, filters, nulls, values = calls[0]
+        assert table == "subagents", table
+        assert filters == {"user_id": "u1", "agent_id": "ag-2"}, filters
+        assert nulls == ["finished_at"], nulls
+        assert set(values) == {"finished_at"} and values["finished_at"].endswith("+00:00"), values
+    finally:
+        restore()
+
+
+def test_reap_subagent_falls_back_to_fifo():
+    calls, restore = _with_patch_oldest([None, 204])
+    try:
+        st.reap_subagent("ag-sconosciuto")
+        assert len(calls) == 2, calls
+        assert calls[1][1] == {"user_id": "u1"} and calls[1][2] == ["finished_at"], calls
+    finally:
+        restore()
+
+
+def test_reap_subagent_without_id_is_fifo():
+    calls, restore = _with_patch_oldest([204])
+    try:
+        st.reap_subagent()
+        assert len(calls) == 1 and calls[0][1] == {"user_id": "u1"}, calls
+    finally:
+        restore()
+
+
+def test_claim_subagent_sets_agent_id_on_oldest_unclaimed():
+    calls, restore = _with_patch_oldest([204])
+    try:
+        st.claim_subagent("ag-1")
+        assert calls == [("subagents", {"user_id": "u1"}, ["agent_id", "finished_at"], {"agent_id": "ag-1"})], calls
+    finally:
+        restore()
+
+
+def test_claim_subagent_without_id_does_nothing():
+    calls, restore = _with_patch_oldest([])
+    try:
+        st.claim_subagent(None)
+        assert calls == [], calls
+    finally:
+        restore()
 
 
 def test_update_session_survives_broken_load_config():
@@ -123,7 +170,11 @@ def main():
     test_update_session_survives_broken_load_config()
     test_update_session_without_key_does_nothing()
     test_spawn_subagent_calls_supabase_insert()
-    test_reap_subagent_calls_delete_oldest()
+    test_reap_subagent_closes_by_agent_id()
+    test_reap_subagent_falls_back_to_fifo()
+    test_reap_subagent_without_id_is_fifo()
+    test_claim_subagent_sets_agent_id_on_oldest_unclaimed()
+    test_claim_subagent_without_id_does_nothing()
     print("session_track.py: tutti i controlli passati")
 
 
