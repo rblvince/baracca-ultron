@@ -91,18 +91,24 @@ def rpc(fn_name, params):
     return status
 
 
-def delete_oldest(table, filters):
-    """Cancella la riga più vecchia (per created_at) che soddisfa i filtri
-    (dict campo->valore, solo uguaglianza). Due chiamate REST: select
-    dell'id più vecchio, poi delete — PostgREST non supporta "delete + limit 1"
-    in una sola chiamata."""
+def patch_oldest(table, filters, null_columns, values, extra=None):
+    """Aggiorna la riga più vecchia (per created_at) che soddisfa i filtri di
+    uguaglianza (dict campo->valore), ha NULL in tutte le null_columns e (se
+    passati) soddisfa i filtri grezzi PostgREST in `extra` (es.
+    ["created_at=gte." + urllib.parse.quote(iso, safe="")] — già URL-encoded
+    dal chiamante). Due chiamate REST, perché PostgREST non supporta "update +
+    limit 1": select dell'id più vecchio, poi PATCH per id. Ritorna lo stato
+    HTTP del PATCH, oppure None se manca la config, la rete non risponde o
+    nessuna riga corrisponde."""
     cfg = load_config()
     url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
         return None
-    query = "&".join(k + "=eq." + urllib.parse.quote(str(v), safe="")
-                     for k, v in filters.items())
-    select_url = url + "/rest/v1/" + table + "?" + query + "&order=created_at.asc&limit=1&select=id"
+    parts = [k + "=eq." + urllib.parse.quote(str(v), safe="") for k, v in filters.items()]
+    parts += [c + "=is.null" for c in null_columns]
+    parts += list(extra or [])
+    select_url = (url + "/rest/v1/" + table + "?" + "&".join(parts)
+                  + "&order=created_at.asc&limit=1&select=id")
     status, body = _do_request("GET", select_url, key)
     if status != 200 or not body:
         return None
@@ -113,5 +119,6 @@ def delete_oldest(table, filters):
     if not rows:
         return None
     row_id = rows[0]["id"]
-    del_status, _ = _do_request("DELETE", url + "/rest/v1/" + table + "?id=eq." + str(row_id), key)
-    return del_status
+    patch_status, _ = _do_request("PATCH", url + "/rest/v1/" + table + "?id=eq." + str(row_id), key,
+                                  body=values, extra_headers={"Prefer": "return=minimal"})
+    return patch_status

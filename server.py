@@ -264,6 +264,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(config_payload())
         elif path in ("/", "/farm.html", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
+        elif path == "/panels/panels.js":
+            # isola React dei pannelli STORICO: solo il bundle, nient'altro di panels/
+            self._send_file(os.path.join("panels", "dist", "panels.js"), "text/javascript")
         elif path.startswith("/assets/"):
             # scenografia Leonardo: solo .jpg piatti dentro assets/, niente sottocartelle
             name = path[len("/assets/"):]

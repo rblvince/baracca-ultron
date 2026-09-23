@@ -21,6 +21,7 @@ create table sessions (
   room text,
   node text,
   ts bigint not null,
+  created_at timestamptz default now(),
   unique (user_id, transcript_path)
 );
 
@@ -30,7 +31,9 @@ create table subagents (
   room text not null,
   agent text,
   task text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  finished_at timestamptz,
+  agent_id text
 );
 
 create table token_usage (

@@ -168,6 +168,34 @@
       max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .dgroup{grid-column:span 12;font-family:var(--arc);font-size:9px;color:var(--gold);letter-spacing:.16em;
       padding:10px 2px 3px;border-bottom:1px solid var(--surface-hi);text-shadow:1px 1px 0 var(--bg);}
+  /* ---- storico: isola React (panels/), stessi token della sala comando ---- */
+  #storico{display:contents;}            /* i figli React diventano celle della griglia di #dashv */
+  .dtag.err{color:var(--red);border-color:var(--red);}
+  .tk-chart{display:block;width:100%;height:auto;margin-top:6px;}
+  .tk-axis{stroke:var(--surface-hi);stroke-width:1;}
+  .tk-lbl{fill:var(--ink-soft);font-family:var(--arc);font-size:9px;}
+  #storico .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:8px;font-size:12px;color:var(--ink-soft);}
+  #storico .stats b{display:block;font-family:var(--arc);font-size:10px;color:var(--green);font-variant-numeric:tabular-nums;margin-top:2px;}
+  .tk-bar{cursor:pointer;outline:none;}
+  .tk-bar.on rect+rect,.tk-bar:focus-visible rect+rect{filter:brightness(1.3);}
+  .tk-bar:focus-visible rect:first-child{stroke:var(--gold);stroke-width:1;}
+  .tk-detail{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--ink-soft);}
+  .tk-detail i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0;}
+  .sa-list{max-height:260px;overflow-y:auto;}
+  .sa-day{margin:8px 0 4px;font-family:var(--arc);font-size:8px;color:var(--gold);letter-spacing:.1em;}
+  .sa-row{display:grid;grid-template-columns:38px auto minmax(0,.8fr) minmax(0,2fr) auto;gap:8px;align-items:center;
+      padding:3px 0;border-bottom:1px solid var(--surface);font-size:12px;color:var(--ink-soft);}
+  .sa-room{padding:2px 5px;border-radius:4px;font-family:var(--arc);font-size:7px;color:var(--bg);}
+  .sa-task{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sa-run{color:var(--green);}
+  .tl-row{display:grid;grid-template-columns:38px 1fr;gap:8px;align-items:center;margin:5px 0;}
+  .tl-day{font-size:11px;color:var(--ink-soft);}
+  .tl-track{position:relative;height:12px;background:var(--surface);border-radius:3px;}
+  .tl-seg{position:absolute;top:1px;bottom:1px;min-width:2px;border-radius:2px;}
+  .tl-pt{position:absolute;top:2px;width:8px;height:8px;margin-left:-4px;border:1px dashed var(--ink);border-radius:50%;}
+  .tl-axis{position:relative;height:14px;margin-left:46px;}
+  .tl-axis span{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--ink-soft);}
+  #storico .empty{font-size:12px;color:var(--ink-soft);}
   .dgroup:first-child{padding-top:0;}
   .dtag{display:inline-block;font-family:var(--arc);font-size:7px;padding:2px 5px;margin-left:7px;border-radius:4px;
       border:1px solid;letter-spacing:.05em;vertical-align:middle;}
@@ -321,6 +349,7 @@
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/panels/panels.js"></script>
 </head>
 <body>
 <div id="supaLogin" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-family:sans-serif;color:#fff">
@@ -412,6 +441,8 @@
     <div class="dp wood c4"><h4>ARCHIVIO <span class="dtag real">REALE</span><em>vault</em></h4><canvas id="dArch" width="300" height="150"></canvas></div>
     <div class="dp cal c2"><h4>DIARIO <span class="dtag real">REALE</span></h4><div class="day" id="dDay">—</div><div class="mon" id="dMon">nessuna nota</div><div class="cnt" id="dDailySub">0 daily notes</div></div>
     <div class="dp c3"><h4>VINLAND <span class="dtag real">REALE</span><em id="dVinStatus">—</em></h4><div class="bars" id="dVinJobs"></div></div>
+    <!-- isola React (panels/): il vanilla non tocca mai niente qui dentro -->
+    <div id="storico"></div>
   </div>
 
   <div class="side" id="sidePanel">
@@ -2259,6 +2290,9 @@ function simulate(){
    cambia niente di visibile: la pagina resta sul poll HTTP di sempre. */
 var USE_SUPABASE = false;
 var supaClient = null;
+/* isola React dei pannelli STORICO (panels/dist/panels.js): montata una volta,
+   dopo l'autenticazione. Se il bundle manca o esplode, la Baracca resta com'è. */
+var STORICO = null;
 
 function initSupabase(cfg){
   if(!cfg || !cfg.url || !cfg.anon_key) return;
@@ -2273,6 +2307,16 @@ function hideLoginGate(){
   document.getElementById("supaLogin").style.display = "none";
 }
 
+function mountStoricoOnce(){
+  if(STORICO || !supaClient || !window.mountStorico) return;
+  try{
+    STORICO = window.mountStorico(document.getElementById("storico"), supaClient, {
+      rooms: ROOMS.map(function(r){ return {id:r.id, n:r.n, col:r.c}; })
+    });
+    STORICO.setActive(VIEW === "dash");
+  }catch(e){ STORICO = null; }
+}
+
 function attemptLogin(){
   var email = document.getElementById("supaEmail").value;
   var pass = document.getElementById("supaPass").value;
@@ -2283,6 +2327,7 @@ function attemptLogin(){
     }
     hideLoginGate();
     subscribeRealtime();
+    mountStoricoOnce();
   }).catch(function(){
     /* rifiuto a livello di rete: la promise esplode invece di tornare {error},
        quindi senza questo la pagina resterebbe muta e inerte per sempre. */
@@ -2295,6 +2340,7 @@ function ensureAuthThenSubscribe(){
   supaClient.auth.getSession().then(function(res){
     if(res.data && res.data.session){
       subscribeRealtime();
+      mountStoricoOnce();
     } else {
       showLoginGate();
       document.getElementById("supaLoginBtn").addEventListener("click", attemptLogin);
@@ -2533,6 +2579,7 @@ ROOMS.forEach(function(r){ ROOMTIME[r.id] = 0; });
 function showView(v){
   VIEW = v;
   document.body.dataset.view = v;
+  if(STORICO) STORICO.setActive(v === "dash");
   document.getElementById("tabBase").className = "tab"+(v==="base"?" on":"");
   document.getElementById("tabDash").className = "tab"+(v==="dash"?" on":"");
   document.getElementById("crumb").innerHTML = v==="dash" ? "SALA COMANDO / <b>rapporto generale</b>"
