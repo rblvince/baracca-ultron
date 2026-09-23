@@ -280,9 +280,12 @@ def main():
 
     transcript_path = payload.get("transcript_path")
     event = payload.get("hook_event_name") or payload.get("hookEventName") or ""
+    if event == "SubagentStart":
+        session_track.claim_subagent(payload.get("agent_id"))
+        return
     if event == "SubagentStop":
         write_state(status="thinking", room="prod", line="reparto rientrato")
-        session_track.reap_subagent()
+        session_track.reap_subagent(payload.get("agent_id"))
         session_track.update_session(transcript_path, status="thinking", room="prod")
         return
 

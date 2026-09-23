@@ -10,6 +10,7 @@ un'istantanea fresca dei soli campi noti in quel momento, non un merge con
 quella precedente — il client accumula sul proprio oggetto di stato lato
 JS esattamente come già fa con lo stato del titolare.
 """
+from datetime import datetime, timezone
 import json
 import os
 import time
@@ -93,12 +94,29 @@ def spawn_subagent(room, agent, task):
         pass
 
 
-def reap_subagent():
-    """Un sub-agente è rientrato (SubagentStop): toglie il più vecchio ancora
-    in coda. Approssimazione onesta e voluta — l'hook non dice quale Task
-    esatto è finito, quindi FIFO è la cosa più semplice che si comporta bene
-    nel caso comune (i sub-agenti tendono a rientrare nell'ordine in cui sono
-    partiti)."""
+def claim_subagent(agent_id):
+    """Un sub-agente è appena partito (SubagentStart): la riga creata un istante
+    prima da PreToolUse (la più vecchia ancora senza agent_id) prende il suo id,
+    così al rientro si chiude la riga giusta anche con più sub-agenti insieme.
+    ponytail: due partenze nello stesso istante possono scambiarsi i compiti
+    (le claim sono FIFO); la durata resta comunque quella del sub-agente giusto."""
+    if not agent_id:
+        return
+    try:
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if user_id:
+            supabase_client.patch_oldest("subagents", {"user_id": user_id},
+                                         ["agent_id", "finished_at"], {"agent_id": agent_id})
+    except Exception:
+        pass
+
+
+def reap_subagent(agent_id=None):
+    """Un sub-agente è rientrato (SubagentStop). In locale toglie il più vecchio
+    ancora in coda (FIFO, come sempre: il file serve solo alla scena). Su
+    Supabase la riga non si cancella più: si chiude con finished_at, così resta
+    nel diario. Con agent_id si chiude la riga esatta; senza, o se nessuna riga
+    ha quell'id, la più vecchia ancora aperta."""
     data = _load(SUBAGENTS_PATH, {"next_id": 1, "list": []})
     if data.get("list"):
         data["list"].pop(0)
@@ -107,6 +125,12 @@ def reap_subagent():
     try:
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
-            supabase_client.delete_oldest("subagents", {"user_id": user_id})
+            now = {"finished_at": datetime.now(timezone.utc).isoformat()}
+            done = None
+            if agent_id:
+                done = supabase_client.patch_oldest("subagents", {"user_id": user_id, "agent_id": agent_id},
+                                                    ["finished_at"], now)
+            if done is None:
+                supabase_client.patch_oldest("subagents", {"user_id": user_id}, ["finished_at"], now)
     except Exception:
         pass

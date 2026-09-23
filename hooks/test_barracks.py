@@ -105,6 +105,43 @@ def test_classify_agent_tool_same_as_task():
     assert old == new, (old, new)
 
 
+def _run_main(payload):
+    import io
+    old_stdin, old_argv = sys.stdin, sys.argv
+    sys.stdin = io.StringIO(json.dumps(payload))
+    sys.argv = ["barracks.py"]
+    try:
+        b.main()
+    finally:
+        sys.stdin, sys.argv = old_stdin, old_argv
+
+
+def test_main_subagent_start_claims_agent_id():
+    import session_track
+    calls = []
+    old = session_track.claim_subagent
+    session_track.claim_subagent = lambda agent_id: calls.append(agent_id)
+    try:
+        _run_main({"hook_event_name": "SubagentStart", "agent_id": "ag-1", "agent_type": "Explore"})
+        assert calls == ["ag-1"], calls
+    finally:
+        session_track.claim_subagent = old
+
+
+def test_main_subagent_stop_reaps_by_agent_id():
+    import session_track
+    calls = []
+    old_reap, old_upd, old_write = session_track.reap_subagent, session_track.update_session, b.write_state
+    session_track.reap_subagent = lambda agent_id=None: calls.append(agent_id)
+    session_track.update_session = lambda *a, **k: None
+    b.write_state = lambda **k: None
+    try:
+        _run_main({"hook_event_name": "SubagentStop", "agent_id": "ag-1"})
+        assert calls == ["ag-1"], calls
+    finally:
+        session_track.reap_subagent, session_track.update_session, b.write_state = old_reap, old_upd, old_write
+
+
 def test_main_pretooluse_agent_spawns_subagent():
     import io
     import session_track
@@ -136,6 +173,8 @@ def main():
     test_accumulate_tokens_calls_rpc_with_deltas()
     test_classify_agent_tool_same_as_task()
     test_main_pretooluse_agent_spawns_subagent()
+    test_main_subagent_start_claims_agent_id()
+    test_main_subagent_stop_reaps_by_agent_id()
     print("barracks.py: tutti i controlli passati")
 
 
