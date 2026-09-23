@@ -14,7 +14,7 @@ const DAYS = ['2026-09-22', '2026-09-23'];
 const tok = (day: string, room: string, input: number, output: number, cache_read = 0): TokenUsageRow =>
   ({ user_id: 'u', day, room, input, output, cache_read, cache_write: 0 });
 const sub = (p: Partial<SubagentRow>): SubagentRow =>
-  ({ id: 1, user_id: 'u', room: 'prod', agent: 'produzione-1', task: 'scrive i test', created_at: new Date(2026, 8, 23, 10).toISOString(), finished_at: null, agent_id: null, ...p });
+  ({ id: 1, user_id: 'u', room: 'prod', agent: 'produzione-1', task: 'scrive i test', created_at: new Date(2026, 8, 23, 10).toISOString(), finished_at: null, agent_id: null, tool_use_id: null, ...p });
 
 describe('TokenHistory', () => {
   it('caricamento', () => {
@@ -31,6 +31,8 @@ describe('TokenHistory', () => {
     expect(bars).toHaveLength(2);
     fireEvent.focus(bars[0]);
     expect(container.querySelector('.tk-detail')!.textContent).toContain('22/09');
+    fireEvent.click(bars[1]);   // tocco sul telefono
+    expect(container.querySelector('.tk-detail')!.textContent).toContain('23/09');
   });
   it('tutto a zero: nessun NaN nel disegno, resa cache "—"', () => {
     const { container } = render(<TokenHistory state={{ data: [], error: false }} rooms={ROOMS} days={DAYS} />);
@@ -76,12 +78,30 @@ describe('SessionTimeline', () => {
     const labels = [...container.querySelectorAll('.tl-day')].map((e) => e.textContent);
     expect(labels).toEqual(['23/09', '22/09']);
     const pt = container.querySelector('.tl-pt') as HTMLElement;
-    expect(pt.title).toContain('inizio non registrato');
+    expect(pt.getAttribute('aria-label')).toContain('inizio non registrato');
+    expect(pt.tabIndex).toBe(0);
     expect(pt.style.left).toBe('75%');
   });
   it('sessione oltre la mezzanotte: due barre', () => {
     const s: SessionRow = { id: 1, user_id: 'u', transcript_path: 't', status: null, room: 'prod', node: null, ts: new Date(2026, 8, 23, 6).getTime(), created_at: new Date(2026, 8, 22, 18).toISOString() };
     const { container } = render(<SessionTimeline state={{ data: [s], error: false }} rooms={ROOMS} days={DAYS} />);
     expect(container.querySelectorAll('.tl-seg')).toHaveLength(2);
+  });
+  it('tastiera e tocco: la sessione con focus o tap va nel dettaglio, la più recente di default', () => {
+    const a: SessionRow = { id: 1, user_id: 'u', transcript_path: 'a', status: null, room: 'prod', node: null, ts: new Date(2026, 8, 22, 11, 40).getTime(), created_at: new Date(2026, 8, 22, 10, 12).toISOString() };
+    const b: SessionRow = { id: 2, user_id: 'u', transcript_path: 'b', status: null, room: 'ricerca', node: null, ts: new Date(2026, 8, 23, 9, 30).getTime(), created_at: new Date(2026, 8, 23, 9).toISOString() };
+    const { container } = render(<SessionTimeline state={{ data: [a, b], error: false }} rooms={ROOMS} days={DAYS} />);
+    const detail = () => container.querySelector('.tl-detail')!.textContent;
+    expect(detail()).toBe('RICERCA · 09:00–09:30 · 30m 00s');
+    const segA = [...container.querySelectorAll('.tl-seg')].find((e) => e.getAttribute('aria-label')!.startsWith('OFFICINA'))!;
+    fireEvent.focus(segA);
+    expect(detail()).toBe('OFFICINA · 10:12–11:40 · 1h 28m');
+    expect(segA.classList.contains('on')).toBe(true);
+    fireEvent.click(container.querySelector('.tl-seg:not(.on)')!);
+    expect(detail()).toContain('RICERCA');
+  });
+  it('nessuna sessione: il dettaglio lo dice', () => {
+    const { container } = render(<SessionTimeline state={{ data: [], error: false }} rooms={ROOMS} days={DAYS} />);
+    expect(container.querySelector('.tl-detail')!.textContent).toBe('nessuna sessione registrata');
   });
 });

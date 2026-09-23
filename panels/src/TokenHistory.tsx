@@ -50,7 +50,7 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
           return (
             <g key={b.day} className={`tk-bar${i === sel ? ' on' : ''}`} tabIndex={0}
                aria-label={`${fmtDay(b.day)}: ${fmtTokens(b.total)} token`}
-               onMouseEnter={() => setSel(i)} onFocus={() => setSel(i)}>
+               onMouseEnter={() => setSel(i)} onFocus={() => setSel(i)} onClick={() => setSel(i)}>
               <rect x={i * slot} y={0} width={slot} height={BASE} fill="transparent" />
               {orderedRooms(b.byRoom, rooms).map((r) => {
                 const v = b.byRoom[r.id];
