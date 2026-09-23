@@ -21,3 +21,13 @@ Avvia il server (porta 8795 se non già attivo), apre la pagina in Chrome e una 
 ## Nota
 
 Pensata per girare solo su `127.0.0.1`, mai pubblicata esternamente. I file in `state/` sono runtime, esclusi dal repo.
+
+## Pannelli STORICO (React)
+
+I pannelli del gruppo STORICO in DASHBOARD sono un'isola React in `panels/`, servita come un solo file `panels/dist/panels.js` (committato: la Baracca parte senza Node).
+
+Dopo ogni modifica a `panels/src/`:
+
+    cd panels && npm install && npm test && npm run build
+
+e committare anche `panels/dist/panels.js`. Senza build la pagina continua a servire la versione vecchia.

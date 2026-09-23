@@ -60,6 +60,9 @@ SUBAGENT_CREW = {
     "pub": "orchestratore", "vault": "custode", "rs": "orchestratore",
 }
 
+# Il tool che lancia un sub-agente si chiamava "Task", oggi "Agent": vanno
+# riconosciuti entrambi, altrimenti la coda dei sub-agenti resta vuota.
+SUBAGENT_TOOLS = ("Task", "Agent")
 
 FOLDER_AREA = {
     "00 - Inbox": "inbox", "01 - Daily Notes": "daily", "02 - Vinland": "vinland",
@@ -239,7 +242,7 @@ def classify(payload):
     in_vault = node is not None
 
     # un subagente: è il reparto a lavorare, non lui
-    if tool == "Task":
+    if tool in SUBAGENT_TOOLS:
         room, agent, task = subagent_room_agent_task(ti)
         return "delegating", room, None, agent, task
 
@@ -277,17 +280,20 @@ def main():
 
     transcript_path = payload.get("transcript_path")
     event = payload.get("hook_event_name") or payload.get("hookEventName") or ""
+    if event == "SubagentStart":
+        session_track.claim_subagent(payload.get("agent_id"))
+        return
     if event == "SubagentStop":
         write_state(status="thinking", room="prod", line="reparto rientrato")
-        session_track.reap_subagent()
+        session_track.reap_subagent(payload.get("agent_id"))
         session_track.update_session(transcript_path, status="thinking", room="prod")
         return
 
-    # PreToolUse su Task (matcher in settings.json): il momento vero in cui un
-    # sub-agente parte, non quando finisce. classify() gestisce Task solo a
+    # PreToolUse su Task/Agent (matcher in settings.json): il momento vero in cui un
+    # sub-agente parte, non quando finisce. classify() gestisce Task/Agent solo a
     # PostToolUse (a lavoro già fatto), quindi qui serve un annuncio a parte.
     if event == "PreToolUse":
-        if (payload.get("tool_name") or payload.get("toolName")) == "Task":
+        if (payload.get("tool_name") or payload.get("toolName")) in SUBAGENT_TOOLS:
             room, agent, task = subagent_room_agent_task(tool_input(payload))
             write_state(status="spawning", room=room, agent=agent, task=task)
             session_track.spawn_subagent(room, agent, task)
