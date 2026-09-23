@@ -210,8 +210,15 @@ def parse_missions():
         if not re.search(r"^type:\s*mission\s*$", front, re.M):
             continue
         body = text.split("## Passi", 1)[1].split("\n## ", 1)[0] if "## Passi" in text else text
-        steps = [{"done": m.group(1) != " ", "text": strip_wikilinks(m.group(2).strip())}
-                 for m in re.finditer(r"^- \[( |x|X)\] (.+)$", body, re.M)]
+        steps = []
+        for line in body.splitlines():
+            m = re.match(r"^- \[( |x|X)\] (.+)$", line)
+            if m:
+                steps.append({"done": m.group(1) != " ", "text": strip_wikilinks(m.group(2).strip()), "todo": []})
+                continue
+            sub_item = re.match(r"^\s{2,}- (.+)$", line)   # riassunto "cosa fare" sotto il passo
+            if sub_item and steps:
+                steps[-1]["todo"].append(strip_wikilinks(sub_item.group(1).strip()))
         title = re.search(r"^# (.+)$", text, re.M)
         out.append({"title": title.group(1).strip() if title else name[:-3], "steps": steps})
     return out

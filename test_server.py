@@ -42,7 +42,8 @@ def test_parse_missions_reads_only_mission_steps():
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, "M.md"), "w", encoding="utf-8") as f:
             f.write("---\ntype: mission\n---\n# Prova\n\n## Passi\n\n- [x] Passo 0 — fatto\n"
-                    "- [ ] Passo 1 — [[Nota]] da fare\n\n## Parcheggiato\n\n- [ ] non è un passo\n")
+                    "- [ ] Passo 1 — [[Nota]] da fare\n  - primo: tocca [[File]]\n  - secondo\n"
+                    "\n## Parcheggiato\n\n- [ ] non è un passo\n  - nemmeno questo\n")
         with open(os.path.join(d, "Indice.md"), "w", encoding="utf-8") as f:
             f.write("---\ntype: index\n---\n# Indice\n- [ ] ignorata\n")
         srv.MISSIONS_DIR = d
@@ -51,8 +52,8 @@ def test_parse_missions_reads_only_mission_steps():
         finally:
             srv.MISSIONS_DIR = old
     assert got == [{"title": "Prova", "steps": [
-        {"done": True, "text": "Passo 0 — fatto"},
-        {"done": False, "text": "Passo 1 — Nota da fare"}]}], got
+        {"done": True, "text": "Passo 0 — fatto", "todo": []},
+        {"done": False, "text": "Passo 1 — Nota da fare", "todo": ["primo: tocca File", "secondo"]}]}], got
 
 
 def main():
