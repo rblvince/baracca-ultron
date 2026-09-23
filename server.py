@@ -230,6 +230,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(config_payload())
         elif self.path in ("/", "/farm.html", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
+        elif self.path.startswith("/assets/"):
+            # scenografia Leonardo: solo .jpg piatti dentro assets/, niente sottocartelle
+            name = self.path[len("/assets/"):].split("?")[0]
+            if name.endswith(".jpg") and name == os.path.basename(name) and not name.startswith("."):
+                self._send_file(os.path.join("assets", name), "image/jpeg")
+            else:
+                self.send_response(404)
+                self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
