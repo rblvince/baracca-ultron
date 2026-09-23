@@ -1,12 +1,12 @@
 import { fmtClock, fmtDay, roomFill, roomOf, sessionSegments, stripedRooms } from './logic';
-import { PanelHeader } from './PanelHeader';
+import { PanelHeader, PanelPending } from './PanelHeader';
 import type { Room, SessionRow } from './types';
 import type { TableState } from './useTable';
 
 export function SessionTimeline({ state, rooms, days }: { state: TableState<SessionRow>; rooms: Room[]; days: string[] }) {
   const header = <PanelHeader title="TIMELINE SESSIONI" sub="ultimi 7 giorni · 0-24h" error={state.error} />;
   if (state.data === null) {
-    return <div className="dp c6">{header}<div className="empty">{state.error ? 'dati non raggiungibili' : 'caricamento…'}</div></div>;
+    return <PanelPending cls="dp c6" header={header} error={state.error} />;
   }
   const striped = stripedRooms(rooms);
   const segs = state.data.flatMap((s) => sessionSegments(s, days).map((seg) => ({ seg, s })));

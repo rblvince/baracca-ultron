@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fmtDay, fmtTokens, orderedRooms, roomOf, stripedRooms, tokenDays, tokenSummary } from './logic';
-import { PanelHeader } from './PanelHeader';
+import { PanelHeader, PanelPending } from './PanelHeader';
 import type { Room, TokenUsageRow } from './types';
 import type { TableState } from './useTable';
 
@@ -12,7 +12,7 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
   const header = <PanelHeader title="CONSUMO TOKEN" sub={`ultimi ${days.length} giorni · input + output`} error={state.error} />;
 
   if (state.data === null) {
-    return <div className="dp c12">{header}<div className="empty">{state.error ? 'dati non raggiungibili' : 'caricamento…'}</div></div>;
+    return <PanelPending cls="dp c12" header={header} error={state.error} />;
   }
 
   const bars = tokenDays(state.data, days);
