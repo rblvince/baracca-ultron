@@ -148,24 +148,48 @@ def test_main_pretooluse_agent_spawns_subagent():
     spawned = []
     old_spawn, old_upd = session_track.spawn_subagent, session_track.update_session
     old_write = b.write_state
-    session_track.spawn_subagent = lambda room, agent, task: spawned.append((room, agent, task))
+    session_track.spawn_subagent = lambda room, agent, task, tool_use_id=None: spawned.append((room, agent, task, tool_use_id))
     session_track.update_session = lambda *a, **k: None
     b.write_state = lambda **k: None
     old_stdin, old_argv = sys.stdin, sys.argv
     sys.stdin = io.StringIO(json.dumps({
-        "hook_event_name": "PreToolUse", "tool_name": "Agent",
+        "hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_use_id": "toolu_1",
         "tool_input": {"subagent_type": "Explore", "description": "cerca file"}}))
     sys.argv = ["barracks.py"]
     try:
         b.main()
-        assert spawned == [("ricerca", "ricerca-1", "cerca file")], spawned
+        assert spawned == [("ricerca", "ricerca-1", "cerca file", "toolu_1")], spawned
     finally:
         session_track.spawn_subagent, session_track.update_session = old_spawn, old_upd
         b.write_state = old_write
         sys.stdin, sys.argv = old_stdin, old_argv
 
 
+def test_main_posttooluse_agent_reconciles():
+    """Il risultato del tool Agent porta agentId (async_launched e completed):
+    con il tool_use_id del lancio corregge l'accoppiamento del diario."""
+    import session_track
+    calls = []
+    old_rec, old_upd, old_write, old_tok = (session_track.reconcile_subagent, session_track.update_session,
+                                            b.write_state, b.accumulate_tokens)
+    session_track.reconcile_subagent = lambda tu, ag: calls.append((tu, ag))
+    session_track.update_session = lambda *a, **k: None
+    b.write_state = lambda **k: None
+    b.accumulate_tokens = lambda *a: {}
+    try:
+        _run_main({"hook_event_name": "PostToolUse", "tool_name": "Agent", "tool_use_id": "toolu_1",
+                   "tool_input": {"description": "x"},
+                   "tool_response": {"status": "async_launched", "agentId": "ag-1"}})
+        _run_main({"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_use_id": "toolu_2",
+                   "tool_input": {"command": "ls"}, "tool_response": {"agentId": "finto"}})
+        assert calls == [("toolu_1", "ag-1")], calls
+    finally:
+        (session_track.reconcile_subagent, session_track.update_session,
+         b.write_state, b.accumulate_tokens) = old_rec, old_upd, old_write, old_tok
+
+
 def main():
+    test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()

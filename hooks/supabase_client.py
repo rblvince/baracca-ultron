@@ -91,6 +91,36 @@ def rpc(fn_name, params):
     return status
 
 
+def select(table, filters, columns):
+    """Le righe (lista di dict) che soddisfano i filtri di uguaglianza, con
+    le sole colonne chieste. None se manca la config, la rete non risponde o
+    il server rifiuta."""
+    cfg = load_config()
+    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        return None
+    parts = [k + "=eq." + urllib.parse.quote(str(v), safe="") for k, v in filters.items()]
+    status, body = _do_request("GET", url + "/rest/v1/" + table + "?" + "&".join(parts)
+                               + "&select=" + columns, key)
+    if status != 200 or not body:
+        return None
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        return None
+
+
+def patch(table, row_id, values):
+    """Aggiorna una riga per id. Ritorna lo stato HTTP, None se non configurato."""
+    cfg = load_config()
+    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        return None
+    status, _ = _do_request("PATCH", url + "/rest/v1/" + table + "?id=eq." + str(row_id), key,
+                            body=values, extra_headers={"Prefer": "return=minimal"})
+    return status
+
+
 def patch_oldest(table, filters, null_columns, values, extra=None):
     """Aggiorna la riga più vecchia (per created_at) che soddisfa i filtri di
     uguaglianza (dict campo->valore), ha NULL in tutte le null_columns e (se

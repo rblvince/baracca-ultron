@@ -33,7 +33,8 @@ create table subagents (
   task text,
   created_at timestamptz not null default now(),
   finished_at timestamptz,
-  agent_id text
+  agent_id text,
+  tool_use_id text
 );
 
 create table token_usage (

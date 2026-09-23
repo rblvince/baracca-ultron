@@ -296,7 +296,7 @@ def main():
         if (payload.get("tool_name") or payload.get("toolName")) in SUBAGENT_TOOLS:
             room, agent, task = subagent_room_agent_task(tool_input(payload))
             write_state(status="spawning", room=room, agent=agent, task=task)
-            session_track.spawn_subagent(room, agent, task)
+            session_track.spawn_subagent(room, agent, task, payload.get("tool_use_id"))
             session_track.update_session(transcript_path, status="spawning", room=room)
         return
 
@@ -306,6 +306,8 @@ def main():
     resp = payload.get("tool_response") or payload.get("toolResponse") or {}
     if isinstance(resp, dict) and (resp.get("is_error") or resp.get("isError")):
         status, room = "failing", "prod"
+    if isinstance(resp, dict) and (payload.get("tool_name") or payload.get("toolName")) in SUBAGENT_TOOLS:
+        session_track.reconcile_subagent(payload.get("tool_use_id"), resp.get("agentId"))
 
     tokens = accumulate_tokens(room, transcript_path)
 
