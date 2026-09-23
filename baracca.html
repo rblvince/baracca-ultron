@@ -470,6 +470,48 @@
 </div>
 
 <script>
+/* Scenografia CUPOLE CORALLINE (Giri 16-19, dalla demo ~/my-agent/baracca-demo-forme,
+   portata qui il 2026-09-24). Da ora si modifica direttamente questo file. */
+/* Demo CUPOLE CORALLINE: vista dall'alto, ogni reparto è una cupola di vetro
+   tonda (ellisse inscritta nel vecchio rettangolo) di taglia diversa, sfalsata,
+   collegata alla dorsale da un tubo. Topologia identica alla Baracca vera. */
+var DEMO = {
+  WORLD: {w:2000, h:1360},
+  CORR:  {x:40, y:600, w:1920, h:110},
+  rooms: function(P){ return [
+    {id:"ricerca",n:"RICERCA",    x:100, y:70, w:440,h:440, kind:"scout", floor:"dirt",     c:P.cyan},
+    {id:"prod",   n:"OFFICINA",   x:620, y:20, w:540,h:500, kind:"belt",  floor:"concrete", c:P.green},
+    {id:"qa",     n:"COLLAUDO",   x:1250,y:100,w:460,h:430, kind:"check", floor:"concrete", c:P.gold},
+    {id:"vault",  n:"ARCHIVIO",   x:90,  y:790,w:580,h:530, kind:"graph", floor:"metal",    c:P.violet},
+    {id:"pub",    n:"SPEDIZIONI", x:780, y:800,w:420,h:420, kind:"ship",  floor:"dirt",     c:P.blue},
+    {id:"rs",     n:"LABORATORIO",x:1300,y:780,w:560,h:530, kind:"lab",   floor:"metal",    c:P.cyan}
+  ]; },
+  assets: ["dome_bg","dome_corr","dome_room_ricerca","dome_room_prod","dome_room_qa","dome_room_vault","dome_room_pub","dome_room_rs"],
+  /* oggetti vivi mappati a mano sulle luci dipinte delle stanze (Giro 19):
+     [tipo, u, v, colore] in frazioni dell'immagine 1024x1024, convertite
+     qui nelle frazioni della stanza con la stessa proiezione "cover" di bakeRoom */
+  hot: function(ROOMS){
+    var A = "255,161,74", C = "95,243,255", G = "80,230,150", V = "200,140,255";
+    var M = {
+      ricerca: [["screen",.74,.21,C], ["lamp",.17,.64,A], ["lamp",.8,.57,A]],
+      prod:    [["lamp",.33,.18,G], ["lamp",.66,.18,G], ["lamp",.88,.58,A]],
+      qa:      [["lamp",.9,.17,A], ["lamp",.16,.27,A]],
+      vault:   [["lamp",.5,.12,C], ["lamp",.3,.15,C], ["lamp",.72,.15,C]],
+      pub:     [["lamp",.5,.17,A], ["lamp",.73,.26,A]],
+      rs:      [["lamp",.68,.2,A], ["screen",.5,.17,C], ["tank",.7,.45,C]]
+    }, o = {};
+    ROOMS.forEach(function(r){
+      var s = Math.max(r.w, r.h);
+      o[r.id] = (M[r.id] || []).map(function(h){
+        return [h[0], ((r.w-s)/2 + h[1]*s)/r.w, ((r.h-s)/2 + h[2]*s)/r.h, h[3]];
+      });
+    });
+    return o;
+  }
+};
+
+</script>
+<script>
 (function(){
 "use strict";
 
@@ -1136,16 +1178,9 @@ var OBJ = {};
 })();
 
 /* ------------------------------------------------------------- mondo */
-var WORLD = {w:2000, h:1240};
-var ROOMS = [
-  {id:"ricerca",n:"RICERCA",   x:60,  y:60, w:520,h:400, kind:"scout", floor:"dirt",     c:P.cyan},
-  {id:"prod",   n:"OFFICINA",  x:620, y:60, w:640,h:400, kind:"belt",  floor:"concrete", c:P.green},
-  {id:"qa",     n:"COLLAUDO",  x:1300,y:60, w:640,h:400, kind:"check", floor:"concrete", c:P.gold},
-  {id:"vault",  n:"ARCHIVIO",  x:60,  y:640,w:800,h:540, kind:"graph", floor:"metal",    c:P.violet},
-  {id:"pub",    n:"SPEDIZIONI",x:900, y:640,w:440,h:540, kind:"ship",  floor:"dirt",     c:P.blue},
-  {id:"rs",     n:"LABORATORIO",x:1380,y:640,w:560,h:540,kind:"lab",   floor:"metal",    c:P.cyan}
-];
-var CORR = {x:60, y:500, w:1880, h:100};
+var WORLD = DEMO.WORLD;
+var ROOMS = DEMO.rooms(P);
+var CORR = DEMO.CORR;
 var CORR_Y = CORR.y + CORR.h/2;
 function R(id){for(var i=0;i<ROOMS.length;i++) if(ROOMS[i].id===id) return ROOMS[i]; return ROOMS[0];}
 function inRoom(r,fx,fy){return {x:r.x+r.w*fx, y:r.y+r.h*fy};}
@@ -2054,48 +2089,8 @@ function bakeFacade(x, r){
   x.fillRect(Math.round(leftW)-2, faceY, 2, FACADE_H);
   x.fillRect(Math.round(rightX),  faceY, 2, FACADE_H);
 }
-function bakeRoom(r){
-  var c = document.createElement("canvas"); c.width = r.w; c.height = r.h;
-  var x = c.getContext("2d");
-  var im = ENV_IMG["room_"+r.id];
-  /* le immagini hanno la stessa proporzione della stanza: stretch, niente crop,
-     così le frazioni di ENV_HOT cadono esattamente sugli oggetti dipinti */
-  if(envReady(im)) x.drawImage(im, 0, 0, r.w, r.h);
-  else { x.fillStyle = "#0b2a38"; x.fillRect(0,0,r.w,r.h); }
-  x.strokeStyle = "rgba(95,243,255,.35)"; x.lineWidth = 2; x.strokeRect(1,1,r.w-2,r.h-2);
-  x.imageSmoothingEnabled = false;
-  var sg = sign(r.n, r.c);
-  var top = isTop(r);
-  /* a destra del portello (raggio 30, centrato su doorX), mai sotto */
-  var signX = Math.round(r.w/2 + 42);
-  var signY = top ? (r.h - sg.height*2 - 10) : 10;
-  x.save(); x.globalAlpha = .55; x.fillStyle = "#04121b";
-  x.fillRect(signX-6, signY-4, sg.width*2+12, sg.height*2+8);
-  x.restore();
-  x.drawImage(sg, signX, signY, sg.width*2, sg.height*2);
-  BAKED[r.id] = c;
-}
-function bakeCorr(){
-  var c = document.createElement("canvas"); c.width = CORR.w; c.height = CORR.h;
-  var x = c.getContext("2d");
-  var im = ENV_IMG.corr_tunnel;
-  if(envReady(im)){
-    /* fascia centrale della texture, ripetuta con specchiatura alternata così
-       le giunture combaciano sempre (bordo destro = bordo sinistro specchiato) */
-    var sh = im.naturalHeight*.45, sy = (im.naturalHeight-sh)/2;
-    var tw = im.naturalWidth * CORR.h/sh;
-    for(var i=0, px=0; px < CORR.w; i++, px += tw){
-      x.save();
-      if(i%2){ x.translate(px+tw, 0); x.scale(-1,1); x.drawImage(im, 0, sy, im.naturalWidth, sh, 0, 0, tw, CORR.h); }
-      else x.drawImage(im, 0, sy, im.naturalWidth, sh, px, 0, tw, CORR.h);
-      x.restore();
-    }
-  } else { x.fillStyle = "#0a2230"; x.fillRect(0,0,CORR.w,CORR.h); }
-  x.fillStyle = "rgba(2,12,20,.25)"; x.fillRect(0,0,CORR.w,CORR.h);
-  /* pareti di vetro del tunnel */
-  x.fillStyle = "rgba(160,235,255,.22)"; x.fillRect(0,0,CORR.w,3); x.fillRect(0,CORR.h-3,CORR.w,3);
-  CORR_C = c;
-}
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 /* skyline e cavi in controluce: sfondo notturno dietro il complesso,
    cotto una sola volta come BAKED/CORR_C qui sopra. Non tocca dayNightTint
    (che resta l'unica fonte di verità sull'ora reale): questo strato è
@@ -2824,7 +2819,7 @@ function buildSkills(){
 /* ------------------------------------------------- minimappa e segnale */
 function drawMini(t){
   var cv = document.getElementById("dMini"), g = cv.getContext("2d");
-  var s = cv.width / WORLD.w;
+  var s = Math.min(cv.width / WORLD.w, cv.height / WORLD.h);
   g.imageSmoothingEnabled = false;
   g.fillStyle = "#0c120e"; g.fillRect(0,0,cv.width,cv.height);
   /* griglia radar */
@@ -2832,17 +2827,18 @@ function drawMini(t){
   for(var x=0;x<cv.width;x+=20) g.fillRect(x,0,1,cv.height);
   for(var y=0;y<cv.height;y+=20) g.fillRect(0,y,cv.width,1);
   /* corridoio */
-  g.fillStyle = "rgba(123,189,90,.14)"; g.fillRect(CORR.x*s, CORR.y*s, CORR.w*s, CORR.h*s);
+  g.fillStyle = "rgba(123,189,90,.14)";
+  g.beginPath(); g.roundRect(CORR.x*s, CORR.y*s, CORR.w*s, CORR.h*s, CORR.h*s/2); g.fill();
   /* stanze */
   ROOMS.forEach(function(r){
     var here = STATE.room === r.id && !ULTRON.moving;
     g.fillStyle = here ? "rgba(242,193,78,.26)" : "rgba(255,255,255,.05)";
-    g.fillRect(r.x*s, r.y*s, r.w*s, r.h*s);
-    g.strokeStyle = here ? P.gold : r.c; g.lineWidth = here ? 2 : 1;
-    g.strokeRect(Math.round(r.x*s)+.5, Math.round(r.y*s)+.5, Math.round(r.w*s)-1, Math.round(r.h*s)-1);
-    g.font = "8px 'Silkscreen', monospace"; g.textBaseline = "top";
+    g.beginPath(); g.ellipse((r.x+r.w/2)*s, (r.y+r.h/2)*s, r.w*s/2, r.h*s/2, 0, 0, 6.2832); g.fill();
+    g.strokeStyle = here ? P.gold : r.c; g.lineWidth = here ? 2 : 1; g.stroke();
+    g.font = "8px 'Silkscreen', monospace"; g.textBaseline = "middle"; g.textAlign = "center";
     g.fillStyle = here ? P.gold : r.c;
-    g.fillText(r.n, r.x*s+5, r.y*s+5);
+    g.fillText(r.n, (r.x+r.w/2)*s, (r.y+r.h/2)*s);
+    g.textAlign = "left";
   });
   /* gli specialisti, al posto o in giro */
   SKILLS.forEach(function(sk){
@@ -3027,8 +3023,7 @@ function renderDashLive(t){
 var ENV_IMG = {};
 function envReady(im){ return im && im.complete && im.naturalWidth > 0; }
 (function(){
-  var names = ["bg_seafloor","corr_tunnel","room_ricerca","room_prod","room_qa",
-               "room_vault","room_pub","room_rs"];
+  var names = DEMO.assets;
   var left = names.length;
   names.forEach(function(n){
     var im = new Image();
@@ -3041,14 +3036,7 @@ function envReady(im){ return im && im.complete && im.naturalWidth > 0; }
 /* oggetti interattivi, in frazioni della stanza: segnati a mano guardando le
    immagini generate, così la luce cade sull'oggetto dipinto e non a caso */
 var CY = "95,243,255", OR = "255,161,74", AM = "255,196,60", VI = "190,120,255";
-var ENV_HOT = {
-  ricerca:[["tank",.29,.37,CY],["screen",.66,.17,CY],["ring",.80,.52,CY],["lamp",.06,.43,OR],["lamp",.06,.76,OR]],
-  prod:   [["screen",.39,.20,CY],["ring",.77,.25,CY],["tank",.48,.60,CY],["screen",.23,.43,CY],["lamp",.25,.72,OR],["lamp",.93,.92,CY]],
-  qa:     [["ring",.15,.20,AM],["ring",.34,.30,AM],["ring",.53,.28,AM],["ring",.82,.30,AM],["tank",.19,.61,CY],["screen",.56,.56,CY],["tank",.71,.87,CY]],
-  vault:  [["screen",.65,.10,CY],["screen",.36,.88,CY],["screen",.68,.88,CY],["lamp",.24,.16,OR],["lamp",.18,.80,OR],["lamp",.86,.51,OR],["lamp",.08,.49,VI]],
-  pub:    [["lamp",.13,.15,OR],["lamp",.13,.44,OR],["lamp",.12,.91,OR],["screen",.87,.38,CY],["tank",.50,.78,CY],["ring",.25,.70,CY]],
-  rs:     [["tank",.10,.43,CY],["tank",.19,.43,CY],["tank",.28,.43,CY],["ring",.77,.22,OR],["screen",.57,.58,CY],["tank",.23,.79,CY],["lamp",.20,.10,CY]]
-};
+var ENV_HOT = DEMO.hot(ROOMS);
 var ENV_R = 130;              /* raggio d'interazione, unità mondo */
 var PROPS = [];
 ROOMS.forEach(function(r){
@@ -3084,163 +3072,14 @@ function bub(x, y, c, big){
 
 /* luce della stanza: si accende quando dentro c'è qualcuno, si abbassa
    quando si svuota — lo stato arriva solo dalle posizioni degli NPC */
-function envRoomLight(r){
-  var acts = envActors(), inside = false;
-  for(var i=0;i<acts.length;i++) if(roomAt(acts[i].x, acts[i].y) === r){ inside = true; break; }
-  var lit = ROOM_LIT[r.id] = lerp(ROOM_LIT[r.id] || 0, inside ? 1 : 0, .05);
-  ctx.fillStyle = "rgba(2,10,20," + (.42*(1-lit)) + ")";
-  ctx.fillRect(r.x, r.y, r.w, r.h);
-}
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
-function drawEnvFloor(t){
-  var acts = envActors(), now = t*.001;
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-
-  /* corridoio: pozza di luce sotto chi passa + strisce laterali che si
-     accendono al suo passaggio */
-  acts.forEach(function(e){
-    if(e.y < CORR.y-10 || e.y > CORR.y+CORR.h+10) return;
-    var g = ctx.createRadialGradient(e.x, e.y-6, 2, e.x, e.y-6, 52);
-    g.addColorStop(0, "rgba("+CY+",.34)"); g.addColorStop(1, "rgba("+CY+",0)");
-    ctx.fillStyle = g; ctx.fillRect(e.x-52, e.y-58, 104, 104);
-  });
-  for(var sx = CORR.x+10; sx < CORR.x+CORR.w; sx += 40){
-    var b = 0;
-    acts.forEach(function(e){
-      if(e.y > CORR.y-30 && e.y < CORR.y+CORR.h+30) b = Math.max(b, 1-Math.abs(e.x-sx)/140);
-    });
-    ctx.fillStyle = "rgba("+CY+","+(.12 + clamp(b,0,1)*.75)+")";
-    ctx.fillRect(sx, CORR.y+5, 22, 3); ctx.fillRect(sx, CORR.y+CORR.h-8, 22, 3);
-  }
-
-  /* portelli a iride sui varchi: si aprono quando qualcuno si avvicina */
-  ROOMS.forEach(function(r){
-    var dx = doorX(r), dy = doorY(r), n = nearest(dx, dy, acts);
-    var o = DOOR_OPEN[r.id] = lerp(DOOR_OPEN[r.id] || 0, n.d < 95 ? 1 : 0, .1);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "rgba(4,18,28,.85)";
-    ctx.beginPath(); ctx.arc(dx, dy, 30, 0, 6.2832); ctx.fill();
-    /* lamelle: ruotano e si ritraggono verso il bordo */
-    ctx.fillStyle = "rgba(70,96,110,1)";
-    for(var i=0;i<6;i++){
-      var a0 = i*1.0472 + o*1.1;
-      var inner = 4 + o*20;
-      ctx.beginPath();
-      ctx.moveTo(dx+Math.cos(a0)*inner, dy+Math.sin(a0)*inner);
-      ctx.lineTo(dx+Math.cos(a0)*27, dy+Math.sin(a0)*27);
-      ctx.lineTo(dx+Math.cos(a0+1.0472)*27, dy+Math.sin(a0+1.0472)*27);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "rgba(10,30,40,1)"; ctx.lineWidth = 1.5; ctx.stroke();
-    }
-    ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = "rgba("+CY+","+(.35+o*.6)+")"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(dx, dy, 29, 0, 6.2832); ctx.stroke();
-    if(o > .05){
-      var g = ctx.createRadialGradient(dx, dy, 2, dx, dy, 24*o);
-      g.addColorStop(0, "rgba("+CY+","+(.5*o)+")"); g.addColorStop(1, "rgba("+CY+",0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(dx, dy, 24, 0, 6.2832); ctx.fill();
-    }
-  });
-
-  /* oggetti: ognuno reagisce al più vicino entro ENV_R */
-  PROPS.forEach(function(p){
-    var n = nearest(p.x, p.y, acts);
-    p.who = n.d < ENV_R ? n.e : null;
-    p.a = lerp(p.a, p.who ? 1 : 0, .07);
-    var idle = reduce ? .5 : .5+.5*Math.sin(now*1.6 + p.seed), a = p.a;
-    if(p.k === "lamp"){
-      var rad = 16 + a*42 + idle*4;
-      var g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, rad);
-      g.addColorStop(0, "rgba("+p.c+","+(.35+a*.55)+")"); g.addColorStop(1, "rgba("+p.c+",0)");
-      ctx.fillStyle = g; ctx.fillRect(p.x-rad, p.y-rad, rad*2, rad*2);
-    } else if(p.k === "screen"){
-      var w = 46, h = 28;
-      ctx.fillStyle = "rgba("+p.c+","+(.06+idle*.05+a*.35)+")";
-      ctx.fillRect(p.x-w/2, p.y-h/2, w, h);
-      if(a > .1){
-        /* righe di dati che scorrono: lo schermo "risponde" */
-        for(var k=0;k<4;k++){
-          var ly = p.y-h/2+4 + ((now*18 + k*7) % (h-6));
-          ctx.fillStyle = "rgba("+p.c+","+(a*.8)+")";
-          ctx.fillRect(p.x-w/2+5, ly, (w-10)*(.35+.6*((k*37+Math.floor(now*3))%5)/5), 2);
-        }
-      }
-    } else if(p.k === "tank"){
-      var g = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, 30+a*18);
-      g.addColorStop(0, "rgba("+p.c+","+(.12+idle*.06+a*.35)+")"); g.addColorStop(1, "rgba("+p.c+",0)");
-      ctx.fillStyle = g; ctx.fillRect(p.x-50, p.y-50, 100, 100);
-      if(Math.random() < .03 + a*.35) bub(p.x, p.y, p.c, a > .5);
-    } else if(p.k === "ring"){
-      var rr = 20 + a*6, rot = now*(.6 + a*4) + p.seed;
-      ctx.strokeStyle = "rgba("+p.c+","+(.25+idle*.1+a*.65)+")"; ctx.lineWidth = 3;
-      for(var q=0;q<3;q++){
-        ctx.beginPath(); ctx.arc(p.x, p.y, rr, rot+q*2.094, rot+q*2.094+1.2); ctx.stroke();
-      }
-      if(a > .2){
-        ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba("+p.c+","+(a*.5)+")";
-        var pr = (now*40 % 30);
-        ctx.beginPath(); ctx.arc(p.x, p.y, rr+pr, 0, 6.2832); ctx.stroke();
-      }
-    }
-    /* il filo: chi sta interagendo è collegato all'oggetto */
-    if(p.who && a > .3){
-      var hx = p.who.x, hy = p.who.y-26;
-      ctx.strokeStyle = "rgba("+p.c+","+(a*.55)+")"; ctx.lineWidth = 1.5;
-      ctx.setLineDash([4,5]); ctx.lineDashOffset = -now*30;
-      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(p.x, p.y); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = "rgba("+p.c+","+a+")"; ctx.fillRect(p.x-2, p.y-2, 4, 4);
-    }
-  });
-  ctx.restore();
-}
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
 /* sopra i personaggi: bolle (scia di chi cammina + vasche attive) e pesci
    che nuotano sopra le cupole e scappano da chi gli passa sotto */
 var envLast = 0;
-function drawEnvTop(t){
-  var dt = envLast ? Math.min(.05, (t-envLast)/1000) : .016; envLast = t;
-  var acts = envActors();
-  if(!reduce) acts.forEach(function(e){ if(e.moving && Math.random() < .12) bub(e.x, e.y-8, "200,240,255", false); });
-
-  ctx.save();
-  for(var i=BUBS.length-1;i>=0;i--){
-    var b = BUBS[i]; b.t += dt;
-    if(b.t >= b.l){ BUBS.splice(i,1); continue; }
-    var k = b.t/b.l;
-    b.y -= dt*18;
-    ctx.strokeStyle = "rgba("+b.c+","+(.8*(1-k))+")"; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(b.x, b.y, b.r*(1+k*1.4), 0, 6.2832); ctx.stroke();
-  }
-
-  FISH.forEach(function(f){
-    if(!reduce){
-      var n = nearest(f.x, f.y, acts);
-      if(n.e && n.d < 150){
-        var dx = f.x-n.e.x, dy = f.y-(n.e.y-20), d = Math.max(n.d, 1);
-        f.vx += dx/d*420*dt; f.vy += dy/d*420*dt;           /* scatta via */
-      } else {
-        f.p += dt*.6; f.vx += Math.cos(f.p)*12*dt; f.vy += Math.sin(f.p*1.3)*12*dt;
-      }
-      var sp = Math.sqrt(f.vx*f.vx+f.vy*f.vy), mx = n.d < 150 ? 170 : 38;
-      if(sp > mx){ f.vx *= mx/sp; f.vy *= mx/sp; }
-      if(sp < 14){ f.vx *= 1.05; f.vy *= 1.05; }
-      f.x += f.vx*dt; f.y += f.vy*dt;
-      if(f.x < -40) f.x = WORLD.w+40; if(f.x > WORLD.w+40) f.x = -40;
-      if(f.y < -40) f.y = WORLD.h+40; if(f.y > WORLD.h+40) f.y = -40;
-    }
-    var ang = Math.atan2(f.vy, f.vx);
-    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(ang); ctx.scale(f.s, f.s);
-    ctx.fillStyle = "rgba(6,28,38,.55)";
-    ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.2832); ctx.fill();
-    var wag = reduce ? 0 : Math.sin(t*.02 + f.p)*3;
-    ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-20,-6+wag); ctx.lineTo(-20,6+wag); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba("+CY+",.5)"; ctx.fillRect(6,-1.5,2,2);
-    ctx.restore();
-  });
-  ctx.restore();
-}
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
 /* ------------------------------------------------------------ render */
 /* campo scoperto, quindi l'ora vera conta: un velo blu che cresce verso
@@ -3274,154 +3113,7 @@ function label(txt, x, y, col){
   ctx.textAlign = "start";
 }
 
-function drawWorld(t){
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#0e0c09"; ctx.fillRect(0,0,VW,VH);
-
-  cam.s = lerp(cam.s,cam.ts,.09); cam.x = lerp(cam.x,cam.tx,.09); cam.y = lerp(cam.y,cam.ty,.09);
-  ctx.setTransform(cam.s*dpr,0,0,cam.s*dpr,(-cam.x*cam.s+VW/2)*dpr,(-cam.y*cam.s+VH/2)*dpr);
-  ctx.imageSmoothingEnabled = false;
-
-  /* il fondale copre TUTTA la vista, non solo il rettangolo del mondo:
-     piastrelle specchiate a scacchiera (ogni bordo combacia col vicino),
-     ancorate al mondo così scorrono insieme alla camera */
-  var vx0 = cam.x - VW/2/cam.s, vy0 = cam.y - VH/2/cam.s, vw = VW/cam.s, vh = VH/cam.s;
-  var sea = ENV_IMG.bg_seafloor;
-  /* in DASHBOARD il canvas è nascosto (VW=0) e cam.s può arrivare a 0 o
-     sotto: senza questa guardia la vista diventa infinita e il ciclo non
-     finisce mai (pagina bloccata). Tetto di 4 piastrelle per lato. */
-  var seaOk = cam.s > .01 && VW > 0 && VH > 0 && isFinite(vx0) && isFinite(vy0);
-  if(seaOk && envReady(sea)){
-    var tw = WORLD.w+120, th = WORLD.h+120;
-    var i0 = Math.floor((vx0+60)/tw), i1 = Math.min(i0+3, Math.floor((vx0+vw+60)/tw));
-    var j0 = Math.floor((vy0+60)/th), j1 = Math.min(j0+3, Math.floor((vy0+vh+60)/th));
-    for(var ti=i0; ti<=i1; ti++) for(var tj=j0; tj<=j1; tj++){
-      var fx = ti%2 !== 0, fy = tj%2 !== 0;
-      ctx.save();
-      ctx.translate(-60 + ti*tw + (fx ? tw : 0), -60 + tj*th + (fy ? th : 0));
-      ctx.scale(fx ? -1 : 1, fy ? -1 : 1);
-      ctx.drawImage(sea, 0, 0, tw+1, th+1);
-      ctx.restore();
-    }
-  } else if(seaOk){ ctx.fillStyle = "#06202c"; ctx.fillRect(vx0, vy0, vw, vh); }
-  if(seaOk){ ctx.fillStyle = "rgba(0,10,18,.35)"; ctx.fillRect(vx0, vy0, vw, vh); }
-
-  /* skyline e cavi, dietro corridoio e reparti: si vedono solo negli
-     spazi vuoti tra le sagome dei lotti, come dietro un konbini vero */
-  if(SKY_C) ctx.drawImage(SKY_C, 0, 0);
-
-  if(CORR_C) ctx.drawImage(CORR_C, CORR.x, CORR.y);
-
-  var det = clamp((cam.s-.55)/.35,0,1);
-
-  ROOMS.forEach(function(r){
-    if(BAKED[r.id]) ctx.drawImage(BAKED[r.id], r.x, r.y);
-    envRoomLight(r);
-    var here = (STATE.room === r.id) && !ULTRON.moving;
-    var going = (STATE.target === r.id) && ULTRON.moving;
-    if(here){
-      ctx.fillStyle = stColor(); ctx.globalAlpha = .1; ctx.fillRect(r.x,r.y,r.w,r.h); ctx.globalAlpha = 1;
-      ctx.strokeStyle = stColor(); ctx.lineWidth = 3/cam.s; ctx.strokeRect(r.x+2,r.y+2,r.w-4,r.h-4);
-    } else if(going && Math.floor(t*.005)%2){
-      ctx.strokeStyle = stColor(); ctx.lineWidth = 2/cam.s; ctx.strokeRect(r.x+2,r.y+2,r.w-4,r.h-4);
-    } else if(focus === r){
-      ctx.strokeStyle = P.gold; ctx.lineWidth = 3/cam.s; ctx.strokeRect(r.x+2,r.y+2,r.w-4,r.h-4);
-    }
-    drawRoomLive(r, det, t);
-  });
-
-  drawEnvFloor(t);
-
-  /* casse a terra */
-  TASKS.forEach(function(k){
-    if(k.carrier) return;
-    drawSprite(OBJ.crate, k.x, k.y, 2, false);
-    ctx.fillStyle = P.out; ctx.fillRect(k.x-20,k.y-46,40,7);
-    ctx.fillStyle = k.st==="qa" ? P.red : P.gold; ctx.fillRect(k.x-19,k.y-45,38*k.p,5);
-    if(det > .45) label(k.t.slice(0,13), k.x, k.y-52, P.ink);
-  });
-
-  /* gli specialisti, al posto o al seguito */
-  drawSpecs(t, det);
-
-  /* la truppa */
-  CREW.forEach(function(a){
-    var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
-    var f = a.moving ? 2 + (Math.floor(a.phase)%4) : 0;
-    var img = a.costume ? cameoSprite(a.costume, f) : crewSprite(a,f,!!carrying);
-    drawSprite(img, a.x, a.y, 2.2, a.face<0);
-    if(carrying){
-      /* la cassa viaggia sopra la testa di chi la porta */
-      var cy = a.y - 62 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0);
-      drawSprite(OBJ.crate, a.x, cy, 2, false);
-      if(det > .45) label(carrying.t.slice(0,13), a.x, cy-42, P.ink);
-    }
-    if(det > .3) label(a.n, a.x, a.y-70, a.col);
-  });
-
-  /* Ultron */
-  var uf = ULTRON.moving ? 2 + (Math.floor(ULTRON.phase)%4) : (Math.floor(t*.003)%2);
-  ctx.globalAlpha = .2; ctx.fillStyle = stColor();
-  ctx.beginPath(); ctx.ellipse(ULTRON.x, ULTRON.y-2, 26+Math.sin(t*.004)*3, 9, 0, 0, 6.2832); ctx.fill();
-  ctx.globalAlpha = 1;
-  drawSprite(ultronSprite(uf, actionOf(), STATE.status), ULTRON.x, ULTRON.y, 2.6, ULTRON.face<0);
-  if(det > .2) label("ULTRON", ULTRON.x, ULTRON.y-96, P.gold);
-  if(STATE.status === "waiting"){
-    drawSprite(BUBBLE, ULTRON.x+16, ULTRON.y-102, 1.8, false);
-  } else if(STATE.status === "thinking" && !reduce){
-    var pulse = .5+.5*Math.sin(t*.006);
-    ctx.fillStyle = "rgba(143,208,255,"+(0.35+pulse*0.5)+")";
-    ctx.beginPath(); ctx.arc(ULTRON.x+16, ULTRON.y-100, 3+pulse*2, 0, 6.2832); ctx.fill();
-  }
-  /* i cloni: altri terminali Claude Code attivi, stesso Ultron ma trasparente
-     per non confonderlo col titolare */
-  CLONES.forEach(function(c){
-    var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2);
-    ctx.globalAlpha = .5;
-    drawSprite(ultronSprite(cf, actionFor(c.status), c.status), c.x, c.y, c.scale, c.face<0);
-    ctx.globalAlpha = 1;
-    if(det > .3) label("ULTRON", c.x, c.y-96, P.ink);
-  });
-  /* i mini-Ultron: un sub-agente in coda per ognuno, scala ridotta e tinta
-     viola — "design rivisitato" via filtro canvas, nessuno sprite nuovo */
-  MINIS.forEach(function(m){
-    var mf = m.moving ? 2 + (Math.floor(m.phase)%4) : 0;
-    ctx.save(); ctx.filter = "sepia(1) saturate(5) hue-rotate(220deg) brightness(.95)";
-    drawSprite(ultronSprite(mf, "point", m.status), m.x, m.y, m.scale, m.face<0);
-    ctx.restore();
-  });
-
-  drawSkillFx(t);
-  drawBeats(t);
-  drawParts();
-  drawEnvTop(t);
-
-  var nightA = dayNightTint();
-  if(nightA > .02){
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.fillStyle = "rgba(8,30,42,"+nightA+")";
-    ctx.fillRect(0,0,VW,VH);
-
-    /* le vetrine sono cotte nell'immagine della stanza, quindi il velo
-       qui sopra le scurirebbe come tutto il resto — sbagliato, una
-       finestra accesa è la fonte di luce, non ciò che la luce scurisce.
-       Ridisegno il bagliore SOPRA il velo, stessa trasformazione mondo
-       usata dal resto della scena, così la vetrina resta accesa anche
-       a notte piena invece di spegnersi insieme all'ambiente. */
-    ctx.setTransform(cam.s*dpr,0,0,cam.s*dpr,(-cam.x*cam.s+VW/2)*dpr,(-cam.y*cam.s+VH/2)*dpr);
-    ROOMS.forEach(function(r){
-      var gx = doorX(r), gy = doorY(r) + (isTop(r) ? -10 : 10);
-      var g = ctx.createRadialGradient(gx,gy,4, gx,gy,64);
-      g.addColorStop(0,   "rgba(95,243,255,"+(.45*nightA/.5)+")");
-      g.addColorStop(.5,  "rgba(95,243,255,"+(.18*nightA/.5)+")");
-      g.addColorStop(1,   "rgba(95,243,255,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(gx-64, gy-64, 128, 128);
-    });
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-}
+/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
 function drawRoomLive(r, det, t){
   ctx.save();
@@ -3625,6 +3317,635 @@ function loop(t){
   document.getElementById("coreClock").textContent =
     String(Math.floor(el/60)).padStart(2,"0")+":"+String(el%60).padStart(2,"0");
   requestAnimationFrame(loop);
+}
+
+/* ====================================== DEMO: CUPOLE CORALLINE ==
+   Vista dall'alto su una barriera corallina: ogni reparto è una cupola di
+   vetro (ellisse inscritta nel vecchio rettangolo), taglie diverse e
+   sfalsate, agganciata alla dorsale di vetro da un tubo corto. Sopra
+   tutto scorrono le caustiche della luce che filtra dalla superficie. */
+function ell(c, r, dx, dy, pad){
+  pad = pad || 0;
+  c.beginPath();
+  c.ellipse(r.x+r.w/2+(dx||0), r.y+r.h/2+(dy||0), r.w/2-pad, r.h/2-pad, 0, 0, 6.2832);
+}
+function tubeRect(r){
+  var x = doorX(r), top = isTop(r);
+  return top ? {x:x-38, y:r.y+r.h-40, w:76, h:CORR.y-(r.y+r.h)+60}
+             : {x:x-38, y:CORR.y+CORR.h-20, w:76, h:r.y-(CORR.y+CORR.h)+60};
+}
+/* caustiche: una piastrella di Voronoi calcolata una volta sola, poi due
+   strati che scorrono a velocità diverse (la luce "balla" senza costo) */
+var CAUSTIC = (function(){
+  var S = 256, c = document.createElement("canvas"); c.width = c.height = S;
+  var x = c.getContext("2d"), im = x.createImageData(S, S), pts = [];
+  for(var i=0;i<22;i++) pts.push([Math.random()*S, Math.random()*S]);
+  for(var py=0; py<S; py++) for(var px=0; px<S; px++){
+    var d1 = 1e9, d2 = 1e9;
+    for(var k=0;k<pts.length;k++) for(var ox=-S; ox<=S; ox+=S) for(var oy=-S; oy<=S; oy+=S){
+      var dx = px-pts[k][0]-ox, dy = py-pts[k][1]-oy, d = dx*dx+dy*dy;
+      if(d < d1){ d2 = d1; d1 = d; } else if(d < d2) d2 = d;
+    }
+    var e = Math.sqrt(d2)-Math.sqrt(d1), v = Math.max(0, 1-e/5), o = (py*S+px)*4;
+    im.data[o] = 190; im.data[o+1] = 250; im.data[o+2] = 255; im.data[o+3] = Math.round(v*v*255);
+  }
+  x.putImageData(im, 0, 0);
+  /* sfocata una volta sola: la luce in acqua non ha bordi netti */
+  var b = document.createElement("canvas"); b.width = b.height = S;
+  var bx = b.getContext("2d"); bx.filter = "blur(2.5px)";
+  for(var tx=-S; tx<=S; tx+=S) for(var ty=-S; ty<=S; ty+=S) bx.drawImage(c, tx, ty);
+  return b;
+})();
+var KELP = [];
+for(var ki=0; ki<26; ki++) KELP.push({x:Math.random(), side:ki%2, h:60+Math.random()*90, p:Math.random()*6.28});
+
+var THEME = {
+  dir: "dome", fishBehind: false, strips: "95,243,255", glow: "95,243,255", void: "#063440",
+  clip: function(c, r, dx, dy){ ell(c, r, dx, dy, 8); c.clip(); },
+  outline: function(c, r){ ell(c, r, 0, 0, 6); },
+  signAt: function(r, sg){
+    return {x:Math.round(r.w/2 - sg.width), y: isTop(r) ? 34 : r.h - sg.height*2 - 34};
+  },
+
+  back: function(t, v){
+    var sea = img("bg");
+    if(envReady(sea)){
+      var tw = WORLD.w+200, th = WORLD.h+200;
+      var i0 = Math.floor((v.x+100)/tw), i1 = Math.min(i0+3, Math.floor((v.x+v.w+100)/tw));
+      var j0 = Math.floor((v.y+100)/th), j1 = Math.min(j0+3, Math.floor((v.y+v.h+100)/th));
+      for(var ti=i0; ti<=i1; ti++) for(var tj=j0; tj<=j1; tj++){
+        var fx = ti%2 !== 0, fy = tj%2 !== 0;
+        ctx.save();
+        ctx.translate(-100 + ti*tw + (fx ? tw : 0), -100 + tj*th + (fy ? th : 0));
+        ctx.scale(fx ? -1 : 1, fy ? -1 : 1);
+        ctx.drawImage(sea, 0, 0, tw+1, th+1);
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = "rgba(0,40,60,.28)"; ctx.fillRect(v.x, v.y, v.w, v.h);
+    /* ombre morbide delle cupole sul fondale: danno altezza al vetro */
+    ctx.save(); ctx.fillStyle = "rgba(0,18,28,.22)";
+    ROOMS.forEach(function(r){ ell(ctx, r, 30, 38, -10); ctx.fill(); ell(ctx, r, 22, 28, 0); ctx.fill(); });
+    ctx.restore();
+    /* alghe che ondeggiano ai bordi del complesso */
+    var s = t*.001;
+    ctx.save(); ctx.lineCap = "round";
+    KELP.forEach(function(k){
+      var bx = k.x*WORLD.w, by = k.side ? WORLD.h-10 : 10, dir = k.side ? -1 : 1;
+      ctx.strokeStyle = "rgba(40,120,90,.55)"; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(bx, by);
+      for(var q=1;q<=6;q++){
+        var sw = Math.sin(s*1.1 + k.p + q*.6)*q*3;
+        ctx.lineTo(bx+sw, by + dir*k.h*q/6);
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+  },
+
+  corridor: function(t){
+    var c = CORR, R2 = c.h/2, tex = img("corr");
+    /* tubi di raccordo cupola -> dorsale */
+    ROOMS.forEach(function(r){
+      var b = tubeRect(r);
+      ctx.fillStyle = "#0b2531"; ctx.fillRect(b.x-8, b.y, b.w+16, b.h);
+      ctx.fillStyle = "#15394a"; ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      for(var y = b.y+6; y < b.y+b.h; y += 12) ctx.fillRect(b.x+6, y, b.w-12, 4);
+      ctx.fillStyle = "rgba(190,245,255,.35)"; ctx.fillRect(b.x+4, b.y, 4, b.h); ctx.fillRect(b.x+b.w-8, b.y, 3, b.h);
+    });
+    /* dorsale: capsula di vetro con la grata dentro */
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(c.x, c.y, c.w, c.h, R2); ctx.fillStyle = "#0a2230"; ctx.fill();
+    ctx.clip();
+    if(envReady(tex)){
+      var sh = tex.naturalHeight*.45, sy = (tex.naturalHeight-sh)/2, tw = tex.naturalWidth*c.h/sh;
+      for(var i=0, px=c.x; px < c.x+c.w; i++, px += tw){
+        ctx.save();
+        if(i%2){ ctx.translate(px+tw, c.y); ctx.scale(-1,1); ctx.drawImage(tex, 0, sy, tex.naturalWidth, sh, 0, 0, tw, c.h); }
+        else ctx.drawImage(tex, 0, sy, tex.naturalWidth, sh, px, c.y, tw, c.h);
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = "rgba(2,20,30,.25)"; ctx.fillRect(c.x, c.y, c.w, c.h);
+    ctx.restore();
+    ctx.beginPath(); ctx.roundRect(c.x, c.y, c.w, c.h, R2);
+    ctx.lineWidth = 14; ctx.strokeStyle = "#0c2733"; ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(160,240,255,.45)"; ctx.stroke();
+    /* costole della dorsale */
+    ctx.fillStyle = "#0c2733";
+    for(var x = c.x+R2+60; x < c.x+c.w-R2; x += 120) ctx.fillRect(x, c.y-4, 8, c.h+8);
+    ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(c.x+R2, c.y+8, c.w-R2*2, 4);
+  },
+
+  frame: function(r, t){
+    ctx.save();
+    /* anello della cupola: metallo scuro, filo di luce interno, bulloni */
+    ell(ctx, r, 0, 0, 6);
+    ctx.lineWidth = 18; ctx.strokeStyle = "#0b222d"; ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(95,243,255,.5)"; ell(ctx, r, 0, 0, 16); ctx.stroke();
+    var cx = r.x+r.w/2, cy = r.y+r.h/2, rx = r.w/2-6, ry = r.h/2-6;
+    ctx.fillStyle = "#2d5566";
+    for(var a=0; a<6.28; a+=.3) ctx.fillRect(cx+Math.cos(a)*rx-3, cy+Math.sin(a)*ry-3, 6, 6);
+    /* vetro: riflesso curvo in alto a sinistra */
+    ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.strokeStyle = "rgba(230,255,255,.22)";
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx-34, ry-34, 0, 3.6, 4.5); ctx.stroke();
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(230,255,255,.3)";
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx-52, ry-52, 0, 3.75, 4.2); ctx.stroke();
+    ctx.restore();
+  },
+
+  door: function(r, o, t){
+    /* portello a iride, lo stesso della Baracca vera */
+    var dx = doorX(r), dy = doorY(r);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(4,18,28,.85)";
+    ctx.beginPath(); ctx.arc(dx, dy, 30, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = "rgba(70,96,110,1)";
+    for(var i=0;i<6;i++){
+      var a0 = i*1.0472 + o*1.1, inner = 4 + o*20;
+      ctx.beginPath();
+      ctx.moveTo(dx+Math.cos(a0)*inner, dy+Math.sin(a0)*inner);
+      ctx.lineTo(dx+Math.cos(a0)*27, dy+Math.sin(a0)*27);
+      ctx.lineTo(dx+Math.cos(a0+1.0472)*27, dy+Math.sin(a0+1.0472)*27);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(10,30,40,1)"; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = "rgba(95,243,255,"+(.35+o*.6)+")"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(dx, dy, 29, 0, 6.2832); ctx.stroke();
+  },
+
+  front: function(t, v){
+    if(reduce) return;
+    var s = t*.001;
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    [[.34, 1, 14, 9, .09], [.52, -1, -11, 7, .06]].forEach(function(L){
+      var sc = L[0]*4, tile = 256*sc;
+      var ox = (s*L[2]) % tile, oy = (s*L[3]) % tile;
+      ctx.globalAlpha = L[4];
+      var x0 = Math.floor((v.x-ox)/tile)*tile+ox, y0 = Math.floor((v.y-oy)/tile)*tile+oy;
+      for(var x = x0; x < v.x+v.w; x += tile) for(var y = y0; y < v.y+v.h; y += tile)
+        ctx.drawImage(CAUSTIC, x, y, tile+1, tile+1);
+    });
+    ctx.restore();
+  }
+};
+
+/* ================================================ DEMO FORME: stage ==
+   Iniettato da build.py DENTRO la IIFE, dopo il tema (THEME). Qui dentro
+   l'ultima dichiarazione vince: queste funzioni sostituiscono solo la
+   scenografia della Baracca vera. Personaggi, pathing, dati, pannelli e
+   simulatore restano quelli originali, non toccati.
+
+   Contratto del tema (coordinate mondo; dx/dy spostano il disegno quando
+   si cuoce una stanza nel suo canvas locale):
+     THEME.clip(c, r, dx, dy)   applica il clip della forma della stanza
+     THEME.outline(c, r)        traccia il contorno della stanza (path)
+     THEME.back(t, v)           fondale, v = rettangolo visibile in mondo
+     THEME.corridor(t)          corridoio e raccordi, sotto le stanze
+     THEME.frame(r, t)          cornice della stanza, sopra il suo interno
+     THEME.door(r, o, t)        varco, o = 0 chiuso .. 1 aperto
+     THEME.front(t)             sopra personaggi e bolle, sotto il velo notte
+     THEME.signAt(r, sg)        posizione locale dell'insegna
+     THEME.inner(c, r)          opz.: effetto cotto nella stanza, dentro il clip
+     THEME.fishBehind           true: i pesci nuotano dietro al mondo
+     THEME.strips               colore delle strisce del corridoio, o null
+*/
+/* server.py serve solo .jpg piatti in assets/: dome_<nome>.jpg */
+function img(n){ return ENV_IMG[THEME.dir + "_" + n]; }
+
+/* ricolloca la truppa dentro le stanze nuove (le coordinate iniziali
+   dell'originale puntano al vecchio mondo rettangolare) */
+CREW.forEach(function(a){ var p = inRoom(R(a.room), .5, .7); a.x = p.x; a.y = p.y; });
+ULTRON.x = CORR.x + CORR.w/2; ULTRON.y = CORR_Y;
+
+function bakeRoom(r){
+  var c = document.createElement("canvas"); c.width = r.w; c.height = r.h;
+  var x = c.getContext("2d");
+  x.save();
+  THEME.clip(x, r, -r.x, -r.y);
+  var im = img("room_" + r.id);
+  if(envReady(im)){
+    /* "cover": proporzioni dell'immagine intatte, si ritaglia l'eccesso */
+    var k = Math.max(r.w/im.naturalWidth, r.h/im.naturalHeight), iw = im.naturalWidth*k, ih = im.naturalHeight*k;
+    x.drawImage(im, (r.w-iw)/2, (r.h-ih)/2, iw, ih);
+  }
+  else { x.fillStyle = "#0b2a38"; x.fillRect(0, 0, r.w, r.h); }
+  if(THEME.inner) THEME.inner(x, r);
+  x.restore();
+  x.imageSmoothingEnabled = false;
+  var sg = sign(r.n, r.c), at = THEME.signAt(r, sg);
+  x.save(); x.globalAlpha = .6; x.fillStyle = "#04121b";
+  x.fillRect(at.x-6, at.y-4, sg.width*2+12, sg.height*2+8);
+  x.restore();
+  x.drawImage(sg, at.x, at.y, sg.width*2, sg.height*2);
+  BAKED[r.id] = c;
+}
+function bakeCorr(){ CORR_C = null; }   /* il corridoio lo disegna THEME.corridor, dal vivo */
+
+function envRoomLight(r){
+  var acts = envActors(), inside = false;
+  for(var i=0;i<acts.length;i++) if(roomAt(acts[i].x, acts[i].y) === r){ inside = true; break; }
+  var lit = ROOM_LIT[r.id] = lerp(ROOM_LIT[r.id] || 0, inside ? 1 : 0, .05);
+  ctx.save(); THEME.clip(ctx, r, 0, 0);
+  ctx.fillStyle = "rgba(2,10,20," + (.42*(1-lit)) + ")";
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.restore();
+}
+
+/* come l'originale, ma il varco e le strisce del corridoio sono del tema */
+function drawEnvFloor(t){
+  var acts = envActors(), now = t*.001;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  if(THEME.strips){
+    acts.forEach(function(e){
+      if(e.y < CORR.y-10 || e.y > CORR.y+CORR.h+10) return;
+      var g = ctx.createRadialGradient(e.x, e.y-6, 2, e.x, e.y-6, 52);
+      g.addColorStop(0, "rgba("+THEME.strips+",.34)"); g.addColorStop(1, "rgba("+THEME.strips+",0)");
+      ctx.fillStyle = g; ctx.fillRect(e.x-52, e.y-58, 104, 104);
+    });
+  }
+  ROOMS.forEach(function(r){
+    var n = nearest(doorX(r), doorY(r), acts);
+    var o = DOOR_OPEN[r.id] = lerp(DOOR_OPEN[r.id] || 0, n.d < 95 ? 1 : 0, .1);
+    ctx.save(); THEME.door(r, o, t); ctx.restore();
+  });
+  PROPS.forEach(function(p){
+    var n = nearest(p.x, p.y, acts);
+    p.who = n.d < ENV_R ? n.e : null;
+    p.a = lerp(p.a, p.who ? 1 : 0, .07);
+    var idle = reduce ? .5 : .5+.5*Math.sin(now*1.6 + p.seed), a = p.a;
+    if(p.k === "lamp"){
+      var rad = 16 + a*42 + idle*4;
+      var g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, rad);
+      g.addColorStop(0, "rgba("+p.c+","+(.35+a*.55)+")"); g.addColorStop(1, "rgba("+p.c+",0)");
+      ctx.fillStyle = g; ctx.fillRect(p.x-rad, p.y-rad, rad*2, rad*2);
+    } else if(p.k === "screen"){
+      var w = 46, h = 28;
+      ctx.fillStyle = "rgba("+p.c+","+(.06+idle*.05+a*.35)+")";
+      ctx.fillRect(p.x-w/2, p.y-h/2, w, h);
+      if(a > .1){
+        for(var k=0;k<4;k++){
+          var ly = p.y-h/2+4 + ((now*18 + k*7) % (h-6));
+          ctx.fillStyle = "rgba("+p.c+","+(a*.8)+")";
+          ctx.fillRect(p.x-w/2+5, ly, (w-10)*(.35+.6*((k*37+Math.floor(now*3))%5)/5), 2);
+        }
+      }
+    } else if(p.k === "tank"){
+      var g2 = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, 30+a*18);
+      g2.addColorStop(0, "rgba("+p.c+","+(.12+idle*.06+a*.35)+")"); g2.addColorStop(1, "rgba("+p.c+",0)");
+      ctx.fillStyle = g2; ctx.fillRect(p.x-50, p.y-50, 100, 100);
+      if(Math.random() < .03 + a*.35) bub(p.x, p.y, p.c, a > .5);
+    } else if(p.k === "ring"){
+      var rr = 20 + a*6, rot = now*(.6 + a*4) + p.seed;
+      ctx.strokeStyle = "rgba("+p.c+","+(.25+idle*.1+a*.65)+")"; ctx.lineWidth = 3;
+      for(var q=0;q<3;q++){ ctx.beginPath(); ctx.arc(p.x, p.y, rr, rot+q*2.094, rot+q*2.094+1.2); ctx.stroke(); }
+      if(a > .2){
+        ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba("+p.c+","+(a*.5)+")";
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr+(now*40 % 30), 0, 6.2832); ctx.stroke();
+      }
+    }
+    if(p.who && a > .3){
+      var hx = p.who.x, hy = p.who.y-26;
+      ctx.strokeStyle = "rgba("+p.c+","+(a*.55)+")"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,5]); ctx.lineDashOffset = -now*30;
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba("+p.c+","+a+")"; ctx.fillRect(p.x-2, p.y-2, 4, 4);
+    }
+  });
+  ctx.restore();
+}
+
+/* pesci e bolle dell'originale, separati: col sottomarino i pesci stanno
+   dietro lo scafo, nelle altre demo nuotano sopra */
+var envLast = 0, envDt = .016;
+function stepFish(t){
+  var acts = envActors(), dt = envDt;
+  ctx.save();
+  FISH.forEach(function(f){
+    if(!reduce){
+      var n = nearest(f.x, f.y, acts);
+      if(n.e && n.d < 150){
+        var dx = f.x-n.e.x, dy = f.y-(n.e.y-20), d = Math.max(n.d, 1);
+        f.vx += dx/d*420*dt; f.vy += dy/d*420*dt;
+      } else {
+        f.p += dt*.6; f.vx += Math.cos(f.p)*12*dt; f.vy += Math.sin(f.p*1.3)*12*dt;
+      }
+      var sp = Math.sqrt(f.vx*f.vx+f.vy*f.vy), mx = n.d < 150 ? 170 : 38;
+      if(sp > mx){ f.vx *= mx/sp; f.vy *= mx/sp; }
+      if(sp < 14){ f.vx *= 1.05; f.vy *= 1.05; }
+      f.x += f.vx*dt; f.y += f.vy*dt;
+      if(f.x < -40) f.x = WORLD.w+40; if(f.x > WORLD.w+40) f.x = -40;
+      if(f.y < -40) f.y = WORLD.h+40; if(f.y > WORLD.h+40) f.y = -40;
+    }
+    var ang = Math.atan2(f.vy, f.vx);
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(ang); ctx.scale(f.s, f.s);
+    ctx.fillStyle = THEME.fishFill || "rgba(6,28,38,.55)";
+    ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.2832); ctx.fill();
+    var wag = reduce ? 0 : Math.sin(t*.02 + f.p)*3;
+    ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-20,-6+wag); ctx.lineTo(-20,6+wag); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba("+CY+",.5)"; ctx.fillRect(6,-1.5,2,2);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+function drawEnvTop(t){
+  var acts = envActors(), dt = envDt;
+  if(!reduce) acts.forEach(function(e){ if(e.moving && Math.random() < .12) bub(e.x, e.y-8, "200,240,255", false); });
+  ctx.save();
+  for(var i=BUBS.length-1;i>=0;i--){
+    var b = BUBS[i]; b.t += dt;
+    if(b.t >= b.l){ BUBS.splice(i,1); continue; }
+    var k = b.t/b.l;
+    b.y -= dt*18;
+    ctx.strokeStyle = "rgba("+b.c+","+(.8*(1-k))+")"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r*(1+k*1.4), 0, 6.2832); ctx.stroke();
+  }
+  ctx.restore();
+  if(!THEME.fishBehind) stepFish(t);
+}
+
+function drawWorld(t){
+  envDt = envLast ? Math.min(.05, (t-envLast)/1000) : .016; envLast = t;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = THEME.void || "#04121b"; ctx.fillRect(0,0,VW,VH);
+
+  cam.s = lerp(cam.s,cam.ts,.09); cam.x = lerp(cam.x,cam.tx,.09); cam.y = lerp(cam.y,cam.ty,.09);
+  /* in DASHBOARD il canvas è nascosto (VW=0): niente mondo, stessa guardia
+     "seaOk" dell'originale contro la vista infinita */
+  if(!(cam.s > .01 && VW > 0 && VH > 0)) return;
+  ctx.setTransform(cam.s*dpr,0,0,cam.s*dpr,(-cam.x*cam.s+VW/2)*dpr,(-cam.y*cam.s+VH/2)*dpr);
+  ctx.imageSmoothingEnabled = true;
+  var v = {x:cam.x - VW/2/cam.s, y:cam.y - VH/2/cam.s, w:VW/cam.s, h:VH/cam.s};
+
+  THEME.back(t, v);
+  if(THEME.fishBehind) stepFish(t);
+  THEME.corridor(t);
+
+  var det = clamp((cam.s-.55)/.35,0,1);
+  ROOMS.forEach(function(r){
+    if(BAKED[r.id]) ctx.drawImage(BAKED[r.id], r.x, r.y);
+    envRoomLight(r);
+    var here = (STATE.room === r.id) && !ULTRON.moving;
+    var going = (STATE.target === r.id) && ULTRON.moving;
+    ctx.save(); THEME.clip(ctx, r, 0, 0);
+    if(here){ ctx.fillStyle = stColor(); ctx.globalAlpha = .1; ctx.fillRect(r.x,r.y,r.w,r.h); ctx.globalAlpha = 1; }
+    drawRoomLive(r, det, t);
+    ctx.restore();
+    THEME.frame(r, t);
+    var col = here ? stColor() : (going && Math.floor(t*.005)%2) ? stColor() : focus === r ? P.gold : null;
+    if(col){
+      ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = (here || focus === r ? 4 : 3)/cam.s;
+      ctx.shadowColor = col; ctx.shadowBlur = 12;
+      THEME.outline(ctx, r); ctx.stroke(); ctx.restore();
+    }
+  });
+  ctx.imageSmoothingEnabled = false;
+
+  drawEnvFloor(t);
+  if(typeof drawAtlas === "function") drawAtlas(t, det);   /* solo domes: atlante.js */
+
+  /* ---- da qui in giù identico all'originale: casse, persone, Ultron ---- */
+  TASKS.forEach(function(k){
+    if(k.carrier) return;
+    drawSprite(OBJ.crate, k.x, k.y, 2, false);
+    ctx.fillStyle = P.out; ctx.fillRect(k.x-20,k.y-46,40,7);
+    ctx.fillStyle = k.st==="qa" ? P.red : P.gold; ctx.fillRect(k.x-19,k.y-45,38*k.p,5);
+    if(det > .45) label(k.t.slice(0,13), k.x, k.y-52, P.ink);
+  });
+  drawSpecs(t, det);
+  CREW.forEach(function(a){
+    var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
+    var f = a.moving ? 2 + (Math.floor(a.phase)%4) : 0;
+    var im = a.costume ? cameoSprite(a.costume, f) : crewSprite(a,f,!!carrying);
+    drawSprite(im, a.x, a.y, 2.2, a.face<0);
+    if(carrying){
+      var cy = a.y - 62 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0);
+      drawSprite(OBJ.crate, a.x, cy, 2, false);
+      if(det > .45) label(carrying.t.slice(0,13), a.x, cy-42, P.ink);
+    }
+    if(det > .3) label(a.n, a.x, a.y-70, a.col);
+  });
+  var uf = ULTRON.moving ? 2 + (Math.floor(ULTRON.phase)%4) : (Math.floor(t*.003)%2);
+  ctx.globalAlpha = .2; ctx.fillStyle = stColor();
+  ctx.beginPath(); ctx.ellipse(ULTRON.x, ULTRON.y-2, 26+Math.sin(t*.004)*3, 9, 0, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+  drawSprite(ultronSprite(uf, actionOf(), STATE.status), ULTRON.x, ULTRON.y, 2.6, ULTRON.face<0);
+  if(det > .2) label("ULTRON", ULTRON.x, ULTRON.y-96, P.gold);
+  if(STATE.status === "waiting"){
+    drawSprite(BUBBLE, ULTRON.x+16, ULTRON.y-102, 1.8, false);
+  } else if(STATE.status === "thinking" && !reduce){
+    var pulse = .5+.5*Math.sin(t*.006);
+    ctx.fillStyle = "rgba(143,208,255,"+(0.35+pulse*0.5)+")";
+    ctx.beginPath(); ctx.arc(ULTRON.x+16, ULTRON.y-100, 3+pulse*2, 0, 6.2832); ctx.fill();
+  }
+  CLONES.forEach(function(c){
+    var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2);
+    ctx.globalAlpha = .5;
+    drawSprite(ultronSprite(cf, actionFor(c.status), c.status), c.x, c.y, c.scale, c.face<0);
+    ctx.globalAlpha = 1;
+    if(det > .3) label("ULTRON", c.x, c.y-96, P.ink);
+  });
+  MINIS.forEach(function(m){
+    var mf = m.moving ? 2 + (Math.floor(m.phase)%4) : 0;
+    ctx.save(); ctx.filter = "sepia(1) saturate(5) hue-rotate(220deg) brightness(.95)";
+    drawSprite(ultronSprite(mf, "point", m.status), m.x, m.y, m.scale, m.face<0);
+    ctx.restore();
+  });
+  drawSkillFx(t);
+  drawBeats(t);
+  drawParts();
+  drawEnvTop(t);
+  ctx.imageSmoothingEnabled = true;
+  THEME.front(t, v);
+
+  /* velo notturno sull'ora vera, poi le luci dei varchi SOPRA il velo */
+  var nightA = dayNightTint();
+  if(nightA > .02){
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle = "rgba(8,30,42,"+nightA+")";
+    ctx.fillRect(0,0,VW,VH);
+    ctx.setTransform(cam.s*dpr,0,0,cam.s*dpr,(-cam.x*cam.s+VW/2)*dpr,(-cam.y*cam.s+VH/2)*dpr);
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    ROOMS.forEach(function(r){
+      var gx = doorX(r), gy = doorY(r);
+      var g = ctx.createRadialGradient(gx,gy,4, gx,gy,70);
+      g.addColorStop(0, "rgba("+THEME.glow+","+(.4*nightA/.5)+")");
+      g.addColorStop(1, "rgba("+THEME.glow+",0)");
+      ctx.fillStyle = g; ctx.fillRect(gx-70, gy-70, 140, 140);
+    });
+    ctx.restore();
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+/* ============================================ DEMO CUPOLE: ATLANTE ==
+   I meccanismi del foglio "Atlante Abissale" sono DIPINTI nelle stanze
+   (Leonardo Phoenix, Giro 19). Qui non si disegna nessun oggetto: solo luce
+   e movimento sopra quelli dipinti, e solo quando arriva un segnale VERO
+   (LAST_STATE degli hook, VAULT, STATE.tokens, window.mountStorico).
+   Iniettato da build.py solo in domes.html; stage.js chiama drawAtlas()
+   sotto i personaggi. Coordinate in frazioni dell'immagine della stanza
+   (1024x1024), misurate a mano sulle immagini scelte. */
+var AT = {sig:null, lsp:-1e9, review:-1e9, probe:-1e9, pub:-1e9, pulses:[], pings:[], last:0};
+
+function atlasEvents(now){
+  var s = LAST_STATE;
+  if(!LIVE || !s || !s.ts || s.ts === AT.sig) return;
+  if(AT.sig === null){ AT.sig = s.ts; return; }   // lo stato trovato all'apertura non è un evento
+  AT.sig = s.ts;
+  var tool = String(s.tool || ""), task = String(s.task || "").toLowerCase();
+  AT.pulses.push(0);                               // ogni evento scende nel cavo dell'archivio
+  if(tool === "LSP") AT.lsp = now;
+  if(/review|verification/.test(task)) AT.review = now;
+  if(/screenshot|evaluate|javascript/.test(tool)) AT.probe = now;
+  if(tool === "WebSearch" || tool === "WebFetch") AT.pings.push(now);
+  if(s.room === "pub") AT.pub = now;
+}
+function atFade(since, now, dur){ var k = (now-since)/dur; return k < 0 || k > 1 ? 0 : 1-k; }
+/* stessa proiezione "cover" di bakeRoom: immagine quadrata centrata sulla stanza */
+function atW(id, u, v){
+  var r = R(id), s = Math.max(r.w, r.h);
+  return {x: r.x + (r.w-s)/2 + u*s, y: r.y + (r.h-s)/2 + v*s, s: s};
+}
+function atGlow(p, rad, rgb, a){
+  if(a <= .01) return;
+  var g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, rad);
+  g.addColorStop(0, "rgba("+rgb+","+a+")"); g.addColorStop(1, "rgba("+rgb+",0)");
+  ctx.fillStyle = g; ctx.fillRect(p.x-rad, p.y-rad, rad*2, rad*2);
+}
+
+/* RICERCA · tavolo sonar: la lancetta gira sempre piano; ogni ricerca web
+   degli ultimi 30s accende uno dei fasci dipinti. Con 2+ fasci si accende
+   anche lo schermo piccolo: fonte incrociata. */
+function atSonar(now){
+  var c = atW("ricerca", .5, .515), R0 = c.s*.18;
+  AT.pings = AT.pings.filter(function(p){ return now-p < 30; });
+  if(!reduce){
+    var a = now*.9;
+    ctx.strokeStyle = "rgba(95,243,255,.55)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x+Math.cos(a)*R0, c.y+Math.sin(a)*R0); ctx.stroke();
+  }
+  AT.pings.forEach(function(p, i){
+    var ang = (i % 8)*Math.PI/4 - Math.PI/2, k = 1-(now-p)/30;
+    ctx.strokeStyle = "rgba(255,220,150,"+(.35+.55*k)+")"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(c.x+Math.cos(ang)*R0*.3, c.y+Math.sin(ang)*R0*.3);
+    ctx.lineTo(c.x+Math.cos(ang)*R0*1.25, c.y+Math.sin(ang)*R0*1.25); ctx.stroke();
+  });
+  atGlow(c, R0*.5, "95,243,255", AT.pings.length ? .45 : .15);
+  if(AT.pings.length > 1) atGlow(atW("ricerca", .27, .43), c.s*.11, "95,243,255", .55);
+}
+
+/* OFFICINA · capsula: il portello dipinto si illumina di verde se l'isola
+   React dei pannelli è caricata davvero. La lampada ad anello resta spenta:
+   gli hook non dicono quando gira Impeccable. */
+function atCapsule(now){
+  if(typeof window.mountStorico !== "function") return;
+  var p = atW("prod", .8, .34), pulse = reduce ? .5 : .4+.15*Math.sin(now*1.3);
+  atGlow(p, p.s*.07, "42,200,140", pulse);
+}
+
+/* COLLAUDO · manometri dipinti: su una chiamata LSP le facce si accendono e
+   una lancetta rossa sale per 8 secondi. Timbro: bagliore rosso dopo una
+   skill di review. Sonda: la luce sotto la punta si fa ciano quando leggo
+   i pixel (screenshot/evaluate). */
+/* i due centrali stanno dietro l'insegna del reparto: si animano solo gli esterni */
+var AT_GAUGES = [[.30,.20],[.67,.19]];
+function atCollaudo(now){
+  var k = atFade(AT.lsp, now, 10);
+  AT_GAUGES.forEach(function(g, i){
+    var p = atW("qa", g[0], g[1]), rr = p.s*.03;
+    atGlow(p, rr*3.2, "255,190,90", .95*k);
+    if(k > 0){
+      var wob = reduce ? 0 : Math.sin(now*10+i)*.12*k;
+      var a = -Math.PI*.75 + (1.2+i*.12)*k + wob;
+      ctx.globalCompositeOperation = "source-over";   // in "lighter" il rosso sul quadrante bianco sparisce
+      ctx.strokeStyle = "rgba(220,30,20,1)"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(a)*rr*1.1, p.y+Math.sin(a)*rr*1.1); ctx.stroke();
+      ctx.globalCompositeOperation = "lighter";
+    }
+  });
+  var st = atW("qa", .79, .59); atGlow(st, st.s*.12, "255,80,50", .95*atFade(AT.review, now, 10));
+  var pr = atW("qa", .45, .62); atGlow(pr, pr.s*.09, "95,243,255", .95*atFade(AT.probe, now, 6));
+}
+
+/* ARCHIVIO · cavo viola dipinto: ogni evento degli hook scende lungo il cavo
+   fino al foro nel pavimento (il dato esce verso Supabase). Carota: bande
+   colorate per reparto sulla colonna dipinta, in proporzione ai token prodotti.
+   Carta nautica: una luce per passo della missione aperta, il prossimo lampeggia. */
+var AT_CABLE = [[.63,.54],[.57,.59],[.50,.63],[.44,.61],[.43,.66],[.31,.72]];
+function atArchivio(now, dt){
+  var pts = AT_CABLE.map(function(q){ return atW("vault", q[0], q[1]); });
+  AT.pulses = AT.pulses.map(function(p){ return p + dt/2.5; }).filter(function(p){ return p < 1; });
+  AT.pulses.forEach(function(p){
+    var f = p*(pts.length-1), i = Math.min(pts.length-2, Math.floor(f)), t = f-i;
+    atGlow({x: pts[i].x+(pts[i+1].x-pts[i].x)*t, y: pts[i].y+(pts[i+1].y-pts[i].y)*t}, 28, "215,170,255", 1);
+  });
+
+  var tk = STATE.tokens;
+  if(tk){
+    var ids = ["ricerca","prod","qa","vault","pub","rs"], tot = 0;
+    ids.forEach(function(id){ tot += (tk[id] && tk[id].out) || 0; });
+    if(tot){
+      var top = atW("vault", .805, .48), bot = atW("vault", .775, .62), acc = 0;
+      ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = .45; ctx.lineCap = "butt"; ctx.lineWidth = top.s*.045;
+      ids.forEach(function(id){
+        var f = ((tk[id] && tk[id].out) || 0)/tot; if(f < .01){ acc += f; return; }
+        ctx.strokeStyle = R(id).c; ctx.beginPath();
+        ctx.moveTo(top.x+(bot.x-top.x)*acc, top.y+(bot.y-top.y)*acc);
+        ctx.lineTo(top.x+(bot.x-top.x)*(acc+f), top.y+(bot.y-top.y)*(acc+f)); ctx.stroke();
+        acc += f;
+      });
+      ctx.restore();
+    }
+  }
+
+  var ms = activeMissions(VAULT);
+  if(ms.length){
+    var steps = ms[0].steps, n = steps.length, next = -1;
+    for(var i=0;i<n;i++) if(!steps[i].done){ next = i; break; }
+    steps.forEach(function(s, i){
+      var f = n > 1 ? i/(n-1) : .5, p = atW("vault", .17+.19*f, .545-.1*f + Math.sin(i*1.9)*.02);
+      var on = s.done || (i === next && (reduce || Math.floor(now*2)%2));
+      if(on) atGlow(p, 14, i === next ? "255,190,90" : "215,170,255", .8);
+      /* segnaposto sulla carta: i bagliori da soli si fondono in una macchia */
+      ctx.globalCompositeOperation = "source-over"; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 6.2832);
+      if(s.done){ ctx.fillStyle = "#b98ae8"; ctx.fill(); }
+      else if(on){ ctx.fillStyle = "#ffbe5a"; ctx.fill(); }
+      else { ctx.strokeStyle = i === next ? "#ffbe5a" : "rgba(40,30,20,.8)"; ctx.lineWidth = 2; ctx.stroke(); }
+      ctx.globalCompositeOperation = "lighter";
+    });
+  }
+}
+
+/* SPEDIZIONI · doppia porta dipinta: su una spedizione si accende prima la
+   porta esterna (database), poi l'interna (merge). */
+function atSpedizioni(now){
+  var e = now-AT.pub, off = e > 6 ? 0 : 1;
+  if(e < 0 || e > 6) return;
+  var outer = Math.min(1, e/1.2)*off*(e > 5 ? 6-e : 1), inner = e < 1.5 ? 0 : Math.min(1, (e-1.5)/1.2)*(e > 5 ? 6-e : 1);
+  var d1 = atW("pub", .18, .40), d2 = atW("pub", .18, .60);
+  atGlow(d1, d1.s*.13, "110,190,255", .95*outer);
+  atGlow(d2, d2.s*.13, "110,190,255", .95*inner);
+}
+
+/* LABORATORIO · pesce lanterna dipinto: MiniCPM è installato e scollegato,
+   la sua luce pulsa lenta e basta. */
+function atLab(now){
+  var p = atW("rs", .64, .49), glow = reduce ? .4 : .3+.2*Math.sin(now*.9);
+  atGlow(p, p.s*.05, "255,170,80", glow);
+}
+
+function drawAtlas(t, det){
+  var now = t*.001, dt = AT.last ? Math.min(.05, now-AT.last) : .016; AT.last = now;
+  atlasEvents(now);
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  atSonar(now); atCapsule(now); atCollaudo(now); atArchivio(now, dt); atSpedizioni(now); atLab(now);
+  ctx.restore();
 }
 
 function boot(){
