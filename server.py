@@ -24,6 +24,7 @@ STATE_PATH = os.path.join(HERE, "state", "state.json")
 SESSIONS_PATH = os.path.join(HERE, "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "state", "subagents.json")
 PORT = 8795
+MISSIONS_DIR = os.path.join(VAULT, "05 - Resources", "Missioni")
 
 
 def read_text(path):
@@ -192,11 +193,36 @@ def config_payload():
     return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", "")}
 
 
+def parse_missions():
+    """Note `type: mission` in 05 - Resources/Missioni: titolo + passi a
+    checkbox (sezione "## Passi" se c'è). Sola lettura: il pannello mostra,
+    l'avanzamento si fa spuntando la nota nel vault."""
+    out = []
+    try:
+        names = sorted(os.listdir(MISSIONS_DIR))
+    except OSError:
+        return out
+    for name in names:
+        if not name.endswith(".md"):
+            continue
+        text = read_text(os.path.join(MISSIONS_DIR, name))
+        front = text.split("\n---", 1)[0] if text.startswith("---") else ""
+        if not re.search(r"^type:\s*mission\s*$", front, re.M):
+            continue
+        body = text.split("## Passi", 1)[1].split("\n## ", 1)[0] if "## Passi" in text else text
+        steps = [{"done": m.group(1) != " ", "text": strip_wikilinks(m.group(2).strip())}
+                 for m in re.finditer(r"^- \[( |x|X)\] (.+)$", body, re.M)]
+        title = re.search(r"^# (.+)$", text, re.M)
+        out.append({"title": title.group(1).strip() if title else name[:-3], "steps": steps})
+    return out
+
+
 def build_vault_snapshot():
     return {
         "identity": parse_identity(),
         "inbox": {"notes": list_notes("00 - Inbox")},
         "priorities": parse_priorities(),
+        "missions": parse_missions(),
         "vinland": parse_vinland(),
         "personal": {"notes": list_notes("03 - Personal", exclude_names=("Personal.md",))},
         "resources": {"notes": list_notes("05 - Resources", exclude_names=("Resources.md",))},

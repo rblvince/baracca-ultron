@@ -74,6 +74,16 @@
   .task .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--gold);box-shadow:inset 0 2px 0 var(--coral-hi);transition:width .4s;}
   .task.qa .bar i{background:var(--red);box-shadow:inset 0 2px 0 var(--red-hi);}
   .task .who{font-size:11px;color:var(--ink-dim);margin-top:4px;}
+  /* missione vera dal vault (05 - Resources/Missioni), sola lettura */
+  .mhead{display:flex;justify-content:space-between;gap:6px;font-size:13px;color:var(--ink);}
+  .mhead i{font-style:normal;color:var(--gold);font-size:11px;}
+  .mstep{display:flex;gap:6px;font-size:12px;line-height:1.3;color:var(--ink-dim);padding:3px 4px;border-radius:4px;cursor:pointer;}
+  .mstep b{font-weight:400;flex:none;width:12px;}
+  .mstep.done{opacity:.6;text-decoration:line-through;}
+  .mstep.done b{color:var(--green);}
+  .mstep.next{color:var(--ink);background:var(--surface);}
+  .mstep.next b{color:var(--gold);}
+  .mstep:hover{background:var(--surface);}
   .task.qa .who{color:var(--red);}
 
   .log{flex:1;min-height:0;overflow-y:auto;padding:9px;}
@@ -393,6 +403,7 @@
   </div>
 
   <div class="side" id="sidePanel">
+    <div class="sec" id="missionSec" style="display:none"><h3>MISSIONE ATTIVA</h3><div id="missions"></div></div>
     <div class="sec"><h3>MISSIONI</h3><div id="tasks"></div></div>
     <div class="log"><h3>RAPPORTO</h3><div id="events"></div></div>
   </div>
@@ -2559,7 +2570,41 @@ function cvs(w,h){ var c = document.createElement("canvas"); c.width=w; c.height
   var g = c.getContext("2d"); g.imageSmoothingEnabled=false; return c; }
 
 /* ------------------------------------------------- roba dal vault */
+/* missioni vere: note `type: mission` del vault, lette da /api/vault. Il
+   pannello mostra e basta — si avanza spuntando la nota, mai dal browser. */
+function renderMissions(v){
+  var sec = document.getElementById("missionSec"), box = document.getElementById("missions");
+  var ms = (v && v.missions || []).filter(function(m){
+    return m.steps.length && m.steps.some(function(s){ return !s.done; });
+  });
+  sec.style.display = ms.length ? "" : "none";
+  box.innerHTML = "";
+  ms.forEach(function(m){
+    var done = m.steps.filter(function(s){ return s.done; }).length;
+    var next = -1;
+    m.steps.forEach(function(s,i){ if(next < 0 && !s.done) next = i; });
+    var card = document.createElement("div"); card.className = "task";
+    card.innerHTML = "<div class='mhead'><span>"+esc(m.title)+"</span><i>"+done+"/"+m.steps.length+"</i></div>"+
+      "<div class='bar'><i style='width:"+Math.round(done/m.steps.length*100)+"%'></i></div>";
+    m.steps.forEach(function(s,i){
+      var parts = s.text.replace(/`/g,"").split(" — ");
+      var label = parts.length > 1 ? parts[0]+" · "+parts[1].split(":")[0] : parts[0];
+      var row = document.createElement("div");
+      row.className = "mstep" + (s.done ? " done" : i === next ? " next" : "");
+      row.innerHTML = "<b>"+(s.done ? "✓" : i === next ? "▸" : "·")+"</b><span>"+esc(label)+"</span>";
+      row.addEventListener("click", function(){
+        openItemDetail(esc(m.title), "MISSIONE · SOLA LETTURA",
+          "<div class='tele'><div class='k'>Stato</div><div class='v'>"+(s.done ? "fatto" : i === next ? "prossimo" : "da fare")+"</div></div>"+
+          "<p style='margin:8px 0 0;line-height:1.45'>"+esc(s.text.replace(/`/g,""))+"</p>"+
+          "<div class='dphint'>dalla nota del vault · 05 - Resources/Missioni</div>");
+      });
+      card.appendChild(row);
+    });
+    box.appendChild(card);
+  });
+}
 function renderVault(v){
+  renderMissions(v);
   var prio = document.getElementById("dPrio");
   if(!v){
     prio.innerHTML = "<li class='empty'>vault non raggiungibile · avvia start.sh</li>";
