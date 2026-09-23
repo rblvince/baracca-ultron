@@ -249,7 +249,61 @@ def test_patch_oldest_extra_filter_in_select_url():
         os.remove(tmp)
 
 
+def test_select_returns_rows():
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old_cfg, old_open = sc.CONFIG_PATH, sc.urllib.request.urlopen
+    sc.CONFIG_PATH = tmp
+    seen = []
+    sc.urllib.request.urlopen = _fake_urlopen_sequence([(200, b'[{"id": 3, "agent_id": null}]')], seen)
+    try:
+        rows = sc.select("subagents", {"user_id": "u1", "tool_use_id": "toolu_1"}, "id,agent_id")
+        assert rows == [{"id": 3, "agent_id": None}], rows
+        method, url, _ = seen[0]
+        assert method == "GET", method
+        assert url.endswith("/rest/v1/subagents?user_id=eq.u1&tool_use_id=eq.toolu_1&select=id,agent_id"), url
+    finally:
+        sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
+        os.remove(tmp)
+
+
+def test_select_failure_returns_none():
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old_cfg, old_open = sc.CONFIG_PATH, sc.urllib.request.urlopen
+    sc.CONFIG_PATH = tmp
+
+    def boom(req, timeout=1):
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad", {}, None)
+    sc.urllib.request.urlopen = boom
+    try:
+        assert sc.select("subagents", {"user_id": "u"}, "id") is None
+    finally:
+        sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
+        os.remove(tmp)
+
+
+def test_patch_by_id():
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old_cfg, old_open = sc.CONFIG_PATH, sc.urllib.request.urlopen
+    sc.CONFIG_PATH = tmp
+    seen = []
+    sc.urllib.request.urlopen = _fake_urlopen_sequence([(204, b"")], seen)
+    try:
+        assert sc.patch("subagents", 5, {"agent_id": "ag-1", "finished_at": None}) == 204
+        method, url, body = seen[0]
+        assert method == "PATCH" and url.endswith("/rest/v1/subagents?id=eq.5"), (method, url)
+        assert json.loads(body) == {"agent_id": "ag-1", "finished_at": None}, body
+    finally:
+        sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
+        os.remove(tmp)
+
+
 def main():
+    test_select_returns_rows()
+    test_select_failure_returns_none()
+    test_patch_by_id()
     test_load_config_parses_env_file()
     test_load_config_missing_file_returns_empty_dict()
     test_load_config_never_raises_on_non_utf8_env()

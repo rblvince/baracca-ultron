@@ -63,6 +63,9 @@ def test_spawn_subagent_calls_supabase_insert():
         assert table == "subagents", table
         assert row["room"] == "qa" and row["agent"] == "qualita-1", row
         assert row["user_id"] == "test-user", row
+        assert "tool_use_id" not in row, row
+        st.spawn_subagent("qa", "qualita-1", "run tests", tool_use_id="toolu_9")
+        assert calls[1][1]["tool_use_id"] == "toolu_9", calls[1]
     finally:
         supabase_client.insert = old_insert
         supabase_client.load_config = old_cfg
@@ -194,7 +197,78 @@ def test_update_session_survives_broken_load_config():
         st.SESSIONS_PATH = old_sessions_path
 
 
+def _with_fake_db(rows):
+    """Finto select/patch su una lista di righe in memoria (la tabella
+    subagents). Ritorna (patches, restore)."""
+    import supabase_client
+    patches = []
+    old = supabase_client.select, supabase_client.patch, supabase_client.load_config
+
+    def select(table, filters, columns):
+        assert table == "subagents", table
+        return [dict(r) for r in rows if all(r.get(k) == v for k, v in filters.items())]
+
+    def patch(table, row_id, values):
+        patches.append((row_id, values))
+        for r in rows:
+            if r["id"] == row_id:
+                r.update(values)
+        return 204
+    supabase_client.select, supabase_client.patch = select, patch
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "u1"}
+
+    def restore():
+        supabase_client.select, supabase_client.patch, supabase_client.load_config = old
+    return patches, restore
+
+
+def test_reconcile_swaps_crossed_claims():
+    """Due lanci ravvicinati, SubagentStart arrivati invertiti: ognuno ha
+    l'id dell'altro. Il PostToolUse di A (tool_use_id + agentId veri) deve
+    rimettere a posto id e fine su entrambe le righe."""
+    rows = [
+        {"id": 1, "user_id": "u1", "tool_use_id": "tu-A", "agent_id": "ag-B", "finished_at": "t-B"},
+        {"id": 2, "user_id": "u1", "tool_use_id": "tu-B", "agent_id": "ag-A", "finished_at": None},
+    ]
+    patches, restore = _with_fake_db(rows)
+    try:
+        st.reconcile_subagent("tu-A", "ag-A")
+        assert rows[0]["agent_id"] == "ag-A" and rows[0]["finished_at"] is None, rows
+        assert rows[1]["agent_id"] == "ag-B" and rows[1]["finished_at"] == "t-B", rows
+        patches.clear()
+        st.reconcile_subagent("tu-B", "ag-B")  # ormai giusta: nessuna scrittura
+        assert patches == [], patches
+    finally:
+        restore()
+
+
+def test_reconcile_sets_missing_agent_id():
+    """Riga mai reclamata (claim persa o fuori finestra): prende l'id giusto."""
+    rows = [{"id": 4, "user_id": "u1", "tool_use_id": "tu-A", "agent_id": None, "finished_at": None}]
+    patches, restore = _with_fake_db(rows)
+    try:
+        st.reconcile_subagent("tu-A", "ag-A")
+        assert patches == [(4, {"agent_id": "ag-A"})], patches
+    finally:
+        restore()
+
+
+def test_reconcile_without_ids_or_row_does_nothing():
+    rows = [{"id": 4, "user_id": "u1", "tool_use_id": "tu-X", "agent_id": None, "finished_at": None}]
+    patches, restore = _with_fake_db(rows)
+    try:
+        st.reconcile_subagent(None, "ag-A")
+        st.reconcile_subagent("tu-A", None)
+        st.reconcile_subagent("tu-sconosciuto", "ag-A")
+        assert patches == [], patches
+    finally:
+        restore()
+
+
 def main():
+    test_reconcile_swaps_crossed_claims()
+    test_reconcile_sets_missing_agent_id()
+    test_reconcile_without_ids_or_row_does_nothing()
     test_update_session_calls_supabase_upsert()
     test_update_session_survives_broken_load_config()
     test_update_session_without_key_does_nothing()

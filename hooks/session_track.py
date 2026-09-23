@@ -77,8 +77,9 @@ def update_session(session_key, **fields):
         pass
 
 
-def spawn_subagent(room, agent, task):
-    """Un Task è appena partito (PreToolUse): entra in coda."""
+def spawn_subagent(room, agent, task, tool_use_id=None):
+    """Un Task è appena partito (PreToolUse): entra in coda. tool_use_id
+    serve a reconcile_subagent() per accoppiare la riga al sub-agente vero."""
     now = int(time.time() * 1000)
     data = _load(SUBAGENTS_PATH, {"next_id": 1, "list": []})
     data["list"] = [s for s in data.get("list", []) if now - s.get("ts", 0) < MAX_AGE_MS]
@@ -90,9 +91,10 @@ def spawn_subagent(room, agent, task):
     try:
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
-            supabase_client.insert("subagents", {
-                "user_id": user_id, "room": room, "agent": agent, "task": task,
-            })
+            row = {"user_id": user_id, "room": room, "agent": agent, "task": task}
+            if tool_use_id:
+                row["tool_use_id"] = tool_use_id
+            supabase_client.insert("subagents", row)
     except Exception:
         pass
 
@@ -106,10 +108,10 @@ def claim_subagent(agent_id):
     permesso negato, Esc, un altro hook che blocca): senza, restando sempre le
     più vecchie, si beccherebbero ogni claim successiva, spostando di una
     posizione ogni riga del diario da lì in poi.
-    ponytail: solo le righe create negli ultimi 60s sono reclamabili; due
-    partenze entro quella finestra possono ancora scambiarsi i compiti fra
-    loro (le claim restano FIFO all'interno della finestra), ma un'orfana più
-    vecchia di 60s non ruba più nulla."""
+    SubagentStart porta solo agent_id/agent_type, quindi dentro la finestra la
+    claim resta per ordine d'arrivo e due partenze ravvicinate possono
+    scambiarsi i compiti: lo scambio lo corregge reconcile_subagent() al
+    PostToolUse del tool Agent, che ha la coppia esatta."""
     if not agent_id:
         return
     try:
@@ -119,6 +121,34 @@ def claim_subagent(agent_id):
             extra = ["created_at=gte." + urllib.parse.quote(cutoff.isoformat(), safe="")]
             supabase_client.patch_oldest("subagents", {"user_id": user_id},
                                          ["agent_id", "finished_at"], {"agent_id": agent_id}, extra=extra)
+    except Exception:
+        pass
+
+
+def reconcile_subagent(tool_use_id, agent_id):
+    """PostToolUse del tool Agent: il risultato porta agentId, il payload il
+    tool_use_id salvato al lancio. Se la claim per ordine d'arrivo ha dato a
+    questa riga l'id di un altro sub-agente, le due righe si scambiano id e
+    ora di fine (per un sub-agente in primo piano lo stop è già arrivato,
+    ed è finito sulla riga sbagliata insieme all'id)."""
+    if not tool_use_id or not agent_id:
+        return
+    try:
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if not user_id:
+            return
+        cols = "id,agent_id,finished_at"
+        mine = supabase_client.select("subagents", {"user_id": user_id, "tool_use_id": tool_use_id}, cols)
+        if not mine or mine[0]["agent_id"] == agent_id:
+            return
+        row = mine[0]
+        other = supabase_client.select("subagents", {"user_id": user_id, "agent_id": agent_id}, cols)
+        if other:
+            o = other[0]
+            supabase_client.patch("subagents", o["id"], {"agent_id": row["agent_id"], "finished_at": row["finished_at"]})
+            supabase_client.patch("subagents", row["id"], {"agent_id": agent_id, "finished_at": o["finished_at"]})
+        else:
+            supabase_client.patch("subagents", row["id"], {"agent_id": agent_id})
     except Exception:
         pass
 
