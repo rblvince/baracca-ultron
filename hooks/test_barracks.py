@@ -14,6 +14,15 @@ def test_classify_bash_qa():
     assert (status, room, agent) == ("thinking", "qa", "qualita-1"), (status, room, agent)
 
 
+def test_classify_lsp_and_review_skill_are_qa():
+    for payload in ({"tool_name": "LSP", "tool_input": {"operation": "documentSymbol"}},
+                    {"tool_name": "Skill", "tool_input": {"skill": "code-review"}}):
+        status, room, node, agent, task = b.classify(payload)
+        assert (room, agent) == ("qa", "qualita-1"), (payload, room, agent)
+    # una skill qualunque resta nel laboratorio
+    assert b.classify({"tool_name": "Skill", "tool_input": {"skill": "gsap"}})[1] == "rs"
+
+
 def test_classify_task_matches_spawn_helper():
     status, room, node, agent, task = b.classify({"tool_name": "Task", "tool_input": {"subagent_type": "qualita"}})
     room2, agent2, task2 = b.subagent_room_agent_task({"subagent_type": "qualita"})
@@ -191,6 +200,7 @@ def test_main_posttooluse_agent_reconciles():
 def main():
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
+    test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
     test_write_state_calls_supabase_upsert()
