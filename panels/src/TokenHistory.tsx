@@ -61,9 +61,13 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
             </g>
           );
         })}
-        {ticks.map((i) => (
-          <text key={i} className="tk-lbl" x={i * slot + slot / 2} y={H - 4} textAnchor="middle">{fmtDay(days[i])}</text>
-        ))}
+        {ticks.map((i, idx) => {
+          const anchor = idx === 0 ? 'start' : idx === ticks.length - 1 ? 'end' : 'middle';
+          const x = anchor === 'start' ? 0 : anchor === 'end' ? W : i * slot + slot / 2;
+          return (
+            <text key={i} className="tk-lbl" x={x} y={H - 4} textAnchor={anchor}>{fmtDay(days[i])}</text>
+          );
+        })}
       </svg>
       <div className="tk-detail">
         <b>{fmtDay(shown.day)}</b>
