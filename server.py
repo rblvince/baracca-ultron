@@ -251,21 +251,22 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/api/vault":
+        path = self.path.split("?", 1)[0]   # "/baracca.html?v=2" è la stessa pagina
+        if path == "/api/vault":
             self._send_json(build_vault_snapshot())
-        elif self.path == "/api/state":
+        elif path == "/api/state":
             self._send_json(read_state())
-        elif self.path == "/api/sessions":
+        elif path == "/api/sessions":
             self._send_json(read_sessions())
-        elif self.path == "/api/subagents":
+        elif path == "/api/subagents":
             self._send_json(read_subagents())
-        elif self.path == "/api/config":
+        elif path == "/api/config":
             self._send_json(config_payload())
-        elif self.path in ("/", "/farm.html", "/baracca.html"):
+        elif path in ("/", "/farm.html", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
-        elif self.path.startswith("/assets/"):
+        elif path.startswith("/assets/"):
             # scenografia Leonardo: solo .jpg piatti dentro assets/, niente sottocartelle
-            name = self.path[len("/assets/"):].split("?")[0]
+            name = path[len("/assets/"):]
             if name.endswith(".jpg") and name == os.path.basename(name) and not name.startswith("."):
                 self._send_file(os.path.join("assets", name), "image/jpeg")
             else:
