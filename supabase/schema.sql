@@ -112,8 +112,10 @@ begin
 
   perform net.http_post(
     url := hook,
-    body := jsonb_build_object('content',
-      'Ultron ti aspetta nella Baracca — ' || to_char(now() at time zone 'Europe/Rome', 'HH24:MI')),
+    body := jsonb_build_object(
+      'content', '<@727203879971979357> Ultron ti aspetta nella Baracca — '
+                 || to_char(now() at time zone 'Europe/Rome', 'HH24:MI'),
+      'allowed_mentions', jsonb_build_object('users', jsonb_build_array('727203879971979357'))),
     headers := '{"Content-Type": "application/json"}'::jsonb
   );
   return new;
