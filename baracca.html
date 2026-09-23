@@ -84,6 +84,18 @@
   .mstep.next{color:var(--ink);background:var(--surface);}
   .mstep.next b{color:var(--gold);}
   .mstep:hover{background:var(--surface);}
+  .paper.real{outline:2px solid var(--green-dk);cursor:pointer;}
+  .paper.real .stg{color:var(--green-dk);border-color:var(--green-dk);}
+  #itemMcBody{max-height:62vh;overflow:auto;}
+  .mdet{border:2px solid var(--bg);border-radius:6px;background:var(--surface);margin-bottom:6px;}
+  .mdet summary{cursor:pointer;padding:7px 9px;font-size:13px;color:var(--ink-dim);list-style:none;display:flex;gap:8px;}
+  .mdet summary::-webkit-details-marker{display:none;}
+  .mdet summary b{font-weight:400;flex:none;width:12px;}
+  .mdet.done summary{opacity:.65;} .mdet.done summary b{color:var(--green);}
+  .mdet.next summary{color:var(--ink);} .mdet.next summary b{color:var(--gold);}
+  .mdet .why{padding:0 10px 4px 29px;font-size:12px;color:var(--ink-dim);line-height:1.4;}
+  .mdet ul{margin:4px 0 8px;padding:0 12px 0 44px;font-size:12.5px;line-height:1.45;color:var(--ink);}
+  .mdet li{margin-bottom:3px;}
   .task.qa .who{color:var(--red);}
 
   .log{flex:1;min-height:0;overflow-y:auto;padding:9px;}
@@ -2572,11 +2584,39 @@ function cvs(w,h){ var c = document.createElement("canvas"); c.width=w; c.height
 /* ------------------------------------------------- roba dal vault */
 /* missioni vere: note `type: mission` del vault, lette da /api/vault. Il
    pannello mostra e basta — si avanza spuntando la nota, mai dal browser. */
-function renderMissions(v){
-  var sec = document.getElementById("missionSec"), box = document.getElementById("missions");
-  var ms = (v && v.missions || []).filter(function(m){
+function missionStepParts(s){
+  var parts = s.text.replace(/`/g,"").split(" — ");
+  var head = parts.length > 1 ? parts[1].split(":")[0] : parts[0];
+  var why = parts.length > 1 && parts[1].indexOf(":") > -1 ? parts[1].slice(parts[1].indexOf(":")+1).trim() : "";
+  return {tag: parts.length > 1 ? parts[0] : "", head: head, why: why};
+}
+function todoHtml(s){
+  if(!s.todo || !s.todo.length) return "";
+  return "<ul>"+s.todo.map(function(t){ return "<li>"+esc(t.replace(/`/g,""))+"</li>"; }).join("")+"</ul>";
+}
+function nextStep(m){ for(var i=0;i<m.steps.length;i++) if(!m.steps[i].done) return i; return -1; }
+/* la scheda completa: ogni sottomissione con stato e riassunto di cosa
+   fare; <details> nativo per aprire/chiudere, il prossimo passo parte aperto */
+function showMissionDetail(m){
+  var done = m.steps.filter(function(s){ return s.done; }).length, next = nextStep(m);
+  var body = "<div class='tele'><div class='k'>Avanzamento</div><div class='v'>"+done+" / "+m.steps.length+"</div></div>";
+  m.steps.forEach(function(s,i){
+    var p = missionStepParts(s), cls = s.done ? "done" : i === next ? "next" : "";
+    body += "<details class='mdet "+cls+"'"+(i === next ? " open" : "")+"><summary><b>"+(s.done ? "✓" : i === next ? "▸" : "·")+"</b><span>"+
+      esc((p.tag ? p.tag+" · " : "")+p.head)+"</span></summary>"+
+      (p.why ? "<div class='why'>"+esc(p.why)+"</div>" : "")+todoHtml(s)+"</details>";
+  });
+  body += "<div class='dphint'>dalla nota del vault · 05 - Resources/Missioni · si avanza spuntando la nota, non da qui</div>";
+  openItemDetail(esc(m.title), "MISSIONE · SOLA LETTURA", body);
+}
+function activeMissions(v){
+  return (v && v.missions || []).filter(function(m){
     return m.steps.length && m.steps.some(function(s){ return !s.done; });
   });
+}
+function renderMissions(v){
+  var sec = document.getElementById("missionSec"), box = document.getElementById("missions");
+  var ms = activeMissions(v);
   sec.style.display = ms.length ? "" : "none";
   box.innerHTML = "";
   ms.forEach(function(m){
@@ -2596,6 +2636,7 @@ function renderMissions(v){
         openItemDetail(esc(m.title), "MISSIONE · SOLA LETTURA",
           "<div class='tele'><div class='k'>Stato</div><div class='v'>"+(s.done ? "fatto" : i === next ? "prossimo" : "da fare")+"</div></div>"+
           "<p style='margin:8px 0 0;line-height:1.45'>"+esc(s.text.replace(/`/g,""))+"</p>"+
+          (s.todo && s.todo.length ? "<div class='k' style='margin-top:10px'>COSA FARE</div>"+todoHtml(s) : "")+
           "<div class='dphint'>dalla nota del vault · 05 - Resources/Missioni</div>");
       });
       card.appendChild(row);
@@ -2866,8 +2907,19 @@ function renderDashLive(t){
   /* bacheca */
   var board = document.getElementById("dBoard");
   board.innerHTML = "";
-  if(!TASKS.length) board.innerHTML = "<div class='none'>bacheca vuota</div>";
-  TASKS.slice(0,6).forEach(function(k){
+  var realMs = activeMissions(VAULT);
+  realMs.forEach(function(m){
+    var dn = m.steps.filter(function(s){ return s.done; }).length, nx = nextStep(m);
+    var d = document.createElement("div"); d.className = "paper real";
+    d.innerHTML = esc(m.title) + "<div class='bar'><i style='width:"+Math.round(dn/m.steps.length*100)+"%'></i></div>" +
+      "<div style='font-size:11px;margin-top:4px'>"+dn+"/"+m.steps.length+(nx > -1 ? " · prossimo: "+esc(missionStepParts(m.steps[nx]).tag) : "")+"</div>" +
+      "<span class='stg'>REALE</span>";
+    d.addEventListener("click", function(){ showMissionDetail(m); });
+    board.appendChild(d);
+  });
+  var cap = Math.max(0, 6 - realMs.length);
+  if(!TASKS.length && !realMs.length) board.innerHTML = "<div class='none'>bacheca vuota</div>";
+  TASKS.slice(0,cap).forEach(function(k){
     var d = document.createElement("div");
     d.className = "paper" + (k.st==="qa" ? " qa" : "");
     var stg = STAGES[k.stage] ? R(STAGES[k.stage]).n : "—";
@@ -2877,7 +2929,7 @@ function renderDashLive(t){
     d.addEventListener("click", function(){ showTaskDetail(k); });
     board.appendChild(d);
   });
-  DELIVERED_LOG.slice(0, Math.max(0, 6-TASKS.length)).forEach(function(nm){
+  DELIVERED_LOG.slice(0, Math.max(0, cap-TASKS.length)).forEach(function(nm){
     var d = document.createElement("div"); d.className = "paper done";
     d.innerHTML = esc(nm) + "<span class='stg'>FATTO</span>";
     d.style.cursor = "pointer";
