@@ -1,4 +1,5 @@
-// Check dei convertitori righe Supabase -> forme di /api/sessions e /api/subagents.
+// Check dei convertitori righe Supabase -> forme di /api/sessions e /api/subagents,
+// e delle etichette leggibili (blocco LABEL-PURE: nomi dei tool, Markdown delle priorità).
 // Estrae il blocco AUX-PURE da baracca.html: la pagina non ha un build.
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
@@ -53,5 +54,20 @@ assert.equal(seq.isLatest(secondo), true);
 const wd = html.match(/function checkStaleWatchdog\(\)\{([\s\S]*?)\n\}/);
 assert.ok(wd, 'checkStaleWatchdog non trovato');
 assert.ok(!/USE_SUPABASE\s*=\s*false/.test(wd[1]), 'il watchdog non deve spegnere USE_SUPABASE');
+
+// etichette: niente nomi tecnici grezzi, niente Markdown nelle priorità
+const lb = html.match(/\/\* LABEL-PURE-START \*\/([\s\S]*?)\/\* LABEL-PURE-END \*\//);
+assert.ok(lb, 'blocco LABEL-PURE non trovato in baracca.html');
+const { toolLabel, plainMd } = new Function(lb[1] + '; return { toolLabel, plainMd };')();
+assert.equal(toolLabel('Bash'), 'Terminale');
+assert.equal(toolLabel('mcp__plugin_playwright_playwright__browser_press_key'), 'Playwright · browser press key');
+assert.equal(toolLabel('mcp__plugin_figma_figma__use_figma'), 'Figma · use figma');
+assert.equal(toolLabel('mcp__claude_ai_Claude_Docs__batch'), 'Claude Docs · batch');
+assert.equal(toolLabel('mcp__gmail__search_emails'), 'Gmail · search emails');
+assert.equal(toolLabel('Sconosciuto'), 'Sconosciuto');
+assert.equal(toolLabel('—'), '—');
+assert.equal(plainMd('**Carriera:** vedi [[Master AI Web Development - Boolean]] e `farm/`'),
+  'Carriera: vedi Master AI Web Development - Boolean e farm/');
+assert.equal(plainMd('[[La Baracca di Ultron - Design|la Baracca]] ~~P1~~ FATTO'), 'la Baracca P1 FATTO');
 
 console.log('test_aux: tutti i controlli passati');

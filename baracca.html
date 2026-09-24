@@ -1296,6 +1296,9 @@ TASKS.forEach(function(t){
   t.x = p.x; t.y = p.y; t.carrier = null;
 });
 var delivered = 0, nextId = 5, DELIVERED_LOG = [];
+/* le missioni qui sopra sono scena: in LIVE il simulatore è fermo e resterebbero
+   congelate sotto l'etichetta REALE. In LIVE contano solo quelle del vault. */
+function sceneTasks(){ return LIVE ? [] : TASKS; }
 
 /* ================================================== GLI SPECIALISTI ==
    Le skill di Ultron non sono attrezzi in una cassa: sono persone. Sette
@@ -2177,7 +2180,8 @@ function logEvent(kind, html){
 }
 function renderTasks(){
   var box = document.getElementById("tasks"); box.innerHTML = "";
-  TASKS.slice(0,5).forEach(function(t){
+  box.parentNode.style.display = LIVE ? "none" : "";
+  sceneTasks().slice(0,5).forEach(function(t){
     var d = document.createElement("div");
     d.className = "task"+(t.st==="qa"?" qa":"");
     d.innerHTML = "<div class='t'><span>"+t.t.slice(0,22)+"</span><i>"+STAGES[t.stage].slice(0,4).toUpperCase()+"</i></div>"+
@@ -2355,7 +2359,7 @@ function ensureAuthThenSubscribe(){
 function acceptLiveRow(s){
   if(!s) return;
   try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
-  if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; }
+  if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks(); }
   lastSeen = Date.now(); LAST_STATE = s;
   if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
 }
@@ -2431,6 +2435,7 @@ function checkStaleWatchdog(){
     LIVE = false; STATE.status = "idle";
     var p = document.getElementById("mode");
     p.className = "pill demo"; p.textContent = "DEMO";
+    renderTasks();
     logEvent("deleg","sessione silenziosa da 15 min · torno alla demo");
   }
 }
@@ -2449,6 +2454,7 @@ function poll(){
         LIVE = true;
         var pill = document.getElementById("mode");
         pill.className = "pill live"; pill.textContent = "LIVE";
+        renderTasks();
         logEvent("deleg","collegato a <b>Claude Code</b>");
       }
       lastSeen = Date.now(); LAST_STATE = s;
@@ -2556,6 +2562,27 @@ function makeSeq(){
   return {next: function(){ return ++n; }, isLatest: function(k){ return k === n; }};
 }
 /* AUX-PURE-END */
+/* LABEL-PURE-START */
+/* nomi dei tool come li direbbe una persona; gli MCP diventano "server · azione" */
+var TOOL_NAMES = {Bash:"Terminale", Read:"Lettura", Edit:"Modifica", Write:"Scrittura", Grep:"Ricerca nel codice",
+  Glob:"Cerca file", WebSearch:"Ricerca web", WebFetch:"Pagina web", Task:"Subagente", Agent:"Subagente",
+  Skill:"Skill", LSP:"LSP", TodoWrite:"Lista compiti", NotebookEdit:"Notebook", ToolSearch:"Carica strumenti"};
+function toolLabel(name){
+  if(!name || name === "—") return "—";
+  if(TOOL_NAMES[name]) return TOOL_NAMES[name];
+  var m = /^mcp__(?:plugin_)?(.+?)__(.+)$/.exec(name);
+  if(!m) return name;
+  var srv = m[1].split("_"), last = srv[srv.length-1];   /* "playwright_playwright" → "playwright" */
+  srv = (srv.length > 1 && srv[0] === last) ? last : srv.join(" ");
+  if(srv.indexOf("claude ai ") === 0) srv = srv.slice(10);
+  return srv.charAt(0).toUpperCase() + srv.slice(1) + " · " + m[2].replace(/_/g, " ");
+}
+/* Markdown del vault in testo semplice, solo per mostrarlo */
+function plainMd(t){
+  return String(t||"").replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/\*\*|~~|`/g, "");
+}
+/* LABEL-PURE-END */
 var CLONES = [], MINIS = [];
 
 function ghost(scale){
@@ -2787,6 +2814,7 @@ function renderVault(v){
   var shown = 9;
   open.slice(0,shown).forEach(function(t){
     var d = document.createElement("li");
+    t = plainMd(t);
     d.textContent = t; d.title = t;
     d.style.cursor = "pointer";
     d.addEventListener("click", function(){
@@ -2924,7 +2952,7 @@ function drawMini(t){
       g.strokeRect(sk.x*s-4, sk.y*s-4, 8, 8); g.globalAlpha = 1; }
   });
   /* le missioni a terra */
-  TASKS.forEach(function(k){ if(k.carrier) return;
+  sceneTasks().forEach(function(k){ if(k.carrier) return;
     g.fillStyle = k.st==="qa" ? P.red : "rgba(242,193,78,.7)"; g.fillRect(k.x*s-1, k.y*s-1, 3, 3); });
   /* la truppa */
   CREW.forEach(function(a){
@@ -2999,15 +3027,21 @@ function renderDashLive(t){
   pg.drawImage(bustSprite(STATE.status, blink, talk), 0, ULTRON.moving ? (Math.floor(t*.008)%2) : 0);
 
   drawMini(t); drawPulse(); renderLink();
-  var raw = LIVE && LAST_STATE ? JSON.stringify(LAST_STATE)
-    : JSON.stringify({status:STATE.status, room:STATE.room, node:STATE.node||null});
-  document.getElementById("dRaw").innerHTML = (LIVE ? "<b>state.json ·</b> " : "<b>simulato ·</b> ") + esc(raw);
+  /* il JSON grezzo serve solo a chi fa debug: si vede aprendo la pagina con #debug */
+  var rawEl = document.getElementById("dRaw");
+  rawEl.style.display = location.hash === "#debug" ? "" : "none";
+  if(location.hash === "#debug"){
+    var raw = LIVE && LAST_STATE ? JSON.stringify(LAST_STATE)
+      : JSON.stringify({status:STATE.status, room:STATE.room, node:STATE.node||null});
+    rawEl.innerHTML = (LIVE ? "<b>state.json ·</b> " : "<b>simulato ·</b> ") + esc(raw);
+  }
 
   /* segnale */
   var mins = (Date.now()-startTs)/60000;
   document.getElementById("dEv").textContent = EVENTS.length;
   document.getElementById("dEvm").textContent = mins > .2 ? (EVENTS.length/mins).toFixed(1) : "—";
-  document.getElementById("dTool").textContent = LAST_TOOL;
+  var dTool = document.getElementById("dTool");
+  dTool.textContent = toolLabel(LAST_TOOL); dTool.title = LAST_TOOL;
   document.getElementById("dNode").textContent = String(LAST_NODE).slice(0,14);
 
   /* operativi */
@@ -3042,9 +3076,9 @@ function renderDashLive(t){
     d.addEventListener("click", function(){ showMissionDetail(m); });
     board.appendChild(d);
   });
-  var cap = Math.max(0, 6 - realMs.length);
-  if(!TASKS.length && !realMs.length) board.innerHTML = "<div class='none'>bacheca vuota</div>";
-  TASKS.slice(0,cap).forEach(function(k){
+  var cap = Math.max(0, 6 - realMs.length), scene = sceneTasks();
+  if(!scene.length && !realMs.length) board.innerHTML = "<div class='none'>bacheca vuota</div>";
+  scene.slice(0,cap).forEach(function(k){
     var d = document.createElement("div");
     d.className = "paper" + (k.st==="qa" ? " qa" : "");
     var stg = STAGES[k.stage] ? R(STAGES[k.stage]).n : "—";
@@ -3054,7 +3088,7 @@ function renderDashLive(t){
     d.addEventListener("click", function(){ showTaskDetail(k); });
     board.appendChild(d);
   });
-  DELIVERED_LOG.slice(0, Math.max(0, cap-TASKS.length)).forEach(function(nm){
+  (LIVE ? [] : DELIVERED_LOG).slice(0, Math.max(0, cap-scene.length)).forEach(function(nm){
     var d = document.createElement("div"); d.className = "paper done";
     d.innerHTML = esc(nm) + "<span class='stg'>FATTO</span>";
     d.style.cursor = "pointer";
@@ -3064,9 +3098,10 @@ function renderDashLive(t){
     });
     board.appendChild(d);
   });
-  document.getElementById("dBoardSub").textContent = TASKS.length+" IN CORSO · "+delivered+" CONSEGNATE";
+  document.getElementById("dBoardSub").textContent = LIVE ? realMs.length+" ATTIVE"
+    : TASKS.length+" IN CORSO · "+delivered+" CONSEGNATE";
   var stamp = document.getElementById("dStamp");
-  stamp.style.display = delivered ? "block" : "none";
+  stamp.style.display = (delivered && !LIVE) ? "block" : "none";
   stamp.textContent = delivered + " CONSEGNATE";
 
   /* arsenale */
@@ -3785,7 +3820,7 @@ function drawWorld(t){
   if(typeof drawAtlas === "function") drawAtlas(t, det);   /* solo domes: atlante.js */
 
   /* ---- da qui in giù identico all'originale: casse, persone, Ultron ---- */
-  TASKS.forEach(function(k){
+  sceneTasks().forEach(function(k){
     if(k.carrier) return;
     drawSprite(OBJ.crate, k.x, k.y, 2, false);
     ctx.fillStyle = P.out; ctx.fillRect(k.x-20,k.y-46,40,7);
