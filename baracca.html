@@ -2848,6 +2848,7 @@ function showView(v){
   VIEW = v;
   document.body.dataset.view = v;
   if(STORICO) STORICO.setActive(v === "dash");
+  if(DASH) DASH.setActive(v === "dash");
   document.getElementById("tabBase").className = "tab"+(v==="base"?" on":"");
   document.getElementById("tabDash").className = "tab"+(v==="dash"?" on":"");
   document.getElementById("crumb").innerHTML = v==="dash" ? "SALA COMANDO / <b>rapporto generale</b>"
@@ -3115,9 +3116,73 @@ function renderLink(){
   sig.className = "sig" + (Date.now()-LINK_AT < 1600 ? " go" : "");
 }
 
+/* isola React della sala comando (panels/src/dash): montata una volta, al primo
+   giro della dashboard. Se il bundle manca o esplode, DASH resta null e il
+   vanilla continua da solo. */
+var DASH = null, DASH_TRIED = false;
+function dashEngine(){
+  function sprite(w, h, img){
+    var c = cvs(w, h);
+    c.getContext("2d").drawImage(img, Math.round((w-img.width)/2), h-img.height);
+    return c;
+  }
+  function crewById(id){ return CREW.filter(function(a){ return a.id === id; })[0]; }
+  function skillById(id){ return SKILLS.filter(function(s){ return s.id === id; })[0]; }
+  return {
+    sprites: {
+      bust: function(st, blink, talk){ return bustSprite(st, blink, talk); },
+      crew: function(id){ var a = crewById(id); return sprite(24, 30, a.costume ? cameoSprite(a.costume, 0) : crewSprite(a, 0, false)); },
+      spec: function(id){ var s = skillById(id), c = cvs(22, 32);
+        c.getContext("2d").drawImage(s.costume ? cameoSprite(s.costume, 0) : specSprite(s, 0, false), 0, 0); return c; }
+    },
+    openPriority: function(t){
+      openItemDetail("PRIORITÀ APERTA", "ACTIVE PRIORITIES.MD · SOLA LETTURA",
+        "<div style='white-space:pre-wrap;line-height:1.5;color:var(--ink-soft);max-width:480px;'>"+esc(t)+"</div>");
+    },
+    openMission: function(i){ var m = activeMissions(VAULT)[i]; if(m) showMissionDetail(m); },
+    openTask: function(id){ var k = TASKS.filter(function(x){ return x.id === id; })[0]; if(k) showTaskDetail(k); },
+    openDelivered: function(nm){
+      openItemDetail(esc(nm), "MISSIONE", "<div class='tele'><div class='k'>Stato</div><div class='v'>consegnata</div></div>"+
+        (LIVE ? "" : "<div class='dphint'>scena/decorativa — non è un task reale, nessun file o progetto collegato.</div>"));
+    }
+  };
+}
+function dashSlots(){
+  return {
+    sessione: document.getElementById("dashSessione") || undefined,
+    lavoro: document.getElementById("dashLavoro") || undefined,
+    memoria: document.getElementById("dashMemoria") || undefined,
+    storico: document.getElementById("storico") || undefined
+  };
+}
+function dashOnce(){
+  if(DASH_TRIED) return;
+  DASH_TRIED = true;
+  if(!window.mountDashboard) return;
+  try{ DASH = window.mountDashboard(dashSlots(), dashEngine()); DASH.setActive(VIEW === "dash"); }
+  catch(e){ DASH = null; }
+}
+/* tutto quello che dashSnapshot legge, preso dalle globali del motore */
+function dashState(){
+  return {
+    now: Date.now(), startTs: startTs, hash: location.hash, live: LIVE, lastSeen: lastSeen,
+    state: STATE, statusWord: stateWord(), statusColor: stColor(), taskText: taskText(),
+    clock: document.getElementById("coreClock").textContent,
+    moving: ULTRON.moving, skfxName: SKFX ? SKFX.sk.n : null,
+    events: EVENTS.length, lastTool: LAST_TOOL, lastToolLabel: toolLabel(LAST_TOOL), lastNode: LAST_NODE, lastState: LAST_STATE,
+    crew: CREW, tasks: TASKS, skills: SKILLS, rooms: ROOMS, roomTime: ROOMTIME, stages: STAGES,
+    deliveredLog: DELIVERED_LOG, delivered: delivered,
+    pulse: pulseHist, link: {hit: LINK_HIT, last: LINK_LAST, at: LINK_AT},
+    vault: VAULT, vaultDown: VAULT_DOWN, P: P,
+    R: R, activeMissions: activeMissions, nextStep: nextStep, missionStepParts: missionStepParts, plainMd: plainMd
+  };
+}
+
 /* ------------------------------------------------- il giro completo */
 function renderDashLive(t){
   t = t || 0;
+  dashOnce();
+  if(DASH){ try{ DASH.publish(dashSnapshot(dashState())); }catch(e){} }
   /* testata */
   var st = document.getElementById("dStatus");
   st.textContent = stateWord(); st.style.color = stColor();

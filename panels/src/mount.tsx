@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createRoot } from 'react-dom/client';
 import { Storico } from './Storico';
 import type { Room } from './types';
+import './dash/mountDashboard';   // registra window.mountDashboard nello stesso bundle
 
 export type StoricoHandle = { setActive(active: boolean): void; unmount(): void };
 
