@@ -41,6 +41,12 @@ describe('MEMORIA', () => {
     expect((job.querySelector('b') as HTMLElement).style.width).toBe('50%');   // 3/6
     expect(job.querySelector('small')!.textContent).toBe('3 st');
   });
+  it('Vinland: barre col colore letto da palette.gold, non un fisso', () => {
+    const snap = fakeSnap();
+    const c = show(fakeSnap({ palette: { ...snap.palette, gold: '#123456' } }));
+    const bar = c.querySelector('#dVinJobs > div b') as HTMLElement;
+    expect(bar.style.background).toBe('rgb(18, 52, 86)');
+  });
   it('vault non ancora letto o giù: testi di oggi', () => {
     for (const vault of [null, 'down'] as const) {
       const c = show(fakeSnap({ vault }));

@@ -4,7 +4,6 @@ import { drawShelf, shelfLayout } from './shelf';
 import { useSection } from './store';
 
 const MESI = ['GEN', 'FEB', 'MAR', 'APR', 'MAG', 'GIU', 'LUG', 'AGO', 'SET', 'OTT', 'NOV', 'DIC'];
-const GOLD = '#e08a4a'; // P.gold, colore fisso delle barre di Vinland come nel vanilla
 
 function Archivio() {
   const shelf = useSection('shelf');
@@ -34,6 +33,8 @@ function Diario() {
 
 function Vinland() {
   const v = useSection('vault');
+  const pal = useSection('palette');
+  const gold = pal?.gold ?? '#e08a4a';
   const vin = v && v !== 'down' ? v.vinland : null;
   const jobs = vin?.jobs ?? [];
   return (
@@ -43,7 +44,7 @@ function Vinland() {
           ? <div style={{ color: 'var(--ink-dim)', fontSize: '12px' }}>nessun job nel vault</div>
           : jobs.slice(0, 5).map((j, i) => (
               <div key={i}><span>{j.name.slice(0, 14)}</span>
-                <i><b style={{ width: `${Math.min(100, (j.steps / 6) * 100)}%`, background: GOLD }} /></i>
+                <i><b style={{ width: `${Math.min(100, (j.steps / 6) * 100)}%`, background: gold }} /></i>
                 <small>{j.steps} st</small></div>
             ))}
       </div></div>
