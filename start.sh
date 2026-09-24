@@ -1,6 +1,8 @@
 #!/bin/bash
 # Starts La Baracca di Ultron: the local server (if not already running), the
 # page in Chrome, and a terminal Ultron session — both open together.
+# Niente --channels qui: Discord lo ascolta solo il servizio launchd
+# com.ultron.discord, altrimenti ogni sessione risponde allo stesso messaggio.
 cd "$(dirname "$0")"
 AGENT_HOME="$(cd .. && pwd)"
 
@@ -11,4 +13,4 @@ fi
 
 open -a "Google Chrome" "http://127.0.0.1:8795/baracca.html"
 
-osascript -e "tell application \"Terminal\" to do script \"cd '$AGENT_HOME' && claude --channels plugin:discord@claude-plugins-official\"" >/dev/null
+osascript -e "tell application \"Terminal\" to do script \"cd '$AGENT_HOME' && claude\"" >/dev/null

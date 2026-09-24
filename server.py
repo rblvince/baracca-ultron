@@ -19,6 +19,10 @@ import supabase_client
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Ultron vault")
 AGENT_HOME = os.path.expanduser("~/my-agent")
+# Discord lo ascolta UNA sola sessione: il servizio launchd (vedi
+# ~/Library/LaunchAgents/com.ultron.discord.plist). Più sessioni con
+# --channels rispondono tutte allo stesso messaggio e bruciano token.
+DISCORD_SERVICE = "com.ultron.discord"
 CLAUDE_MD = os.path.join(AGENT_HOME, "CLAUDE.md")
 STATE_PATH = os.path.join(HERE, "state", "state.json")
 SESSIONS_PATH = os.path.join(HERE, "state", "sessions.json")
@@ -281,9 +285,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == "/api/talk":
-            script = f'tell application "Terminal" to do script "cd \'{AGENT_HOME}\' && claude --channels plugin:discord@claude-plugins-official"'
-            subprocess.Popen(["osascript", "-e", script])
-            self._send_json({"ok": True})
+            # riavvia l'unico ascoltatore Discord invece di aprirne un altro
+            r = subprocess.run(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{DISCORD_SERVICE}"],
+                               capture_output=True, timeout=10)
+            self._send_json({"ok": r.returncode == 0})
         else:
             self.send_response(404)
             self.end_headers()
