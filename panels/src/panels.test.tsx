@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SessionTimeline } from './SessionTimeline';
 import { SubagentLog } from './SubagentLog';
@@ -44,6 +44,23 @@ describe('TokenHistory', () => {
     render(<TokenHistory state={{ data: [tok('2026-09-23', 'prod', 0, 100)], error: true }} rooms={ROOMS} days={DAYS} />);
     expect(screen.getByText('ERRORE')).toBeTruthy();
     expect(screen.getAllByText('100').length).toBeGreaterThan(0);   // totale, asse e dettaglio
+  });
+  it('grafico 1:1 alla larghezza vera: il viewBox segue il contenitore, il testo non si scala', () => {
+    let cb: ResizeObserverCallback = () => {};
+    const RO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class { constructor(c: ResizeObserverCallback) { cb = c; } observe() {} disconnect() {} unobserve() {} } as unknown as typeof ResizeObserver;
+    try {
+      const { container } = render(<TokenHistory state={{ data: [tok('2026-09-22', 'prod', 0, 100)], error: false }} rooms={ROOMS} days={DAYS} />);
+      const svg = () => container.querySelector('svg.tk-chart')!;
+      expect(svg().getAttribute('viewBox')).toBe('0 0 600 150');   // prima della misura: ripiego
+      act(() => cb([{ contentRect: { width: 1350 } } as ResizeObserverEntry], {} as ResizeObserver));
+      expect(svg().getAttribute('viewBox')).toBe('0 0 1350 150');
+      expect(svg().getAttribute('width')).toBe('1350');
+      const last = [...container.querySelectorAll('.tk-lbl[text-anchor]')].pop()!;
+      expect(last.getAttribute('x')).toBe('1350');               // ultima etichetta sul bordo destro vero
+    } finally {
+      globalThis.ResizeObserver = RO;
+    }
   });
   it('etichette asse X: prima a sinistra, ultima a destra, non tagliate dal viewBox', () => {
     const { container } = render(<TokenHistory state={{ data: [tok('2026-09-22', 'prod', 0, 100)], error: false }} rooms={ROOMS} days={DAYS} />);
