@@ -481,30 +481,7 @@
 
   <!-- la vista DASHBOARD: la sala comando. Prende il posto della scena, la colonna a destra resta -->
   <div class="dashv" id="dashv">
-    <div class="dgroup">SESSIONE</div>
-    <div class="dp hdr c12">
-      <canvas id="dPort" width="40" height="28"></canvas>
-      <div>
-        <div class="st" id="dStatus">idle</div>
-        <div class="wh" id="dWhere">nessun reparto</div>
-        <div class="id" id="dIdent">Ultron</div>
-      </div>
-      <div class="meta">SESSIONE <b id="dClock">00:00</b><br>ULTIMO SEGNALE <b id="dLast">—</b><br><span class="pill demo" id="dMode">DEMO</span></div>
-    </div>
-
-    <div class="dp scr c4"><h4>SEGNALE <span class="dtag demo" id="tagSig">SCENA</span><em>claude code</em></h4><canvas id="dPulse" width="210" height="60"></canvas>
-      <div class="stats"><div>eventi<b id="dEv">0</b></div><div>al minuto<b id="dEvm">0</b></div><div>ultimo tool<b id="dTool">—</b></div><div>nodo<b id="dNode">—</b></div></div>
-      <div class="dphint">eventi = tool ricevuti dagli hook · nodo = file toccato nel vault</div></div>
-
-    <div class="dp c8"><h4>PONTE CON CLAUDE CODE <span class="dtag demo" id="tagLink">SCENA</span><em id="dLinkSub">hook · state.json · poll 400 ms</em></h4>
-      <div class="link" id="dLink">
-        <div class="stn" data-k="prompt"><i></i><b>UserPromptSubmit</b>thinking</div>
-        <div class="stn" data-k="tool"><i></i><b>PostToolUse</b>barracks.py</div>
-        <div class="stn" data-k="sub"><i></i><b>SubagentStop</b>reparto rientrato</div>
-        <div class="stn" data-k="stop"><i></i><b>Stop</b>idle</div>
-        <div class="sig" id="dSig"></div>
-      </div>
-      <div class="raw" id="dRaw">in attesa del primo evento…</div></div>
+    <div class="dslot" id="dashSessione"></div>
 
     <div class="dslot" id="dashLavoro"></div>
 
@@ -2956,43 +2933,10 @@ function renderMissions(v){
 function renderVault(v){
   renderMissions(v);
   if(v) vigOnVault(v);
-  if(!v){
-    document.getElementById("dIdent").textContent = "Ultron · in attesa del vault";
-    return;
-  }
-  var id = v.identity || {};
-  document.getElementById("dIdent").textContent = (id.name||"Ultron") + (id.role ? " · "+id.role : "");
 }
 
-/* ------------------------------------------------------------ segnale */
-function drawPulse(){
-  var cv = document.getElementById("dPulse"), g = cv.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  g.fillStyle = "#0c120e"; g.fillRect(0,0,cv.width,cv.height);
-  g.fillStyle = "rgba(123,189,90,.12)";
-  for(var y=0;y<cv.height;y+=8) g.fillRect(0,y,cv.width,1);
-  var W = cv.width, H = cv.height, n = pulseHist.length;
-  pulseHist.forEach(function(v,i){
-    var bh = Math.max(2, Math.round(v*(H-6)/2)*2);
-    g.fillStyle = i===n-1 ? "#fff" : stColor();
-    g.fillRect(Math.round(i*(W/n)), H-bh-2, Math.max(2,Math.floor(W/n)-1), bh);
-  });
-  g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(0,H-2,W,2);
-}
 /* ------------------------------------------------- il ponte con gli hook */
 function markLink(k){ LINK_HIT[k] = true; LINK_LAST = k; LINK_AT = Date.now(); }
-function renderLink(){
-  var stns = document.querySelectorAll("#dLink .stn"), idx = 0;
-  for(var i=0;i<stns.length;i++){
-    var k = stns[i].dataset.k;
-    var hot = LINK_LAST === k && Date.now()-LINK_AT < 1600;
-    stns[i].className = "stn" + (LINK_HIT[k] ? " on" : "") + (hot ? " hot" : "");
-    if(LINK_LAST === k) idx = i;
-  }
-  var sig = document.getElementById("dSig");
-  sig.style.left = (12.5 + idx*25) + "%";
-  sig.className = "sig" + (Date.now()-LINK_AT < 1600 ? " go" : "");
-}
 
 /* isola React della sala comando (panels/src/dash): montata una volta, al primo
    giro della dashboard. Se il bundle manca o esplode, DASH resta null e il
@@ -3058,57 +3002,8 @@ function dashState(){
 
 /* ------------------------------------------------- il giro completo */
 function renderDashLive(t){
-  t = t || 0;
   dashOnce();
   if(DASH){ try{ DASH.publish(dashSnapshot(dashState())); }catch(e){} }
-  /* testata */
-  var st = document.getElementById("dStatus");
-  st.textContent = stateWord(); st.style.color = stColor();
-  var where = ULTRON.moving
-    ? (SKFX ? "verso l'arsenale · "+SKFX.sk.n : STATE.target ? "in cammino verso "+R(STATE.target).n : "nel corridoio")
-    : (STATE.room ? "in "+R(STATE.room).n : "nel corridoio");
-  document.getElementById("dWhere").innerHTML = esc(where) +
-    (STATE.node ? " · <b>"+esc(STATE.node)+"</b>" : STATE.task ? " · <b>"+esc(taskText())+"</b>" : "");
-  document.getElementById("dClock").textContent = document.getElementById("coreClock").textContent;
-  var pill = document.getElementById("dMode");
-  pill.className = "pill " + (LIVE ? "live" : "demo"); pill.textContent = LIVE ? "LIVE" : "DEMO";
-  document.getElementById("dLast").textContent = LIVE ? Math.max(0,Math.round((Date.now()-lastSeen)/1000))+"s" : "demo";
-  /* le tessere che mescolano vero e scena si etichettano da sole:
-     REALE quando la sessione è LIVE, SCENA quando è il simulatore interno */
-  var dtCls = "dtag " + (LIVE ? "real" : "demo"), dtTxt = LIVE ? "REALE" : "SCENA";
-  ["tagSig","tagLink"].forEach(function(id){
-    var el = document.getElementById(id); if(el){ el.className = dtCls; el.textContent = dtTxt; }
-  });
-
-  /* ritratto */
-  var pc = document.getElementById("dPort"), pg = pc.getContext("2d");
-  pg.imageSmoothingEnabled = false;
-  pg.fillStyle = "#1b1610"; pg.fillRect(0,0,pc.width,pc.height);
-  pg.fillStyle = stColor(); pg.globalAlpha = .16;
-  for(var i=0;i<pc.height;i+=4) pg.fillRect(0,i,pc.width,2);
-  pg.globalAlpha = 1;
-  var blink = (t % 3000) > 2880;
-  var talk = (STATE.status==="delegating" || STATE.status==="failing") ? (Math.floor(t*.008)%2===0) : false;
-  pg.drawImage(bustSprite(STATE.status, blink, talk), 0, ULTRON.moving ? (Math.floor(t*.008)%2) : 0);
-
-  drawPulse(); renderLink();
-  /* il JSON grezzo serve solo a chi fa debug: si vede aprendo la pagina con #debug */
-  var rawEl = document.getElementById("dRaw");
-  rawEl.style.display = location.hash === "#debug" ? "" : "none";
-  if(location.hash === "#debug"){
-    var raw = LIVE && LAST_STATE ? JSON.stringify(LAST_STATE)
-      : JSON.stringify({status:STATE.status, room:STATE.room, node:STATE.node||null});
-    rawEl.innerHTML = (LIVE ? "<b>state.json ·</b> " : "<b>simulato ·</b> ") + esc(raw);
-  }
-
-  /* segnale */
-  var mins = (Date.now()-startTs)/60000;
-  document.getElementById("dEv").textContent = EVENTS.length;
-  document.getElementById("dEvm").textContent = mins > .2 ? (EVENTS.length/mins).toFixed(1) : "—";
-  var dTool = document.getElementById("dTool");
-  dTool.textContent = toolLabel(LAST_TOOL); dTool.title = LAST_TOOL;
-  document.getElementById("dNode").textContent = String(LAST_NODE).slice(0,14);
-
 }
 
 /* ------------------------------------ demo Base Abissale: ambiente vivo */
