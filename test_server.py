@@ -91,7 +91,31 @@ def test_panels_route_serves_only_the_bundle():
         srv.HERE = old_here
 
 
+def test_talk_restarts_the_single_discord_service():
+    """Il pulsante non deve mai aprire un'altra sessione con --channels
+    (risposte doppie su Discord): riavvia il servizio launchd."""
+    import io
+    import server as srv
+    calls = []
+    old_run = srv.subprocess.run
+    srv.subprocess.run = lambda args, **k: calls.append(args) or type("R", (), {"returncode": 0})()
+    h = srv.Handler.__new__(srv.Handler)
+    h.path = "/api/talk"
+    sent = []
+    h._send_json = lambda obj: sent.append(obj)
+    try:
+        h.do_POST()
+        assert calls == [["launchctl", "kickstart", "-k", "gui/%d/com.ultron.discord" % os.getuid()]], calls
+        assert sent == [{"ok": True}], sent
+    finally:
+        srv.subprocess.run = old_run
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py")).read()
+    src += open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "start.sh")).read()
+    assert "claude --channels" not in src, "nessun lancio di Claude con --channels"
+
+
 def main():
+    test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
