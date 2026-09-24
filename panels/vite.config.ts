@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // Isola React della Baracca: un solo panels.js (IIFE) che espone
-// window.mountStorico. React entra nel bundle, supabase-js no (solo tipi).
+// window.mountDashboard. React entra nel bundle, supabase-js no (solo tipi).
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   // in library mode Vite non sostituisce process.env.NODE_ENV da solo;

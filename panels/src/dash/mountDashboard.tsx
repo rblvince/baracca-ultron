@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { Lavoro } from './Lavoro';
 import { Memoria } from './Memoria';
 import { Sessione } from './Sessione';
+import { Storico } from '../Storico';
 import { ActiveCtx, createStore, EngineCtx, StoreCtx } from './store';
 import type { DashSnapshot, Engine, Slots } from './types';
 import type { Room } from '../types';
@@ -34,10 +35,11 @@ export function mountDashboard(slots: Slots, engine: Engine): DashHandle {
       <StoreCtx.Provider value={store}>
         <EngineCtx.Provider value={engine}>
           <ActiveCtx.Provider value={v.active}>
-            {/* i gruppi si aggiungono qui, uno per task: STORICO */}
             {slots.sessione && createPortal(<Sessione />, slots.sessione)}
             {slots.lavoro && createPortal(<Lavoro />, slots.lavoro)}
             {slots.memoria && createPortal(<Memoria />, slots.memoria)}
+            {slots.storico && v.storico && createPortal(
+              <Storico client={v.storico.client} rooms={v.storico.rooms} active={v.active} />, slots.storico)}
           </ActiveCtx.Provider>
         </EngineCtx.Provider>
       </StoreCtx.Provider>
