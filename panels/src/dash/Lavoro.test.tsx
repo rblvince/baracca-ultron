@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { BachecaMissioni, PrioritaAperte, TempoPerReparto } from './Lavoro';
+import { BachecaMissioni, Lavoro, Operativi, PrioritaAperte, Specialisti, TempoPerReparto } from './Lavoro';
 import { mmss } from './fmt';
 import { createStore, EngineCtx, StoreCtx } from './store';
 import { fakeEngine, fakeSnap } from './fixture';
@@ -80,5 +80,42 @@ describe('TEMPO PER REPARTO', () => {
     expect(c.querySelector('#tagTime')!.textContent).toBe('REALE');
     const demo = show(<TempoPerReparto />, fakeSnap({ header: { ...fakeSnap().header, live: false } }));
     expect(demo.querySelector('#tagTime')!.textContent).toBe('SCENA');
+  });
+});
+
+describe('OPERATIVI', () => {
+  it('card con sprite del motore, reparto, occupato, barra token', () => {
+    const c = show(<Operativi />, fakeSnap());
+    const cards = c.querySelectorAll('#dCrew .cc');
+    expect(cards).toHaveLength(2);
+    expect((cards[0].querySelector('canvas') as HTMLCanvasElement).dataset.sprite).toBe('ricerca-1');
+    expect(cards[0].querySelector('.r')!.textContent).toBe('RICERCA');
+    expect(cards[1].className).toBe('cc busy');
+    const tok = cards[0].querySelector('.tok')!;
+    expect(tok.className).toBe('tok');
+    expect((tok.children[3] as HTMLElement).style.width).toBe('40%');       // 4 su 10
+    expect(tok.getAttribute('title')).toBe('in 1 · out 2 · cache-r 3 · cache-w 4');
+    expect(cards[1].querySelector('.tok')!.className).toBe('tok empty');
+    expect(c.querySelector('#dCrewN')!.textContent).toBe('1 IN MOVIMENTO / 2');
+  });
+});
+
+describe('SPECIALISTI', () => {
+  it('card con sprite, usi, dove, evidenza se appena usato', () => {
+    const c = show(<Specialisti />, fakeSnap());
+    const sk = c.querySelector('#dSkills .sk')!;
+    expect(sk.className).toBe('sk eq');
+    expect((sk.querySelector('canvas') as HTMLCanvasElement).dataset.sprite).toBe('taste');
+    expect(sk.querySelector('.n i')!.textContent).toBe('2 USI');
+    expect(sk.querySelector('.p')!.textContent).toBe('al posto');
+  });
+});
+
+describe('gruppo LAVORO', () => {
+  it('cinque pannelli nell’ordine di oggi', () => {
+    const c = show(<Lavoro />, fakeSnap());
+    expect(c.querySelector('.dgroup')!.textContent).toBe('LAVORO');
+    expect([...c.querySelectorAll('.dp h4')].map((h) => h.childNodes[0].textContent!.trim()))
+      .toEqual(['OPERATIVI', 'BACHECA MISSIONI', 'PRIORITÀ APERTE', 'SPECIALISTI', 'TEMPO PER REPARTO']);
   });
 });

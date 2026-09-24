@@ -1,5 +1,7 @@
 import { mmss } from './fmt';
 import { useEngine, useSection } from './store';
+import { PanelBoundary } from './Boundary';
+import { SpriteSlot } from './SpriteSlot';
 
 /** REALE quando la sessione è LIVE, SCENA quando è il simulatore interno. */
 export function DTag({ id }: { id: string }) {
@@ -84,5 +86,66 @@ export function TempoPerReparto() {
             <small>{mmss(r.ms)}</small></div>
         ))}
       </div></div>
+  );
+}
+
+export function Operativi() {
+  const crew = useSection('crew') ?? [];
+  const pal = useSection('palette');
+  const { sprites } = useEngine();
+  const colors = pal ? [pal.gold, pal.cyan, pal.violet, pal.green] : ['', '', '', ''];
+  const busy = crew.filter((a) => a.busy).length;
+  return (
+    <div className="dp c4"><h4>OPERATIVI <DTag id="tagCrew" /><em id="dCrewN">{`${busy} IN MOVIMENTO / ${crew.length}`}</em></h4>
+      <div className="crewrow" id="dCrew">
+        {crew.map((a) => {
+          const segs = a.tokens ?? [0, 0, 0, 0];
+          const tot = segs[0] + segs[1] + segs[2] + segs[3];
+          return (
+            <div key={a.id} className={`cc${a.busy ? ' busy' : ''}`} data-id={a.id}>
+              <SpriteSlot make={() => sprites.crew(a.id)} />
+              <div className="n" style={{ color: a.color }}>{a.name}</div>
+              <div className="r">{a.role}</div>
+              <div className={`tok${tot === 0 ? ' empty' : ''}`}
+                   title={tot ? `in ${segs[0]} · out ${segs[1]} · cache-r ${segs[2]} · cache-w ${segs[3]}` : ''}>
+                {segs.map((v, k) => <i key={k} style={{ background: colors[k], width: `${tot ? (v / tot) * 100 : 0}%` }} />)}
+              </div>
+            </div>
+          );
+        })}
+      </div></div>
+  );
+}
+
+export function Specialisti() {
+  const skills = useSection('skills') ?? [];
+  const { sprites } = useEngine();
+  return (
+    <div className="dp c4"><h4>SPECIALISTI <DTag id="tagSkills" /><em>le skill in dotazione</em></h4>
+      <div className="arsenal" id="dSkills">
+        {skills.map((sk) => (
+          <div key={sk.id} className={`sk${sk.hot ? ' eq' : ''}`} data-id={sk.id}>
+            <SpriteSlot make={() => sprites.spec(sk.id)} />
+            <div>
+              <div className="n" style={{ color: sk.color }}><span>{sk.name}</span><i>{`${sk.uses} USI`}</i></div>
+              <div className="d">{sk.desc}</div>
+              <div className="p">{sk.where}</div>
+            </div>
+          </div>
+        ))}
+      </div></div>
+  );
+}
+
+export function Lavoro() {
+  return (
+    <>
+      <div className="dgroup">LAVORO</div>
+      <PanelBoundary cls="dp c4" title="OPERATIVI"><Operativi /></PanelBoundary>
+      <PanelBoundary cls="dp cork c5" title="BACHECA MISSIONI"><BachecaMissioni /></PanelBoundary>
+      <PanelBoundary cls="dp clip c3" title="PRIORITÀ APERTE"><PrioritaAperte /></PanelBoundary>
+      <PanelBoundary cls="dp c4" title="SPECIALISTI"><Specialisti /></PanelBoundary>
+      <PanelBoundary cls="dp c3" title="TEMPO PER REPARTO"><TempoPerReparto /></PanelBoundary>
+    </>
   );
 }

@@ -506,13 +506,7 @@
       </div>
       <div class="raw" id="dRaw">in attesa del primo evento…</div></div>
 
-    <div class="dgroup">LAVORO</div>
-    <div class="dp c4"><h4>OPERATIVI <span class="dtag demo" id="tagCrew">SCENA</span><em id="dCrewN"></em></h4><div class="crewrow" id="dCrew"></div></div>
-    <div class="dp cork c5"><h4>BACHECA MISSIONI <span class="dtag demo" id="tagBoard">SCENA</span><em id="dBoardSub"></em></h4><div class="papers" id="dBoard"></div>
-      <div class="stamp" id="dStamp" style="display:none"></div></div>
-    <div class="dp clip c3"><h4>PRIORITÀ APERTE <span class="dtag real">REALE</span></h4><ul id="dPrio"><li class="empty">in attesa del vault…</li></ul><div class="tot" id="dPrioSub"></div></div>
-    <div class="dp c4"><h4>SPECIALISTI <span class="dtag demo" id="tagSkills">SCENA</span><em>le skill in dotazione</em></h4><div class="arsenal" id="dSkills"></div></div>
-    <div class="dp c3"><h4>TEMPO PER REPARTO <span class="dtag demo" id="tagTime">SCENA</span><em>questa sessione</em></h4><div class="bars" id="dTime"></div></div>
+    <div class="dslot" id="dashLavoro"></div>
 
     <div class="dslot" id="dashMemoria"></div>
     <!-- isola React (panels/): il vanilla non tocca mai niente qui dentro -->
@@ -2851,7 +2845,7 @@ function showView(v){
   document.getElementById("tabDash").className = "tab"+(v==="dash"?" on":"");
   document.getElementById("crumb").innerHTML = v==="dash" ? "SALA COMANDO / <b>rapporto generale</b>"
     : "BASE / <b>"+(focus ? focus.n : "vista generale")+"</b>";
-  if(v==="dash"){ refreshVault(); buildCrew(); buildSkills(); renderDashLive(); }
+  if(v==="dash"){ refreshVault(); renderDashLive(); }
 }
 document.getElementById("tabBase").addEventListener("click", function(){ showView("base"); });
 document.getElementById("tabDash").addEventListener("click", function(){ showView("dash"); });
@@ -2962,70 +2956,12 @@ function renderMissions(v){
 function renderVault(v){
   renderMissions(v);
   if(v) vigOnVault(v);
-  var prio = document.getElementById("dPrio");
   if(!v){
-    prio.innerHTML = "<li class='empty'>vault non raggiungibile · avvia start.sh</li>";
-    document.getElementById("dPrioSub").textContent = "";
     document.getElementById("dIdent").textContent = "Ultron · in attesa del vault";
     return;
   }
   var id = v.identity || {};
   document.getElementById("dIdent").textContent = (id.name||"Ultron") + (id.role ? " · "+id.role : "");
-  var open = (v.priorities && v.priorities.open) || [];
-  var done = (v.priorities && v.priorities.completed_count) || 0;
-  prio.innerHTML = "";
-  if(!open.length) prio.innerHTML = "<li class='empty'>nessuna priorità aperta</li>";
-  var shown = 9;
-  open.slice(0,shown).forEach(function(t){
-    var d = document.createElement("li");
-    t = plainMd(t);
-    d.textContent = t; d.title = t;
-    d.style.cursor = "pointer";
-    d.addEventListener("click", function(){
-      openItemDetail("PRIORITÀ APERTA", "ACTIVE PRIORITIES.MD · SOLA LETTURA",
-        "<div style='white-space:pre-wrap;line-height:1.5;color:var(--ink-soft);max-width:480px;'>"+esc(t)+"</div>");
-    });
-    prio.appendChild(d);
-  });
-  if(open.length > shown){
-    var more = document.createElement("li"); more.className = "empty";
-    more.textContent = "+"+(open.length-shown)+" altre — vedi Active Priorities.md";
-    prio.appendChild(more);
-  }
-  document.getElementById("dPrioSub").textContent = open.length+" APERTE · "+done+" COMPLETATE";
-}
-
-/* ------------------------------------------------- la truppa in foto */
-function buildCrew(){
-  var box = document.getElementById("dCrew");
-  if(box.childElementCount) return;              /* si costruisce una volta sola */
-  CREW.forEach(function(a){
-    var d = document.createElement("div"); d.className = "cc"; d.dataset.id = a.id;
-    var c = cvs(24,30);
-    var img = a.costume ? cameoSprite(a.costume, 0) : crewSprite(a, 0, false);
-    c.getContext("2d").drawImage(img, Math.round((24-img.width)/2), 30-img.height);
-    d.appendChild(c);
-    var n = document.createElement("div"); n.className = "n"; n.style.color = a.col; n.textContent = a.n;
-    var r = document.createElement("div"); r.className = "r"; r.textContent = "—";
-    var tok = document.createElement("div"); tok.className = "tok empty";
-    tok.innerHTML = "<i style='background:"+P.gold+"'></i><i style='background:"+P.cyan+"'></i>"+
-                    "<i style='background:"+P.violet+"'></i><i style='background:"+P.green+"'></i>";
-    d.appendChild(n); d.appendChild(r); d.appendChild(tok); box.appendChild(d);
-  });
-}
-/* ------------------------------------------------- l'arsenale in lista */
-function buildSkills(){
-  var box = document.getElementById("dSkills");
-  if(box.childElementCount) return;
-  SKILLS.forEach(function(sk){
-    var d = document.createElement("div"); d.className = "sk"; d.dataset.id = sk.id;
-    var c = cvs(22,32);
-    c.getContext("2d").drawImage(sk.costume ? cameoSprite(sk.costume,0) : specSprite(sk,0,false),0,0);
-    var txt = document.createElement("div");
-    txt.innerHTML = "<div class='n' style='color:"+sk.c+"'><span>"+sk.n+"</span><i>0 USI</i></div>" +
-                    "<div class='d'>"+sk.d+"</div><div class='p'>al posto</div>";
-    d.appendChild(c); d.appendChild(txt); box.appendChild(d);
-  });
 }
 
 /* ------------------------------------------------------------ segnale */
@@ -3140,7 +3076,7 @@ function renderDashLive(t){
   /* le tessere che mescolano vero e scena si etichettano da sole:
      REALE quando la sessione è LIVE, SCENA quando è il simulatore interno */
   var dtCls = "dtag " + (LIVE ? "real" : "demo"), dtTxt = LIVE ? "REALE" : "SCENA";
-  ["tagSig","tagLink","tagCrew","tagBoard","tagSkills","tagTime"].forEach(function(id){
+  ["tagSig","tagLink"].forEach(function(id){
     var el = document.getElementById(id); if(el){ el.className = dtCls; el.textContent = dtTxt; }
   });
 
@@ -3173,85 +3109,6 @@ function renderDashLive(t){
   dTool.textContent = toolLabel(LAST_TOOL); dTool.title = LAST_TOOL;
   document.getElementById("dNode").textContent = String(LAST_NODE).slice(0,14);
 
-  /* operativi */
-  var busy = 0;
-  CREW.forEach(function(a){
-    var el = document.querySelector('#dCrew .cc[data-id="'+a.id+'"]'); if(!el) return;
-    var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
-    var b = !!carrying || a.moving; if(b) busy++;
-    el.className = "cc" + (b ? " busy" : "");
-    el.querySelector(".r").textContent = carrying ? "PORTA CASSA" : a.moving ? "IN CAMMINO" : R(a.room).n;
-    var tok = el.querySelector(".tok");
-    var td = LIVE && STATE.tokens && STATE.tokens[a.home];
-    var segs = td ? [td.in||0, td.out||0, td.cread||0, td.cwrite||0] : [0,0,0,0];
-    var tot = segs[0]+segs[1]+segs[2]+segs[3];
-    tok.classList.toggle("empty", tot===0);
-    var kids = tok.children;
-    for(var k=0;k<4;k++) kids[k].style.width = (tot ? segs[k]/tot*100 : 0)+"%";
-    tok.title = tot ? "in "+segs[0]+" · out "+segs[1]+" · cache-r "+segs[2]+" · cache-w "+segs[3] : "";
-  });
-  document.getElementById("dCrewN").textContent = busy+" IN MOVIMENTO / "+CREW.length;
-
-  /* bacheca */
-  var board = document.getElementById("dBoard");
-  board.innerHTML = "";
-  var realMs = activeMissions(VAULT);
-  realMs.forEach(function(m){
-    var dn = m.steps.filter(function(s){ return s.done; }).length, nx = nextStep(m);
-    var d = document.createElement("div"); d.className = "paper real";
-    d.innerHTML = esc(m.title) + "<div class='bar'><i style='width:"+Math.round(dn/m.steps.length*100)+"%'></i></div>" +
-      "<div style='font-size:11px;margin-top:4px'>"+dn+"/"+m.steps.length+(nx > -1 ? " · prossimo: "+esc(missionStepParts(m.steps[nx]).tag) : "")+"</div>" +
-      "<span class='stg'>REALE</span>";
-    d.addEventListener("click", function(){ showMissionDetail(m); });
-    board.appendChild(d);
-  });
-  var cap = Math.max(0, 6 - realMs.length), scene = sceneTasks();
-  if(!scene.length && !realMs.length) board.innerHTML = "<div class='none'>bacheca vuota</div>";
-  scene.slice(0,cap).forEach(function(k){
-    var d = document.createElement("div");
-    d.className = "paper" + (k.st==="qa" ? " qa" : "");
-    var stg = STAGES[k.stage] ? R(STAGES[k.stage]).n : "—";
-    d.innerHTML = esc(k.t) + "<div class='bar'><i style='width:"+Math.round(k.p*100)+"%'></i></div>" +
-      "<span class='stg' style='color:"+(k.st==="qa"?P.red:"#4a3720")+";border-color:"+(k.st==="qa"?P.red:"#4a3720")+"'>"+stg+"</span>";
-    d.style.cursor = "pointer";
-    d.addEventListener("click", function(){ showTaskDetail(k); });
-    board.appendChild(d);
-  });
-  (LIVE ? [] : DELIVERED_LOG).slice(0, Math.max(0, cap-scene.length)).forEach(function(nm){
-    var d = document.createElement("div"); d.className = "paper done";
-    d.innerHTML = esc(nm) + "<span class='stg'>FATTO</span>";
-    d.style.cursor = "pointer";
-    d.addEventListener("click", function(){
-      openItemDetail(esc(nm), "MISSIONE", "<div class='tele'><div class='k'>Stato</div><div class='v'>consegnata</div></div>"+
-        (LIVE ? "" : "<div class='dphint'>scena/decorativa — non è un task reale, nessun file o progetto collegato.</div>"));
-    });
-    board.appendChild(d);
-  });
-  document.getElementById("dBoardSub").textContent = LIVE ? realMs.length+" ATTIVE"
-    : TASKS.length+" IN CORSO · "+delivered+" CONSEGNATE";
-  var stamp = document.getElementById("dStamp");
-  stamp.style.display = (delivered && !LIVE) ? "block" : "none";
-  stamp.textContent = delivered + " CONSEGNATE";
-
-  /* arsenale */
-  SKILLS.forEach(function(sk){
-    var el = document.querySelector('#dSkills .sk[data-id="'+sk.id+'"]'); if(!el) return;
-    var hot = sk.last && Date.now()-sk.last < 4000;
-    el.className = "sk" + (hot ? " eq" : "");
-    el.querySelector(".n i").textContent = (sk.uses||0)+" USI";
-    el.querySelector(".p").textContent = sk.escort ? "al seguito · "+R(sk.escort).n.toLowerCase()
-      : sk.moving ? "in cammino" : "al posto";
-  });
-
-  /* tempo per reparto */
-  var tot = 0; ROOMS.forEach(function(r){ tot += ROOMTIME[r.id]; });
-  var bars = document.getElementById("dTime"); bars.innerHTML = "";
-  ROOMS.slice().sort(function(a,b){ return ROOMTIME[b.id]-ROOMTIME[a.id]; }).forEach(function(r){
-    var pct = tot ? ROOMTIME[r.id]/tot*100 : 0;
-    var d = document.createElement("div");
-    d.innerHTML = "<span style='color:"+r.c+"'>"+r.n+"</span><i><b style='width:"+pct.toFixed(1)+"%;background:"+r.c+"'></b></i><small>"+mmss(ROOMTIME[r.id])+"</small>";
-    bars.appendChild(d);
-  });
 }
 
 /* ------------------------------------ demo Base Abissale: ambiente vivo */
