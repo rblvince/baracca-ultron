@@ -2425,7 +2425,8 @@ function subscribeRealtime(){
         USE_SUPABASE = true;
         reloadAux(); // scena giusta subito, non solo al primo evento
         var pill = document.getElementById("mode");
-        if(pill && pill.textContent === "OFFLINE"){ pill.className = "pill demo"; pill.textContent = "DEMO"; }
+        var next = pill && pillAfterResubscribe(pill.textContent, LIVE);
+        if(next){ pill.className = next.cls; pill.textContent = next.text; }
       } else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT"){
         USE_SUPABASE = false; // torna al poll: meglio HTTP che niente
         showOffline();
@@ -2692,6 +2693,13 @@ function auxSourceOk(fromSupabase, useSupabase){
 function makeSeq(){
   var n = 0;
   return {next: function(){ return ++n; }, isLatest: function(k){ return k === n; }};
+}
+/* la pillola in alto quando Realtime si ricollega: se era OFFLINE torna allo
+   stato vero della sessione (LIVE se è viva, DEMO se no); altrimenti non si
+   tocca. Prima tornava sempre DEMO, anche con la sessione LIVE. */
+function pillAfterResubscribe(current, live){
+  if(current !== "OFFLINE") return null;
+  return live ? {cls:"pill live", text:"LIVE"} : {cls:"pill demo", text:"DEMO"};
 }
 /* AUX-PURE-END */
 /* LABEL-PURE-START */
