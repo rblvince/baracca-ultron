@@ -83,12 +83,16 @@ describe('SESSIONE', () => {
     const pending: FrameRequestCallback[] = [];
     const raf = vi.spyOn(window, 'requestAnimationFrame')
       .mockImplementation((cb) => { pending.push(cb); return pending.length; });
-    show(fakeSnap(), true);
-    expect(raf).toHaveBeenCalledTimes(1);
-    // fa scorrere il tempo di due frame: ogni callback, eseguito, deve
-    // riprogrammarsi da solo finché la dashboard resta aperta.
-    act(() => { pending.shift()!(16); });
-    act(() => { pending.shift()!(32); });
-    expect(raf.mock.calls.length).toBeGreaterThan(1);
+    try {
+      show(fakeSnap(), true);
+      expect(raf).toHaveBeenCalledTimes(1);
+      // fa scorrere il tempo di due frame: ogni callback, eseguito, deve
+      // riprogrammarsi da solo finché la dashboard resta aperta.
+      act(() => { pending.shift()!(16); });
+      act(() => { pending.shift()!(32); });
+      expect(raf.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      raf.mockRestore();
+    }
   });
 });
