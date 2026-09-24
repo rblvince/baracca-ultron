@@ -8,10 +8,12 @@ export type TokenUsageRow = {
   user_id: string;
   day: string; // 'YYYY-MM-DD', data locale del Mac che ha scritto
   room: string;
+  model: string; // migrazione 007; 'unknown' per le righe scritte prima
   input: number;
   output: number;
   cache_read: number;
   cache_write: number;
+  cache_write_1h: number; // la parte di cache_write a 1 ora (migrazione 007)
 };
 
 export type SubagentRow = {
@@ -46,7 +48,7 @@ type Exact<T, L extends readonly (keyof T)[]> = [keyof T] extends [L[number]] ? 
 const cols = <T>() => <L extends readonly (keyof T)[]>(l: Exact<T, L>) => l;
 
 export const COLUMNS = {
-  token_usage: cols<TokenUsageRow>()(['user_id', 'day', 'room', 'input', 'output', 'cache_read', 'cache_write'] as const),
+  token_usage: cols<TokenUsageRow>()(['user_id', 'day', 'room', 'model', 'input', 'output', 'cache_read', 'cache_write', 'cache_write_1h'] as const),
   subagents: cols<SubagentRow>()(['id', 'user_id', 'room', 'agent', 'task', 'created_at', 'finished_at', 'agent_id', 'tool_use_id'] as const),
   sessions: cols<SessionRow>()(['id', 'user_id', 'transcript_path', 'status', 'room', 'node', 'ts', 'created_at'] as const),
 };

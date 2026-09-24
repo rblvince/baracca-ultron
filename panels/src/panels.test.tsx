@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SessionTimeline } from './SessionTimeline';
 import { SubagentLog } from './SubagentLog';
@@ -11,8 +11,8 @@ const ROOMS: Room[] = [
   { id: 'rs', n: 'LABORATORIO', col: '#229fb3' },
 ];
 const DAYS = ['2026-09-22', '2026-09-23'];
-const tok = (day: string, room: string, input: number, output: number, cache_read = 0): TokenUsageRow =>
-  ({ user_id: 'u', day, room, input, output, cache_read, cache_write: 0 });
+const tok = (day: string, room: string, input: number, output: number, cache_read = 0, model = 'claude-sonnet-5'): TokenUsageRow =>
+  ({ user_id: 'u', day, room, model, input, output, cache_read, cache_write: 0, cache_write_1h: 0 });
 const sub = (p: Partial<SubagentRow>): SubagentRow =>
   ({ id: 1, user_id: 'u', room: 'prod', agent: 'produzione-1', task: 'scrive i test', created_at: new Date(2026, 8, 23, 10).toISOString(), finished_at: null, agent_id: null, tool_use_id: null, ...p });
 
@@ -33,6 +33,16 @@ describe('TokenHistory', () => {
     expect(container.querySelector('.tk-detail')!.textContent).toContain('22/09');
     fireEvent.click(bars[1]);   // tocco sul telefono
     expect(container.querySelector('.tk-detail')!.textContent).toContain('23/09');
+  });
+  it('costo a listino: totale in euro, asterisco se ci sono righe senza modello, costo del giorno nel dettaglio', () => {
+    const M = 1_000_000;
+    const { container } = render(<TokenHistory state={{ data: [tok('2026-09-22', 'prod', M, 0, 0, 'unknown'), tok('2026-09-23', 'prod', M, 0)], error: false }} rooms={ROOMS} days={DAYS} />);
+    const stat = within(container).getByText('costo a listino');
+    expect(stat.textContent).toContain('1,75');          // $2 / 1,1411 solo dal giorno con il modello
+    expect(stat.textContent).toContain('*');             // il 22/09 non è stimabile
+    expect(container.querySelector('.tk-detail')!.textContent).toContain('1,75');   // ultimo giorno selezionato
+    fireEvent.focus(container.querySelectorAll('g.tk-bar')[0]);
+    expect(container.querySelector('.tk-detail')!.textContent).toContain('costo n/d');
   });
   it('tutto a zero: nessun NaN nel disegno, resa cache "—"', () => {
     const { container } = render(<TokenHistory state={{ data: [], error: false }} rooms={ROOMS} days={DAYS} />);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchSessions, fetchSubagents, fetchTokenUsage } from './queries';
+import { fetchSessions, fetchSubagents, fetchTokenUsage, listenTable } from './queries';
 
 /** Client finto: registra la catena di chiamate e risolve con {data, error}. */
 function fakeClient(result: { data: unknown; error: unknown }) {
@@ -32,5 +32,25 @@ describe('query', () => {
   it('un errore di Supabase diventa una promise rifiutata', async () => {
     const { client } = fakeClient({ data: null, error: { message: 'JWT expired' } });
     await expect(fetchSessions(client, 0)).rejects.toEqual({ message: 'JWT expired' });
+  });
+
+  it('listenTable: canale sulla tabella, callback a ogni cambiamento, e lo chiude allo stop', () => {
+    const calls: unknown[][] = [];
+    let handler: () => void = () => {};
+    const channel = {
+      on: (...a: unknown[]) => { calls.push(['on', a[0], a[1]]); handler = a[2] as () => void; return channel; },
+      subscribe: () => { calls.push(['subscribe']); return channel; },
+    };
+    const client = {
+      channel: (name: string) => { calls.push(['channel', name]); return channel; },
+      removeChannel: (c: unknown) => { calls.push(['removeChannel', c === channel]); return Promise.resolve('ok'); },
+    } as unknown as SupabaseClient;
+    let hits = 0;
+    const stop = listenTable(client, 'subagents')(() => { hits++; });
+    expect(calls).toEqual([['channel', 'storico-subagents'], ['on', 'postgres_changes', { event: '*', schema: 'public', table: 'subagents' }], ['subscribe']]);
+    handler();
+    expect(hits).toBe(1);
+    stop();
+    expect(calls[calls.length - 1]).toEqual(['removeChannel', true]);
   });
 });

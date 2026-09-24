@@ -130,16 +130,16 @@ def save_tokens(data):
 
 
 def last_assistant_usage(transcript_path):
-    """(uuid, usage) dell'ultimo messaggio assistant nel transcript, o (None, None).
+    """(uuid, usage, model) dell'ultimo messaggio assistant nel transcript, o (None, None, None).
     ponytail: rilegge il file intero ad ogni hook — passare a lettura in coda
     (offset salvato) se una sessione molto lunga lo rendesse misurabilmente lento."""
     if not transcript_path:
-        return None, None
+        return None, None, None
     try:
         with open(transcript_path, encoding="utf-8") as f:
             lines = f.readlines()
     except OSError:
-        return None, None
+        return None, None, None
     for line in reversed(lines):
         line = line.strip()
         if not line:
@@ -150,10 +150,11 @@ def last_assistant_usage(transcript_path):
             continue
         if entry.get("type") != "assistant":
             continue
-        usage = (entry.get("message") or {}).get("usage")
+        message = entry.get("message") or {}
+        usage = message.get("usage")
         if usage:
-            return entry.get("uuid"), usage
-    return None, None
+            return entry.get("uuid"), usage, message.get("model")
+    return None, None, None
 
 
 def accumulate_tokens(room, transcript_path):
@@ -164,7 +165,7 @@ def accumulate_tokens(room, transcript_path):
     per giorno/reparto (RPC increment_token_usage, mai una riga per evento)."""
     if not room:
         return None
-    uuid, usage = last_assistant_usage(transcript_path)
+    uuid, usage, model = last_assistant_usage(transcript_path)
     if not usage:
         return None
     tokens = load_tokens()
@@ -176,6 +177,8 @@ def accumulate_tokens(room, transcript_path):
     d_out = usage.get("output_tokens", 0) or 0
     d_cread = usage.get("cache_read_input_tokens", 0) or 0
     d_cwrite = usage.get("cache_creation_input_tokens", 0) or 0
+    # la cache a 1 ora costa più di quella a 5 minuti: il costo in euro le separa
+    d_cwrite_1h = (usage.get("cache_creation") or {}).get("ephemeral_1h_input_tokens", 0) or 0
     r["in"] += d_in
     r["out"] += d_out
     r["cread"] += d_cread
@@ -194,6 +197,7 @@ def accumulate_tokens(room, transcript_path):
                 "p_room": room,
                 "p_input": d_in, "p_output": d_out,
                 "p_cache_read": d_cread, "p_cache_write": d_cwrite,
+                "p_model": model or "unknown", "p_cache_write_1h": d_cwrite_1h,
             })
     except Exception:
         pass

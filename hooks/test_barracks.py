@@ -197,6 +197,42 @@ def test_main_posttooluse_agent_reconciles():
          b.write_state, b.accumulate_tokens) = old_rec, old_upd, old_write, old_tok
 
 
+def test_accumulate_tokens_sends_model_and_1h_cache_write():
+    """Per il costo in euro serve sapere il modello e quanta scrittura in cache
+    è a 1 ora (costa 1,6 volte quella a 5 minuti)."""
+    import supabase_client
+    calls = []
+    old_rpc = supabase_client.rpc
+    supabase_client.rpc = lambda fn, params: calls.append((fn, params)) or 200
+    old_cfg = supabase_client.load_config
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    tmp_dir = tempfile.mkdtemp()
+    transcript = os.path.join(tmp_dir, "t.jsonl")
+    with_model = {"type": "assistant", "uuid": "a1", "message": {"model": "claude-opus-5-5", "usage": {
+        "input_tokens": 1, "output_tokens": 2, "cache_read_input_tokens": 3, "cache_creation_input_tokens": 50,
+        "cache_creation": {"ephemeral_5m_input_tokens": 10, "ephemeral_1h_input_tokens": 40}}}}
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        with open(transcript, "w", encoding="utf-8") as f:
+            f.write(json.dumps(with_model) + "\n")
+        b.accumulate_tokens("qa", transcript)
+        params = calls[-1][1]
+        assert params["p_model"] == "claude-opus-5-5", params
+        assert params["p_cache_write"] == 50 and params["p_cache_write_1h"] == 40, params
+        # transcript vecchio, senza modello né dettaglio: 'unknown' e 0, mai un errore
+        bare = {"type": "assistant", "uuid": "a2", "message": {"usage": {"input_tokens": 1, "output_tokens": 1}}}
+        with open(transcript, "w", encoding="utf-8") as f:
+            f.write(json.dumps(bare) + "\n")
+        b.accumulate_tokens("qa", transcript)
+        params = calls[-1][1]
+        assert params["p_model"] == "unknown" and params["p_cache_write_1h"] == 0, params
+    finally:
+        supabase_client.rpc = old_rpc
+        supabase_client.load_config = old_cfg
+        b.TOKENS_PATH = old_tokens_path
+
+
 def main():
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
@@ -205,6 +241,7 @@ def main():
     test_accumulate_tokens_dedup()
     test_write_state_calls_supabase_upsert()
     test_accumulate_tokens_calls_rpc_with_deltas()
+    test_accumulate_tokens_sends_model_and_1h_cache_write()
     test_classify_agent_tool_same_as_task()
     test_main_pretooluse_agent_spawns_subagent()
     test_main_subagent_start_claims_agent_id()
