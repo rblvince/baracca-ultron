@@ -2366,12 +2366,16 @@ function subscribeRealtime(){
     .on("postgres_changes", {event:"*", schema:"public", table:"agent_state"}, function(payload){
       acceptLiveRow(payload.new);
     })
+    /* cloni e mini-Ultron: l'evento è solo un campanello, reloadAux() rilegge */
+    .on("postgres_changes", {event:"*", schema:"public", table:"sessions"}, scheduleAuxReload)
+    .on("postgres_changes", {event:"*", schema:"public", table:"subagents"}, scheduleAuxReload)
     .subscribe(function(status){
       if(status === "SUBSCRIBED"){
         /* solo QUI: Realtime ha confermato davvero. Prima di questo momento
            poll() deve restare vivo, altrimenti un login mai fatto o un canale
            che non parte lascerebbe la pagina senza nessuna fonte di dati. */
         USE_SUPABASE = true;
+        reloadAux(); // scena giusta subito, non solo al primo evento
         var pill = document.getElementById("mode");
         if(pill && pill.textContent === "OFFLINE"){ pill.className = "pill demo"; pill.textContent = "DEMO"; }
       } else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT"){
@@ -2512,11 +2516,28 @@ function applyLive(s){
 }
 
 /* ============================================================ SDOPPIAMENTO
-   Un Ultron per ogni terminale Claude Code attivo (sessions.json, scritto da
-   ogni hook con transcript_path come chiave) e un mini-Ultron per ogni
-   sub-agente in coda (subagents.json). Il titolare sopra (ULTRON) resta
+   Un Ultron per ogni terminale Claude Code attivo e un mini-Ultron per ogni
+   sub-agente in coda. Fonte: Supabase (tabelle sessions/subagents via
+   Realtime) quando USE_SUPABASE, altrimenti i file locali via /api/sessions
+   e /api/subagents. Il titolare sopra (ULTRON) resta
    sempre la sessione con l'evento più recente — guida dashboard/log/token
    come sempre; qui si aggiungono solo le ALTRE sessioni, come cloni. */
+/* AUX-PURE-START */
+/* righe Supabase -> le stesse forme di /api/sessions e /api/subagents,
+   così il disegno non sa da dove arrivano i dati */
+function sessionsFromRows(rows){
+  var out = {};
+  (rows||[]).forEach(function(r){
+    out[r.transcript_path] = {status:r.status, room:r.room, node:r.node, ts:r.ts};
+  });
+  return out;
+}
+function subagentsFromRows(rows){
+  return {list: (rows||[]).map(function(r){
+    return {id:r.id, room:r.room, agent:r.agent, task:r.task, ts:Date.parse(r.created_at)};
+  })};
+}
+/* AUX-PURE-END */
 var CLONES = [], MINIS = [];
 
 function ghost(scale){
@@ -2524,51 +2545,83 @@ function ghost(scale){
           face:1, v:300, phase:0, room:null, status:"idle", scale:scale};
 }
 
-function pollAux(){
-  fetch("/api/sessions", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
-    .then(function(sessions){
-      if(!sessions) return;
-      var keys = Object.keys(sessions);
-      if(!keys.length){ CLONES = []; return; }
-      /* il titolare è la sessione con l'evento più recente in assoluto —
-         è già lui a guidare ULTRON via /api/state, non gli serve un clone */
-      var primary = keys.reduce(function(a,b){ return sessions[a].ts >= sessions[b].ts ? a : b; });
-      var live = {};
-      keys.forEach(function(key){
-        if(key === primary) return;
-        live[key] = true;
-        var s = sessions[key];
-        var c = CLONES.filter(function(x){ return x.key===key; })[0];
-        if(!c){ c = ghost(2.6); c.key = key; CLONES.push(c); }
-        if(s.status) c.status = s.status;
-        if(s.room && R(s.room) && c.room !== s.room){ c.room = s.room; goTo(c, s.room, .3+Math.random()*.4, .5); }
-      });
-      CLONES = CLONES.filter(function(c){
-        if(live[c.key]) return true;
-        puff(c.x, c.y-20, P.violet, 10); return false;
-      });
-    }).catch(function(){});
+function renderSessions(sessions){
+  var keys = Object.keys(sessions);
+  if(!keys.length){ CLONES = []; return; }
+  /* il titolare è la sessione con l'evento più recente in assoluto —
+     è già lui a guidare ULTRON via agent_state, non gli serve un clone */
+  var primary = keys.reduce(function(a,b){ return sessions[a].ts >= sessions[b].ts ? a : b; });
+  var live = {};
+  keys.forEach(function(key){
+    if(key === primary) return;
+    live[key] = true;
+    var s = sessions[key];
+    var c = CLONES.filter(function(x){ return x.key===key; })[0];
+    if(!c){ c = ghost(2.6); c.key = key; CLONES.push(c); }
+    if(s.status) c.status = s.status;
+    if(s.room && R(s.room) && c.room !== s.room){ c.room = s.room; goTo(c, s.room, .3+Math.random()*.4, .5); }
+  });
+  CLONES = CLONES.filter(function(c){
+    if(live[c.key]) return true;
+    puff(c.x, c.y-20, P.violet, 10); return false;
+  });
+}
 
+function renderSubagents(data){
+  var ids = {};
+  (data.list||[]).forEach(function(s){
+    ids[s.id] = true;
+    var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
+    if(!m){
+      m = ghost(1.4); m.id = s.id; m.status = "delegating"; MINIS.push(m);
+      if(s.room && R(s.room)) goTo(m, s.room, .2+Math.random()*.5, .6);
+    }
+  });
+  MINIS = MINIS.filter(function(m){
+    if(ids[m.id]) return true;
+    puff(m.x, m.y-14, P.violet, 8); return false;
+  });
+}
+
+/* ripiego locale: gira solo finché Realtime non ha preso il comando */
+function pollAux(){
+  if(USE_SUPABASE) return; // Realtime + reloadAux() se ne occupano
+  fetch("/api/sessions", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
+    .then(function(s){ if(s) renderSessions(s); }).catch(function(){});
   fetch("/api/subagents", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
-    .then(function(data){
-      if(!data) return;
-      var ids = {};
-      (data.list||[]).forEach(function(s){
-        ids[s.id] = true;
-        var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
-        if(!m){
-          m = ghost(1.4); m.id = s.id; m.status = "delegating"; MINIS.push(m);
-          if(s.room && R(s.room)) goTo(m, s.room, .2+Math.random()*.5, .6);
-        }
-      });
-      MINIS = MINIS.filter(function(m){
-        if(ids[m.id]) return true;
-        puff(m.x, m.y-14, P.violet, 8); return false;
-      });
-    }).catch(function(){});
+    .then(function(d){ if(d) renderSubagents(d); }).catch(function(){});
 }
 setInterval(pollAux, 1200);
 pollAux();
+
+/* Supabase: una raffica di eventi Realtime diventa una sola rilettura */
+var AUX_TIMER = null;
+function scheduleAuxReload(){
+  if(AUX_TIMER) return;
+  AUX_TIMER = setTimeout(function(){ AUX_TIMER = null; reloadAux(); }, 300);
+}
+
+/* stesse soglie di read_sessions()/read_subagents() in server.py. Una select
+   fallita non ridisegna niente: un buco di rete non deve svuotare la scena. */
+function reloadAux(){
+  if(!supaClient) return;
+  supaClient.auth.getSession().then(function(res){
+    var session = res.data && res.data.session;
+    if(!session) return;
+    var uid = session.user.id, now = Date.now();
+    supaClient.from("sessions").select("transcript_path,status,room,node,ts")
+      .eq("user_id", uid).gte("ts", now - 15*60*1000)
+      .then(function(r){ if(r && !r.error && r.data) renderSessions(sessionsFromRows(r.data)); })
+      .catch(function(){});
+    supaClient.from("subagents").select("id,room,agent,task,created_at")
+      .eq("user_id", uid).is("finished_at", null)
+      .gte("created_at", new Date(now - 20*60*1000).toISOString())
+      .then(function(r){ if(r && !r.error && r.data) renderSubagents(subagentsFromRows(r.data)); })
+      .catch(function(){});
+  }).catch(function(){});
+}
+/* senza eventi le sessioni ferme non scadrebbero mai: rilettura ogni minuto */
+setInterval(function(){ if(USE_SUPABASE) reloadAux(); }, 60000);
 
 /* ======================================================= SALA COMANDO
    La seconda vista. Non è una tabella: è il muro di monitor della base.
