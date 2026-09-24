@@ -77,6 +77,10 @@ create policy "solo il proprietario" on token_usage for select using (auth.uid()
 -- Realtime possa valutare la RLS sulla riga e popolare payload.old.
 alter publication supabase_realtime add table agent_state;
 alter table agent_state replica identity full;
+-- migrazione 006: cloni e mini-Ultron della Baracca via Realtime
+alter publication supabase_realtime add table sessions, subagents;
+alter table sessions replica identity full;
+alter table subagents replica identity full;
 
 -- avviso Discord su waiting (migrazione 004): segreto discord_webhook_baracca nel Vault
 create extension if not exists pg_net;
