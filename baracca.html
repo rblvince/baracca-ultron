@@ -2609,6 +2609,93 @@ function applyLive(s){
    e /api/subagents. Il titolare sopra (ULTRON) resta
    sempre la sessione con l'evento più recente — guida dashboard/log/token
    come sempre; qui si aggiungono solo le ALTRE sessioni, come cloni. */
+/* DASH-PURE-START */
+/* L'istantanea della sala comando per l'isola React (panels/src/dash). Legge
+   solo quello che le passa il chiamante (m, vedi dashState()), mai le globali:
+   così test_dash.mjs la prova da Node. */
+function dashSnapshot(m){
+  var st = m.state || {}, live = !!m.live;
+  var vaultOk = m.vault && !m.vaultDown ? m.vault : null;
+  var where = m.moving
+    ? (m.skfxName ? "verso l'arsenale · "+m.skfxName : st.target ? "in cammino verso "+m.R(st.target).n : "nel corridoio")
+    : (st.room ? "in "+m.R(st.room).n : "nel corridoio");
+  var id = vaultOk && vaultOk.identity || {};
+  var identity = vaultOk ? (id.name||"Ultron") + (id.role ? " · "+id.role : "")
+    : m.vaultDown ? "Ultron · in attesa del vault" : "Ultron";
+  var mins = (m.now - m.startTs)/60000;
+  var hit = m.link.hit || {};
+  var realMs = m.activeMissions(m.vault);
+  var scene = live ? [] : m.tasks;
+  function n(o){ return o && o.notes ? o.notes.length : 0; }
+  var v = vaultOk;
+  return {
+    header: {
+      status: m.statusWord, rawStatus: st.status, color: m.statusColor,
+      where: where, whereBold: st.node ? st.node : st.task ? m.taskText : null,
+      identity: identity, clock: m.clock, live: live,
+      lastSeenS: live ? Math.max(0, Math.round((m.now - m.lastSeen)/1000)) : null,
+      moving: !!m.moving
+    },
+    signal: {
+      pulse: m.pulse.slice(), events: m.events,
+      perMin: mins > .2 ? (m.events/mins).toFixed(1) : null,
+      lastTool: m.lastTool, lastToolLabel: m.lastToolLabel, node: String(m.lastNode).slice(0,14)
+    },
+    link: {
+      hit: {prompt: !!hit.prompt, tool: !!hit.tool, sub: !!hit.sub, stop: !!hit.stop},
+      last: m.link.last || null, hot: m.now - m.link.at < 1600
+    },
+    crew: m.crew.map(function(a){
+      var carrying = m.tasks.filter(function(k){ return k.carrier === a.id; })[0];
+      var td = live && st.tokens && st.tokens[a.home];
+      return {id: a.id, name: a.n, color: a.col,
+              role: carrying ? "PORTA CASSA" : a.moving ? "IN CAMMINO" : m.R(a.room).n,
+              busy: !!carrying || !!a.moving,
+              tokens: td ? [td.in||0, td.out||0, td.cread||0, td.cwrite||0] : null};
+    }),
+    board: {
+      real: realMs.map(function(ms, i){
+        var nx = m.nextStep(ms);
+        return {index: i, title: ms.title, done: ms.steps.filter(function(s){ return s.done; }).length,
+                total: ms.steps.length, nextTag: nx > -1 ? m.missionStepParts(ms.steps[nx]).tag : null};
+      }),
+      scene: scene.map(function(k){
+        return {id: k.id, text: k.t, p: k.p, stage: m.stages[k.stage] ? m.R(m.stages[k.stage]).n : "—", qa: k.st === "qa"};
+      }),
+      delivered: live ? [] : m.deliveredLog.slice(),
+      deliveredCount: m.delivered, live: live,
+      sub: live ? realMs.length+" ATTIVE" : m.tasks.length+" IN CORSO · "+m.delivered+" CONSEGNATE"
+    },
+    skills: m.skills.map(function(sk){
+      return {id: sk.id, name: sk.n, color: sk.c, desc: sk.d, uses: sk.uses||0,
+              hot: !!(sk.last && m.now - sk.last < 4000),
+              where: sk.escort ? "al seguito · "+m.R(sk.escort).n.toLowerCase() : sk.moving ? "in cammino" : "al posto"};
+    }),
+    roomTime: m.rooms.map(function(r){ return {id: r.id, name: r.n, color: r.c, ms: m.roomTime[r.id]||0}; })
+      .sort(function(a,b){ return b.ms - a.ms; }),
+    shelf: [
+      {label:"00 INBOX",     count: v ? n(v.inbox) : 0, color: m.P.cyan},
+      {label:"01 DAILY",     count: v ? (v.daily && v.daily.count)||0 : 0, color: m.P.violet},
+      {label:"02 VINLAND",   count: v ? ((v.vinland && v.vinland.jobs)||[]).length : 0, color: m.P.gold},
+      {label:"03 PERSONAL",  count: v ? n(v.personal) : 0, color: m.P.green},
+      {label:"05 RESOURCES", count: v ? n(v.resources) : 0, color: m.P.blue},
+      {label:"04 ARCHIVE",   count: v ? n(v.archive) : 0, color: "#7d715c"}
+    ],
+    vault: m.vaultDown ? "down" : !v ? null : {
+      priorities: {open: ((v.priorities && v.priorities.open) || []).map(m.plainMd),
+                   completed: (v.priorities && v.priorities.completed_count) || 0},
+      vinland: {status: v.vinland && v.vinland.status ? v.vinland.status.toLowerCase() : null,
+                jobs: ((v.vinland && v.vinland.jobs) || []).map(function(j){ return {name: j.name, steps: (j.steps||[]).length}; })},
+      daily: {latest: (v.daily && v.daily.latest) || null, count: (v.daily && v.daily.count) || 0}
+    },
+    debugRaw: m.hash !== "#debug" ? null : {
+      label: live ? "state.json" : "simulato",
+      json: live && m.lastState ? JSON.stringify(m.lastState) : JSON.stringify({status: st.status, room: st.room, node: st.node||null})
+    },
+    palette: {gold: m.P.gold, cyan: m.P.cyan, violet: m.P.violet, green: m.P.green, red: m.P.red}
+  };
+}
+/* DASH-PURE-END */
 /* AUX-PURE-START */
 /* righe Supabase -> le stesse forme di /api/sessions e /api/subagents,
    così il disegno non sa da dove arrivano i dati */
@@ -2792,12 +2879,13 @@ document.getElementById("talkBtn").addEventListener("click", function(){
   fetch("/api/talk", {method:"POST"}).catch(function(){});
 });
 
+var VAULT_DOWN = false;
 function refreshVault(){
   if(Date.now()-vaultTs < 15000 && VAULT) { renderVault(VAULT); return; }
   fetch("/api/vault", {cache:"no-store"})
     .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(v){ if(v){ VAULT = v; vaultTs = Date.now(); renderVault(v); } else renderVault(null); })
-    .catch(function(){ renderVault(null); });
+    .then(function(v){ if(v){ VAULT = v; VAULT_DOWN = false; vaultTs = Date.now(); renderVault(v); } else { VAULT_DOWN = true; renderVault(null); } })
+    .catch(function(){ VAULT_DOWN = true; renderVault(null); });
 }
 /* il vault va tenuto fresco sempre, non solo a vista aperta: il pannello
    STATUS in vista BASE legge gli stessi numeri. */
