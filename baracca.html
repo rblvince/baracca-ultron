@@ -199,7 +199,7 @@
   .tl-axis{position:relative;height:14px;margin-left:46px;}
   .tl-axis span{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--ink-soft);}
   #storico .empty{font-size:12px;color:var(--ink-soft);}
-  .dgroup:first-child{padding-top:0;}
+  #dashSessione > .dgroup, #storico > .dgroup{padding-top:0;}
   .dtag{display:inline-block;font-family:var(--arc);font-size:10px;padding:2px 5px;margin-left:7px;border-radius:4px;
       border:1px solid;letter-spacing:.05em;vertical-align:middle;}
   .dtag.real{color:var(--green);border-color:var(--green);}
@@ -2340,7 +2340,8 @@ function simulate(){
    cambia niente di visibile: la pagina resta sul poll HTTP di sempre. */
 var USE_SUPABASE = false;
 var supaClient = null;
-/* STORICO è montato dentro l'isola della sala comando (DASH.attachStorico) */
+/* STORICO è montato dentro l'isola della sala comando (DASH.attachStorico):
+   qui non è più un handle ma un flag di montaggio, true una volta agganciato o null altrimenti */
 var STORICO = null;
 
 function initSupabase(cfg){
@@ -2998,7 +2999,7 @@ function dashState(){
 }
 
 /* ------------------------------------------------- il giro completo */
-function renderDashLive(t){
+function renderDashLive(){
   dashOnce();
   if(DASH){ try{ DASH.publish(dashSnapshot(dashState())); }catch(e){} }
 }
@@ -3458,7 +3459,7 @@ function loop(t){
   }
   drawWorld(t); drawPortrait(t);
   if(mcOn && Math.floor(t/240)%2===0) drawMC();
-  if(VIEW==="dash" && t-dashTick > 110){ dashTick = t; renderDashLive(t); }
+  if(VIEW==="dash" && t-dashTick > 110){ dashTick = t; renderDashLive(); }
   document.getElementById("coreState").textContent = (ULTRON.moving ? "in cammino · " : "") + nowDoing();
   if(VIEW !== "dash" && t-hudTick > 250){ hudTick = t; renderHud(); }
   var el = Math.floor((Date.now()-startTs)/1000);

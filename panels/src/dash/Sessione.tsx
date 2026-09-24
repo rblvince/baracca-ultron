@@ -8,7 +8,7 @@ import type { DashHeader, LinkKey } from './types';
 function Ritratto({ header }: { header: DashHeader | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const latest = useRef(header);
-  latest.current = header;
+  useEffect(() => { latest.current = header; });
   const active = useActive();
   const { sprites } = useEngine();
   useEffect(() => {
