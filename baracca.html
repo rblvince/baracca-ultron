@@ -2549,6 +2549,12 @@ function subagentsFromRows(rows){
 function auxSourceOk(fromSupabase, useSupabase){
   return fromSupabase === useSupabase;
 }
+/* numeri di partenza delle riletture: disegna solo la risposta dell'ultima
+   partita, così una rilettura vecchia arrivata dopo non torna indietro */
+function makeSeq(){
+  var n = 0;
+  return {next: function(){ return ++n; }, isLatest: function(k){ return k === n; }};
+}
 /* AUX-PURE-END */
 var CLONES = [], MINIS = [];
 
@@ -2607,28 +2613,32 @@ setInterval(pollAux, 1200);
 pollAux();
 
 /* Supabase: una raffica di eventi Realtime diventa una sola rilettura */
-var AUX_TIMER = null;
+var AUX_TIMER = null, SEQ_SESSIONS = makeSeq(), SEQ_SUBAGENTS = makeSeq();
 function scheduleAuxReload(){
   if(AUX_TIMER) return;
   AUX_TIMER = setTimeout(function(){ AUX_TIMER = null; reloadAux(); }, 300);
 }
 
 /* stesse soglie di read_sessions()/read_subagents() in server.py. Una select
-   fallita non ridisegna niente: un buco di rete non deve svuotare la scena. */
+   fallita non ridisegna niente: un buco di rete non deve svuotare la scena.
+   Attenzione: se la RLS negasse le righe, PostgREST risponde con una lista
+   vuota e non con un errore, quindi la scena si svuoterebbe (oggi le policy
+   "solo il proprietario" coincidono con l'utente loggato). */
 function reloadAux(){
   if(!supaClient || !USE_SUPABASE) return;
   supaClient.auth.getSession().then(function(res){
     var session = res.data && res.data.session;
     if(!session) return;
     var uid = session.user.id, now = Date.now();
+    var ks = SEQ_SESSIONS.next(), ka = SEQ_SUBAGENTS.next();
     supaClient.from("sessions").select("transcript_path,status,room,node,ts")
       .eq("user_id", uid).gte("ts", now - 15*60*1000)
-      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE)) renderSessions(sessionsFromRows(r.data)); })
+      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE) && SEQ_SESSIONS.isLatest(ks)) renderSessions(sessionsFromRows(r.data)); })
       .catch(function(){});
     supaClient.from("subagents").select("id,room,agent,task,created_at")
       .eq("user_id", uid).is("finished_at", null)
       .gte("created_at", new Date(now - 20*60*1000).toISOString())
-      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE)) renderSubagents(subagentsFromRows(r.data)); })
+      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE) && SEQ_SUBAGENTS.isLatest(ka)) renderSubagents(subagentsFromRows(r.data)); })
       .catch(function(){});
   }).catch(function(){});
 }
