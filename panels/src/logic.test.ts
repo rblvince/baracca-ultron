@@ -11,7 +11,7 @@ const ROOMS: Room[] = [
   { id: 'rs', n: 'LABORATORIO', col: '#229FB3' },
 ];
 const tok = (day: string, room: string, input: number, output: number, cache_read = 0, cache_write = 0): TokenUsageRow =>
-  ({ user_id: 'u', day, room, input, output, cache_read, cache_write });
+  ({ user_id: 'u', day, room, model: 'claude-sonnet-5', input, output, cache_read, cache_write, cache_write_1h: 0 });
 const ses = (p: Partial<SessionRow>): SessionRow =>
   ({ id: 1, user_id: 'u', transcript_path: 't', status: null, room: 'prod', node: null, ts: 0, created_at: null, ...p });
 

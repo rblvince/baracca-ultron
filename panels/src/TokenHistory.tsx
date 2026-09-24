@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { costSummary, EUR_USD, EUR_USD_DATE, fmtEur } from './cost';
 import { fmtDay, fmtTokens, orderedRooms, roomFill, roomOf, stripedRooms, tokenDays, tokenSummary } from './logic';
 import { PanelHeader, PanelPending } from './PanelHeader';
 import type { Room, TokenUsageRow } from './types';
@@ -20,11 +21,13 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
 
   const bars = tokenDays(state.data, days);
   const sum = tokenSummary(state.data);
+  const cost = costSummary(state.data);
   const max = Math.max(1, ...bars.map((b) => b.total));
   const slot = W / days.length;
   const barW = slot * 0.7;
   const y = (v: number) => BASE - (v / max) * (BASE - TOP);
   const shown = bars[sel ?? bars.length - 1];
+  const dayCost = costSummary(state.data.filter((r) => r.day === shown.day));
   const fill = (r: Room) => (striped.has(r.id) ? `url(#tk-stripe-${r.id})` : r.col);
   const ticks = [...new Set([0, Math.floor((days.length - 1) / 2), days.length - 1])];
 
@@ -35,6 +38,8 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
         <div>totale<b>{fmtTokens(sum.total)}</b></div>
         <div>reparto top<b>{sum.topRoom ? roomOf(rooms, sum.topRoom).n : '—'}</b></div>
         <div>resa cache<b>{sum.cacheYield === null ? '—' : `${Math.round(sum.cacheYield * 100)}%`}</b></div>
+        <div title={`Quanto costerebbe a listino API (non è la spesa: Ultron va in abbonamento). Cambio BCE ${EUR_USD} $ del ${EUR_USD_DATE}.${cost.partial ? ' * esclusi i giorni senza modello registrato.' : ''}`}>
+          costo a listino<b>{fmtEur(cost.eur, cost.partial)}</b></div>
       </div>
       <div ref={chartRef}>
         <svg className="tk-chart" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Consumo token per giorno, ultimi ${days.length} giorni`}>
@@ -80,6 +85,7 @@ export function TokenHistory({ state, rooms, days }: { state: TableState<TokenUs
           ? <span>nessun consumo registrato</span>
           : <>
               <span>{fmtTokens(shown.total)}</span>
+              <span>{dayCost.eur === null ? 'costo n/d' : fmtEur(dayCost.eur, dayCost.partial)}</span>
               {orderedRooms(shown.byRoom, rooms).map((r) => (
                 <span key={r.id}><i style={{ background: roomFill(r, striped) }} />{r.n} {fmtTokens(shown.byRoom[r.id])}</span>
               ))}

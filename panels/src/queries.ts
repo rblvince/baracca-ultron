@@ -16,3 +16,12 @@ export const fetchSubagents = (c: SupabaseClient, sinceIso: string) =>
 
 export const fetchSessions = (c: SupabaseClient, sinceMs: number) =>
   rows<SessionRow>(c.from('sessions').select('*').gte('ts', sinceMs).order('ts'));
+
+/** Ascolto Realtime su una tabella, nella forma che vuole useTable: ritorna lo
+ *  stop. Canale proprio per tabella: non condivide quello del canvas. */
+export const listenTable = (c: SupabaseClient, table: 'sessions' | 'subagents') => (onChange: () => void) => {
+  const ch = c.channel(`storico-${table}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange())
+    .subscribe();
+  return () => { void c.removeChannel(ch); };
+};

@@ -41,25 +41,30 @@ create table token_usage (
   user_id uuid not null references auth.users(id),
   day date not null,
   room text not null,
+  model text not null default 'unknown', -- migrazione 007
   input bigint not null default 0,
   output bigint not null default 0,
   cache_read bigint not null default 0,
   cache_write bigint not null default 0,
-  primary key (user_id, day, room)
+  cache_write_1h bigint not null default 0, -- migrazione 007: parte di cache_write a 1 ora
+  primary key (user_id, day, room, model)
 );
 
--- upsert incrementale: PostgREST non sa fare "upsert che somma", serve una funzione
+-- upsert incrementale: PostgREST non sa fare "upsert che somma", serve una funzione.
+-- p_model e p_cache_write_1h dalla migrazione 007, con default per gli hook vecchi.
 create or replace function increment_token_usage(
   p_user_id uuid, p_day date, p_room text,
-  p_input bigint, p_output bigint, p_cache_read bigint, p_cache_write bigint
+  p_input bigint, p_output bigint, p_cache_read bigint, p_cache_write bigint,
+  p_model text default 'unknown', p_cache_write_1h bigint default 0
 ) returns void as $$
-  insert into token_usage (user_id, day, room, input, output, cache_read, cache_write)
-  values (p_user_id, p_day, p_room, p_input, p_output, p_cache_read, p_cache_write)
-  on conflict (user_id, day, room) do update set
+  insert into token_usage (user_id, day, room, model, input, output, cache_read, cache_write, cache_write_1h)
+  values (p_user_id, p_day, p_room, p_model, p_input, p_output, p_cache_read, p_cache_write, p_cache_write_1h)
+  on conflict (user_id, day, room, model) do update set
     input = token_usage.input + excluded.input,
     output = token_usage.output + excluded.output,
     cache_read = token_usage.cache_read + excluded.cache_read,
-    cache_write = token_usage.cache_write + excluded.cache_write;
+    cache_write = token_usage.cache_write + excluded.cache_write,
+    cache_write_1h = token_usage.cache_write_1h + excluded.cache_write_1h;
 $$ language sql;
 
 alter table agent_state enable row level security;
