@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* AUX-PURE-START \*\/([\s\S]*?)\/\* AUX-PURE-END \*\//);
 assert.ok(m, 'blocco AUX-PURE non trovato in baracca.html');
-const { sessionsFromRows, subagentsFromRows } =
-  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows };')();
+const { sessionsFromRows, subagentsFromRows, auxSourceOk } =
+  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined };')();
 
 // sessioni: indicizzate per transcript_path, campi null lasciati null
 assert.deepEqual(
@@ -29,5 +29,14 @@ assert.deepEqual(
   ]),
   { list: [{ id: 7, room: 'ricerca', agent: 'ricerca-1', task: 'cerca', ts: Date.parse('2026-09-24T10:00:00Z') }] });
 assert.deepEqual(subagentsFromRows(null), { list: [] });
+
+// una sola fonte disegna la scena: con USE_SUPABASE solo Supabase, senza solo i file
+// locali (gli id dei sub-agenti non coincidono: due fonti insieme = mini-Ultron che
+// spariscono e rinascono a ogni evento, es. dopo il watchdog dei 15 minuti)
+assert.equal(typeof auxSourceOk, 'function', 'auxSourceOk mancante nel blocco AUX-PURE');
+assert.equal(auxSourceOk(true, true), true);    // risposta Supabase, Supabase attivo
+assert.equal(auxSourceOk(true, false), false);  // risposta Supabase dopo il ritorno al locale
+assert.equal(auxSourceOk(false, false), true);  // poll locale, Supabase spento
+assert.equal(auxSourceOk(false, true), false);  // poll locale arrivato dopo il SUBSCRIBED
 
 console.log('test_aux: tutti i controlli passati');
