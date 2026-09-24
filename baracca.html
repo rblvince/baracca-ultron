@@ -2537,6 +2537,14 @@ function subagentsFromRows(rows){
     return {id:r.id, room:r.room, agent:r.agent, task:r.task, ts:Date.parse(r.created_at)};
   })};
 }
+/* una sola fonte disegna la scena: gli id dei sub-agenti locali e quelli di
+   Supabase non coincidono, due fonti insieme farebbero sparire e rinascere i
+   mini-Ultron a ogni evento (es. dopo che il watchdog spegne USE_SUPABASE
+   lasciando il canale aperto). La risposta conta solo se la sua fonte è
+   ancora quella attiva quando arriva. */
+function auxSourceOk(fromSupabase, useSupabase){
+  return fromSupabase === useSupabase;
+}
 /* AUX-PURE-END */
 var CLONES = [], MINIS = [];
 
@@ -2587,9 +2595,9 @@ function renderSubagents(data){
 function pollAux(){
   if(USE_SUPABASE) return; // Realtime + reloadAux() se ne occupano
   fetch("/api/sessions", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
-    .then(function(s){ if(s) renderSessions(s); }).catch(function(){});
+    .then(function(s){ if(s && auxSourceOk(false, USE_SUPABASE)) renderSessions(s); }).catch(function(){});
   fetch("/api/subagents", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
-    .then(function(d){ if(d) renderSubagents(d); }).catch(function(){});
+    .then(function(d){ if(d && auxSourceOk(false, USE_SUPABASE)) renderSubagents(d); }).catch(function(){});
 }
 setInterval(pollAux, 1200);
 pollAux();
@@ -2604,19 +2612,19 @@ function scheduleAuxReload(){
 /* stesse soglie di read_sessions()/read_subagents() in server.py. Una select
    fallita non ridisegna niente: un buco di rete non deve svuotare la scena. */
 function reloadAux(){
-  if(!supaClient) return;
+  if(!supaClient || !USE_SUPABASE) return;
   supaClient.auth.getSession().then(function(res){
     var session = res.data && res.data.session;
     if(!session) return;
     var uid = session.user.id, now = Date.now();
     supaClient.from("sessions").select("transcript_path,status,room,node,ts")
       .eq("user_id", uid).gte("ts", now - 15*60*1000)
-      .then(function(r){ if(r && !r.error && r.data) renderSessions(sessionsFromRows(r.data)); })
+      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE)) renderSessions(sessionsFromRows(r.data)); })
       .catch(function(){});
     supaClient.from("subagents").select("id,room,agent,task,created_at")
       .eq("user_id", uid).is("finished_at", null)
       .gte("created_at", new Date(now - 20*60*1000).toISOString())
-      .then(function(r){ if(r && !r.error && r.data) renderSubagents(subagentsFromRows(r.data)); })
+      .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE)) renderSubagents(subagentsFromRows(r.data)); })
       .catch(function(){});
   }).catch(function(){});
 }
