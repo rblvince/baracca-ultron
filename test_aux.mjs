@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* AUX-PURE-START \*\/([\s\S]*?)\/\* AUX-PURE-END \*\//);
 assert.ok(m, 'blocco AUX-PURE non trovato in baracca.html');
-const { sessionsFromRows, subagentsFromRows, auxSourceOk } =
-  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined };')();
+const { sessionsFromRows, subagentsFromRows, auxSourceOk, makeSeq } =
+  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined, makeSeq: typeof makeSeq === "function" ? makeSeq : undefined };')();
 
 // sessioni: indicizzate per transcript_path, campi null lasciati null
 assert.deepEqual(
@@ -38,6 +38,14 @@ assert.equal(auxSourceOk(true, true), true);    // risposta Supabase, Supabase a
 assert.equal(auxSourceOk(true, false), false);  // risposta Supabase dopo il ritorno al locale
 assert.equal(auxSourceOk(false, false), true);  // poll locale, Supabase spento
 assert.equal(auxSourceOk(false, true), false);  // poll locale arrivato dopo il SUBSCRIBED
+
+// riletture sovrapposte: disegna solo l'ultima partita, una risposta vecchia
+// arrivata dopo non riporta in scena un mini-Ultron già rientrato
+assert.equal(typeof makeSeq, 'function', 'makeSeq mancante nel blocco AUX-PURE');
+const seq = makeSeq();
+const primo = seq.next(), secondo = seq.next();
+assert.equal(seq.isLatest(primo), false);
+assert.equal(seq.isLatest(secondo), true);
 
 // il watchdog dei 15 minuti torna alla demo ma NON spegne Supabase: con il
 // canale Realtime sano la prossima riga di agent_state riaccende il LIVE da sola,
