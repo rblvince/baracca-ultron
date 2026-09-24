@@ -13,5 +13,5 @@ export default defineConfig(({ command }) => ({
     outDir: 'dist',
     emptyOutDir: true,
   },
-  test: { environment: 'jsdom' },
+  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.ts'] },
 }));

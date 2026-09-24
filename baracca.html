@@ -167,6 +167,7 @@
       padding:10px 2px 3px;border-bottom:1px solid var(--surface-hi);text-shadow:1px 1px 0 var(--bg);}
   /* ---- storico: isola React (panels/), stessi token della sala comando ---- */
   #storico{display:contents;}            /* i figli React diventano celle della griglia di #dashv */
+  .dslot{display:contents;}
   .dtag.err{color:var(--red);border-color:var(--red);}
   .tk-chart{display:block;width:100%;height:auto;margin-top:6px;}
   .tk-axis{stroke:var(--surface-hi);stroke-width:1;}
@@ -513,10 +514,7 @@
     <div class="dp c4"><h4>SPECIALISTI <span class="dtag demo" id="tagSkills">SCENA</span><em>le skill in dotazione</em></h4><div class="arsenal" id="dSkills"></div></div>
     <div class="dp c3"><h4>TEMPO PER REPARTO <span class="dtag demo" id="tagTime">SCENA</span><em>questa sessione</em></h4><div class="bars" id="dTime"></div></div>
 
-    <div class="dgroup">MEMORIA</div>
-    <div class="dp wood c4"><h4>ARCHIVIO <span class="dtag real">REALE</span><em>vault</em></h4><canvas id="dArch" width="300" height="150"></canvas></div>
-    <div class="dp cal c2"><h4>DIARIO <span class="dtag real">REALE</span></h4><div class="day" id="dDay">—</div><div class="mon" id="dMon">nessuna nota</div><div class="cnt" id="dDailySub">0 daily notes</div></div>
-    <div class="dp c3"><h4>VINLAND <span class="dtag real">REALE</span><em id="dVinStatus">—</em></h4><div class="bars" id="dVinJobs"></div></div>
+    <div class="dslot" id="dashMemoria"></div>
     <!-- isola React (panels/): il vanilla non tocca mai niente qui dentro -->
     <div id="storico"></div>
   </div>
@@ -2969,7 +2967,6 @@ function renderVault(v){
     prio.innerHTML = "<li class='empty'>vault non raggiungibile · avvia start.sh</li>";
     document.getElementById("dPrioSub").textContent = "";
     document.getElementById("dIdent").textContent = "Ultron · in attesa del vault";
-    drawShelf(null); renderVinland(null); renderCal(null);
     return;
   }
   var id = v.identity || {};
@@ -2996,61 +2993,6 @@ function renderVault(v){
     prio.appendChild(more);
   }
   document.getElementById("dPrioSub").textContent = open.length+" APERTE · "+done+" COMPLETATE";
-  drawShelf(v); renderVinland(v.vinland); renderCal(v.daily);
-}
-function renderVinland(vin){
-  var box = document.getElementById("dVinJobs");
-  document.getElementById("dVinStatus").textContent = (vin && vin.status) ? vin.status.toLowerCase() : "—";
-  box.innerHTML = "";
-  var jobs = (vin && vin.jobs) || [];
-  if(!jobs.length){ box.innerHTML = "<div style='color:var(--ink-dim);font-size:12px'>nessun job nel vault</div>"; return; }
-  jobs.slice(0,5).forEach(function(j){
-    var st = (j.steps||[]).length;
-    var d = document.createElement("div");
-    d.innerHTML = "<span>"+esc(j.name).slice(0,14)+"</span><i><b style='width:"+Math.min(100,st/6*100)+"%;background:"+P.gold+"'></b></i><small>"+st+" st</small>";
-    box.appendChild(d);
-  });
-}
-function renderCal(daily){
-  var latest = daily && daily.latest;
-  var MESI = ["GEN","FEB","MAR","APR","MAG","GIU","LUG","AGO","SET","OTT","NOV","DIC"];
-  document.getElementById("dDay").textContent = latest ? latest.slice(8,10) : "—";
-  document.getElementById("dMon").textContent = latest ? MESI[+latest.slice(5,7)-1]+" "+latest.slice(0,4) : "nessuna nota";
-  document.getElementById("dDailySub").textContent = ((daily && daily.count)||0)+" daily notes";
-}
-/* lo scaffale: ogni cartella del vault è una fila di dorsi */
-function drawShelf(v){
-  var cv = document.getElementById("dArch"), g = cv.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  g.fillStyle = "#3a2a18"; g.fillRect(0,0,cv.width,cv.height);
-  function n(o){ return o && o.notes ? o.notes.length : 0; }
-  var rows = v ? [
-    ["00 INBOX", n(v.inbox), P.cyan], ["01 DAILY", (v.daily&&v.daily.count)||0, P.violet],
-    ["02 VINLAND", ((v.vinland&&v.vinland.jobs)||[]).length, P.gold],
-    ["03 PERSONAL", n(v.personal), P.green], ["05 RESOURCES", n(v.resources), P.blue],
-    ["04 ARCHIVE", n(v.archive), P.ink_dim || "#7d715c"]
-  ] : [["00 INBOX",0,P.cyan],["01 DAILY",0,P.violet],["02 VINLAND",0,P.gold],
-       ["03 PERSONAL",0,P.green],["05 RESOURCES",0,P.blue],["04 ARCHIVE",0,"#7d715c"]];
-  var rh = 25;
-  rows.forEach(function(row, i){
-    var y = 2 + i*rh;
-    g.fillStyle = "#2e2114"; g.fillRect(0, y, cv.width, rh-2);
-    g.fillStyle = "#7a5a33"; g.fillRect(0, y+rh-5, cv.width, 3);
-    g.fillStyle = "#12100c"; g.fillRect(0, y+rh-2, cv.width, 2);
-    /* i dorsi */
-    var count = Math.min(row[1], 22), x = 4;
-    for(var k=0;k<count;k++){
-      var w = 3 + (k%3);
-      g.fillStyle = "#12100c"; g.fillRect(x, y+3, w+2, rh-8);
-      g.fillStyle = k%4===0 ? row[2] : (k%3===0 ? "#a37b47" : "#7a5a33");
-      g.fillRect(x+1, y+4, w, rh-10);
-      x += w+3;
-      if(x > cv.width-90) break;
-    }
-    g.font = "8px 'Silkscreen', monospace"; g.textBaseline = "middle";
-    g.fillStyle = "#12100c"; g.fillText(row[0]+" "+row[1], cv.width-79, y+rh/2+1);
-    g.fillStyle = row[2];    g.fillText(row[0]+" "+row[1], cv.width-80, y+rh/2);
-  });
 }
 
 /* ------------------------------------------------- la truppa in foto */

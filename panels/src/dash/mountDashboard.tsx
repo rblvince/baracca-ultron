@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
+import { Memoria } from './Memoria';
 import { ActiveCtx, createStore, EngineCtx, StoreCtx } from './store';
 import type { DashSnapshot, Engine, Slots } from './types';
 import type { Room } from '../types';
@@ -31,14 +32,14 @@ export function mountDashboard(slots: Slots, engine: Engine): DashHandle {
       <StoreCtx.Provider value={store}>
         <EngineCtx.Provider value={engine}>
           <ActiveCtx.Provider value={v.active}>
-            {/* i gruppi si aggiungono qui, uno per task: SESSIONE, LAVORO, MEMORIA, STORICO */}
+            {/* i gruppi si aggiungono qui, uno per task: SESSIONE, LAVORO, STORICO */}
+            {slots.memoria && createPortal(<Memoria />, slots.memoria)}
           </ActiveCtx.Provider>
         </EngineCtx.Provider>
       </StoreCtx.Provider>
     );
   }
   root.render(<App />);
-  void createPortal; void slots;   // usati dai task dei gruppi
 
   return {
     publish: (s) => store.publish(s),
