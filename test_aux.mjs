@@ -39,4 +39,11 @@ assert.equal(auxSourceOk(true, false), false);  // risposta Supabase dopo il rit
 assert.equal(auxSourceOk(false, false), true);  // poll locale, Supabase spento
 assert.equal(auxSourceOk(false, true), false);  // poll locale arrivato dopo il SUBSCRIBED
 
+// il watchdog dei 15 minuti torna alla demo ma NON spegne Supabase: con il
+// canale Realtime sano la prossima riga di agent_state riaccende il LIVE da sola,
+// mentre spegnerlo rimandava la pagina ai file locali fino al ricaricamento
+const wd = html.match(/function checkStaleWatchdog\(\)\{([\s\S]*?)\n\}/);
+assert.ok(wd, 'checkStaleWatchdog non trovato');
+assert.ok(!/USE_SUPABASE\s*=\s*false/.test(wd[1]), 'il watchdog non deve spegnere USE_SUPABASE');
+
 console.log('test_aux: tutti i controlli passati');
