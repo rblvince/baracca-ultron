@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* AUX-PURE-START \*\/([\s\S]*?)\/\* AUX-PURE-END \*\//);
 assert.ok(m, 'blocco AUX-PURE non trovato in baracca.html');
-const { sessionsFromRows, subagentsFromRows, auxSourceOk, makeSeq } =
-  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined, makeSeq: typeof makeSeq === "function" ? makeSeq : undefined };')();
+const { sessionsFromRows, subagentsFromRows, auxSourceOk, makeSeq, pillAfterResubscribe } =
+  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined, makeSeq: typeof makeSeq === "function" ? makeSeq : undefined, pillAfterResubscribe: typeof pillAfterResubscribe === "function" ? pillAfterResubscribe : undefined };')();
 
 // sessioni: indicizzate per transcript_path, campi null lasciati null
 assert.deepEqual(
@@ -69,5 +69,13 @@ assert.equal(toolLabel('—'), '—');
 assert.equal(plainMd('**Carriera:** vedi [[Master AI Web Development - Boolean]] e `farm/`'),
   'Carriera: vedi Master AI Web Development - Boolean e farm/');
 assert.equal(plainMd('[[La Baracca di Ultron - Design|la Baracca]] ~~P1~~ FATTO'), 'la Baracca P1 FATTO');
+
+// pillola in alto dopo che Realtime si ricollega: da OFFLINE torna allo stato
+// vero (LIVE se la sessione è viva, altrimenti DEMO); se non era OFFLINE non si tocca
+assert.equal(typeof pillAfterResubscribe, 'function', 'pillAfterResubscribe mancante nel blocco AUX-PURE');
+assert.deepEqual(pillAfterResubscribe('OFFLINE', true), { cls: 'pill live', text: 'LIVE' });
+assert.deepEqual(pillAfterResubscribe('OFFLINE', false), { cls: 'pill demo', text: 'DEMO' });
+assert.equal(pillAfterResubscribe('LIVE', true), null);
+assert.equal(pillAfterResubscribe('DEMO', false), null);
 
 console.log('test_aux: tutti i controlli passati');
