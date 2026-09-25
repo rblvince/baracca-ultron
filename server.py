@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Local-only server for Ultron's Farm: serves the page and two read-only
-JSON endpoints, one reading the live vault, one reading the work-activity
-state file written by Claude Code hooks. Hooks write the state file directly
-on disk. The one exception to read-only is POST /api/talk, which launches a
-Terminal.app session on this Mac (same command as farm/start.sh) so the
-page's "talk on Discord" button has something to open — it reads and writes
-nothing itself."""
+"""Server locale della Baracca (solo 127.0.0.1): serve la pagina, il bundle
+React, le immagini e piccoli endpoint JSON in sola lettura (vault, stato e
+sessioni scritti dagli hook, config pubblica di Supabase). L'unica eccezione
+è POST /api/talk, che riavvia il servizio launchd di Discord: non legge né
+scrive niente."""
 import json
 import os
 import re
@@ -266,7 +264,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(read_subagents())
         elif path == "/api/config":
             self._send_json(config_payload())
-        elif path in ("/", "/farm.html", "/baracca.html"):
+        elif path in ("/", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
         elif path == "/panels/panels.js":
             # isola React dei pannelli STORICO: solo il bundle, nient'altro di panels/

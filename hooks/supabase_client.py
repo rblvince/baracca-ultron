@@ -6,6 +6,7 @@ dipendenza pip nuova. Le scritture usano sempre la service-role key (bypassa
 RLS, lato server); il file di config non è mai committato.
 
 Non solleva mai: un hook che esplode bloccherebbe la tool call reale."""
+import functools
 import json
 import os
 import urllib.error
@@ -16,9 +17,16 @@ CONFIG_PATH = os.path.expanduser("~/.config/baracca/.env")
 
 
 def load_config():
+    return dict(_parse_config(CONFIG_PATH))
+
+
+@functools.lru_cache(maxsize=None)
+def _parse_config(path):
+    """Letto una volta sola per processo (prima fino a sei volte per hook);
+    la chiave è il percorso, così un test che cambia CONFIG_PATH rilegge."""
     cfg = {}
     try:
-        with open(CONFIG_PATH, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#") or "=" not in line:
@@ -59,19 +67,6 @@ def _do_request(method, url, key, body=None, extra_headers=None):
         return None, None
 
 
-def upsert(table, row, on_conflict=None):
-    cfg = load_config()
-    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
-    if not url or not key:
-        return None
-    endpoint = url + "/rest/v1/" + table
-    if on_conflict:
-        endpoint += "?on_conflict=" + on_conflict
-    status, _ = _do_request("POST", endpoint, key, body=row,
-                             extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
-    return status
-
-
 def insert(table, row):
     cfg = load_config()
     url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
@@ -89,6 +84,15 @@ def rpc(fn_name, params):
         return None
     status, _ = _do_request("POST", url + "/rest/v1/rpc/" + fn_name, key, body=params)
     return status
+
+
+def record_event(user_id, state, session=None, tokens=None):
+    """Un evento degli hook in UNA chiamata (migrazione 008): stato del titolare,
+    sessione e token insieme, invece di tre giri HTTPS in fila. Il database
+    scarta uno stato più vecchio di quello che ha già (guardia su ts), così
+    due eventi mandati in parallelo non si scavalcano."""
+    return rpc("record_event", {"p_user_id": user_id, "p_state": state,
+                                "p_session": session, "p_tokens": tokens})
 
 
 def select(table, filters, columns):

@@ -8,63 +8,45 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import set_state
+import supabase_client
+
+supabase_client.CONFIG_PATH = "/nonexistent/baracca/.env"   # cintura: mai il database vero
 
 
-def test_status_goes_to_agent_state_as_fresh_row():
+def _run(argv, stdin):
     sent = []
     tmp = tempfile.mktemp()
-    old = (set_state.STATE_PATH, set_state.supabase_client.load_config,
-           set_state.supabase_client.upsert, set_state.session_track.update_session,
-           sys.argv, sys.stdin)
-    set_state.STATE_PATH = tmp
-    set_state.supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "u-1"}
-    set_state.supabase_client.upsert = lambda t, row, on_conflict=None: sent.append((t, row, on_conflict))
-    set_state.session_track.update_session = lambda *a, **k: None
-    sys.argv = ["set_state.py", "waiting"]
-    sys.stdin = io.StringIO("{}")
+    b, st = set_state.barracks, set_state.session_track
+    old = (b.STATE_PATH, b.sync, st.update_session, sys.argv, sys.stdin)
+    b.STATE_PATH = tmp
+    b.sync = lambda *a: sent.append(a)
+    st.update_session = lambda key, **k: dict(k, transcript_path=key) if key else None
+    sys.argv, sys.stdin = argv, io.StringIO(stdin)
     try:
         set_state.main()
     finally:
-        (set_state.STATE_PATH, set_state.supabase_client.load_config,
-         set_state.supabase_client.upsert, set_state.session_track.update_session,
-         sys.argv, sys.stdin) = old
+        b.STATE_PATH, b.sync, st.update_session, sys.argv, sys.stdin = old
     with open(tmp, encoding="utf-8") as f:
         local = json.load(f)
     os.remove(tmp)
-    assert local["status"] == "waiting", local
-    assert len(sent) == 1, sent
-    table, row, conflict = sent[0]
-    assert table == "agent_state" and conflict == "user_id", sent
-    assert row["user_id"] == "u-1" and row["status"] == "waiting" and row["ts"] == local["ts"], row
-    # riga fresca: niente reparto/tool/nota dell'evento precedente
-    assert all(row[k] is None for k in ("room", "node", "agent", "task", "tool", "line", "area", "tokens")), row
+    return local, sent
 
 
-def test_no_config_no_supabase_call():
-    sent = []
-    tmp = tempfile.mktemp()
-    old = (set_state.STATE_PATH, set_state.supabase_client.load_config,
-           set_state.supabase_client.upsert, set_state.session_track.update_session,
-           sys.argv, sys.stdin)
-    set_state.STATE_PATH = tmp
-    set_state.supabase_client.load_config = lambda: {}
-    set_state.supabase_client.upsert = lambda *a, **k: sent.append(a)
-    set_state.session_track.update_session = lambda *a, **k: None
-    sys.argv = ["set_state.py", "idle"]
-    sys.stdin = io.StringIO("")
-    try:
-        set_state.main()
-    finally:
-        (set_state.STATE_PATH, set_state.supabase_client.load_config,
-         set_state.supabase_client.upsert, set_state.session_track.update_session,
-         sys.argv, sys.stdin) = old
-    os.remove(tmp)
-    assert sent == [], sent
+def test_status_is_a_fresh_snapshot_sent_with_the_session():
+    local, sent = _run(["set_state.py", "waiting"], '{"transcript_path": "/t"}')
+    assert set(local) == {"status", "ts"} and local["status"] == "waiting", local
+    assert sent == [(local, {"status": "waiting", "transcript_path": "/t"})], sent
+
+
+def test_without_stdin_still_writes_and_syncs_the_state():
+    local, sent = _run(["set_state.py", "idle"], "")
+    assert local["status"] == "idle", local
+    assert sent == [(local, None)], sent
 
 
 def main():
-    test_status_goes_to_agent_state_as_fresh_row()
-    test_no_config_no_supabase_call()
+    test_status_is_a_fresh_snapshot_sent_with_the_session()
+    test_without_stdin_still_writes_and_syncs_the_state()
     print("set_state.py: tutti i controlli passati")
 
 

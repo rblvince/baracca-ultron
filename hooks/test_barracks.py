@@ -7,6 +7,13 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import barracks as b
+import supabase_client
+
+# cintura: nessun test arriva mai al database vero (config inesistente) né
+# lancia processi figli; chi vuole vedere l'invio rimette in_background.
+supabase_client.CONFIG_PATH = "/nonexistent/baracca/.env"
+REAL_IN_BACKGROUND = b.in_background
+b.in_background = lambda job: None
 
 
 def test_classify_bash_qa():
@@ -40,50 +47,64 @@ def test_accumulate_tokens_dedup():
     old_tokens_path = b.TOKENS_PATH
     b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
     try:
-        first = b.accumulate_tokens("prod", transcript)
+        first, delta = b.accumulate_tokens("prod", transcript)
         assert first["prod"] == {"in": 10, "out": 5, "cread": 1, "cwrite": 2}, first
-        second = b.accumulate_tokens("prod", transcript)
+        assert delta["input"] == 10 and delta["output"] == 5, delta
+        second, delta2 = b.accumulate_tokens("prod", transcript)
         assert second["prod"] == {"in": 10, "out": 5, "cread": 1, "cwrite": 2}, "il dedup non ha funzionato: " + str(second)
+        assert delta2 is None, "turno già contato: niente da mandare a Supabase"
     finally:
         b.TOKENS_PATH = old_tokens_path
 
 
-def test_write_state_calls_supabase_upsert():
-    import supabase_client
-    calls = []
-    old_upsert = supabase_client.upsert
-    supabase_client.upsert = lambda table, row, on_conflict=None: calls.append((table, row, on_conflict)) or 200
-    old_cfg = supabase_client.load_config
-    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+def test_write_state_is_local_and_returns_the_snapshot():
     tmp_dir = tempfile.mkdtemp()
     old_state_path = b.STATE_PATH
     b.STATE_PATH = os.path.join(tmp_dir, "state.json")
     try:
-        b.write_state(status="thinking", room="qa")
-        assert len(calls) == 1, calls
-        table, row, on_conflict = calls[0]
-        assert table == "agent_state", table
-        assert row["status"] == "thinking" and row["room"] == "qa", row
-        assert row["user_id"] == "test-user", row
-        assert on_conflict == "user_id", on_conflict
-        # la scrittura locale resta la fonte di verità: Supabase è in più, non al posto
-        assert os.path.exists(b.STATE_PATH), b.STATE_PATH
+        state = b.write_state(status="thinking", room="qa", node=None)
         with open(b.STATE_PATH, encoding="utf-8") as f:
-            local = json.load(f)
-        assert local["status"] == "thinking" and local["room"] == "qa", local
+            assert json.load(f) == state, state
+        assert state["status"] == "thinking" and state["room"] == "qa" and "node" not in state, state
     finally:
-        supabase_client.upsert = old_upsert
-        supabase_client.load_config = old_cfg
         b.STATE_PATH = old_state_path
 
 
-def test_accumulate_tokens_calls_rpc_with_deltas():
-    import supabase_client
+def test_sync_sends_one_record_event():
+    """Stato, sessione e token in UNA chiamata (migrazione 008), dal figlio."""
     calls = []
-    old_rpc = supabase_client.rpc
-    supabase_client.rpc = lambda fn, params: calls.append((fn, params)) or 200
-    old_cfg = supabase_client.load_config
+    old = (b.in_background, supabase_client.load_config, supabase_client.record_event)
+    b.in_background = lambda job: job()
     supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
+    supabase_client.record_event = lambda *a: calls.append(a)
+    try:
+        b.sync({"status": "writing", "ts": 1}, {"transcript_path": "/t", "ts": 1}, {"room": "prod"})
+        assert calls == [("test-user", {"status": "writing", "ts": 1}, {"transcript_path": "/t", "ts": 1}, {"room": "prod"})], calls
+        supabase_client.load_config = lambda: {}
+        b.sync({"status": "idle", "ts": 2})
+        assert len(calls) == 1, "senza utente configurato non parte niente"
+    finally:
+        b.in_background, supabase_client.load_config, supabase_client.record_event = old
+
+
+def test_in_background_returns_before_the_job_ends():
+    """Il padre torna subito anche se il lavoro di rete è lento: Claude Code aspetta solo lui."""
+    import time
+    mark = os.path.join(tempfile.mkdtemp(), "fatto")
+    def job():
+        time.sleep(0.5)
+        open(mark, "w").close()
+    t0 = time.time()
+    REAL_IN_BACKGROUND(job)
+    assert time.time() - t0 < 0.3, "il padre ha aspettato il figlio"
+    for _ in range(50):
+        if os.path.exists(mark):
+            break
+        time.sleep(0.05)
+    assert os.path.exists(mark), "il figlio non ha finito il lavoro"
+
+
+def test_accumulate_tokens_delta_for_supabase():
     tmp_dir = tempfile.mkdtemp()
     transcript = os.path.join(tmp_dir, "t.jsonl")
     entry = {"type": "assistant", "uuid": "xyz", "message": {"usage": {
@@ -94,18 +115,28 @@ def test_accumulate_tokens_calls_rpc_with_deltas():
     old_tokens_path = b.TOKENS_PATH
     b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
     try:
-        b.accumulate_tokens("qa", transcript)
-        assert len(calls) == 1, calls
-        fn, params = calls[0]
-        assert fn == "increment_token_usage", fn
-        assert params["p_room"] == "qa", params
-        assert params["p_input"] == 3 and params["p_output"] == 7, params
-        assert params["p_user_id"] == "test-user", params
-        assert "p_day" in params, params
+        _, delta = b.accumulate_tokens("qa", transcript)
+        assert delta["room"] == "qa" and delta["input"] == 3 and delta["output"] == 7, delta
+        assert len(delta["day"]) == 10, delta
     finally:
-        supabase_client.rpc = old_rpc
-        supabase_client.load_config = old_cfg
         b.TOKENS_PATH = old_tokens_path
+
+
+def test_last_assistant_usage_reads_from_the_tail():
+    """Coda a pezzi: trova l'ultimo turno anche se è prima di una riga enorme
+    (un tool_result grosso) e anche con il primo pezzo tagliato a metà riga."""
+    tmp_dir = tempfile.mkdtemp()
+    transcript = os.path.join(tmp_dir, "t.jsonl")
+    old = {"type": "assistant", "uuid": "vecchio", "message": {"usage": {"output_tokens": 1}}}
+    new = {"type": "assistant", "uuid": "nuovo", "message": {"model": "m", "usage": {"output_tokens": 2}}}
+    big = {"type": "user", "message": {"content": "x" * 5000}}
+    with open(transcript, "w", encoding="utf-8") as f:
+        for e in (old, big, new, big, {"type": "user"}):
+            f.write(json.dumps(e) + "\n")
+    uuid, usage, model = b.last_assistant_usage(transcript, chunk=1000)
+    assert (uuid, usage, model) == ("nuovo", {"output_tokens": 2}, "m"), (uuid, usage, model)
+    assert b.last_assistant_usage(os.path.join(tmp_dir, "manca.jsonl")) == (None, None, None)
+    assert b.last_assistant_usage(None) == (None, None, None)
 
 
 def test_classify_agent_tool_same_as_task():
@@ -184,7 +215,7 @@ def test_main_posttooluse_agent_reconciles():
     session_track.reconcile_subagent = lambda tu, ag: calls.append((tu, ag))
     session_track.update_session = lambda *a, **k: None
     b.write_state = lambda **k: None
-    b.accumulate_tokens = lambda *a: {}
+    b.accumulate_tokens = lambda *a: ({}, None)
     try:
         _run_main({"hook_event_name": "PostToolUse", "tool_name": "Agent", "tool_use_id": "toolu_1",
                    "tool_input": {"description": "x"},
@@ -200,12 +231,6 @@ def test_main_posttooluse_agent_reconciles():
 def test_accumulate_tokens_sends_model_and_1h_cache_write():
     """Per il costo in euro serve sapere il modello e quanta scrittura in cache
     è a 1 ora (costa 1,6 volte quella a 5 minuti)."""
-    import supabase_client
-    calls = []
-    old_rpc = supabase_client.rpc
-    supabase_client.rpc = lambda fn, params: calls.append((fn, params)) or 200
-    old_cfg = supabase_client.load_config
-    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "test-user"}
     tmp_dir = tempfile.mkdtemp()
     transcript = os.path.join(tmp_dir, "t.jsonl")
     with_model = {"type": "assistant", "uuid": "a1", "message": {"model": "claude-opus-5-5", "usage": {
@@ -216,21 +241,37 @@ def test_accumulate_tokens_sends_model_and_1h_cache_write():
     try:
         with open(transcript, "w", encoding="utf-8") as f:
             f.write(json.dumps(with_model) + "\n")
-        b.accumulate_tokens("qa", transcript)
-        params = calls[-1][1]
-        assert params["p_model"] == "claude-opus-5-5", params
-        assert params["p_cache_write"] == 50 and params["p_cache_write_1h"] == 40, params
+        _, delta = b.accumulate_tokens("qa", transcript)
+        assert delta["model"] == "claude-opus-5-5", delta
+        assert delta["cache_write"] == 50 and delta["cache_write_1h"] == 40, delta
         # transcript vecchio, senza modello né dettaglio: 'unknown' e 0, mai un errore
         bare = {"type": "assistant", "uuid": "a2", "message": {"usage": {"input_tokens": 1, "output_tokens": 1}}}
         with open(transcript, "w", encoding="utf-8") as f:
             f.write(json.dumps(bare) + "\n")
-        b.accumulate_tokens("qa", transcript)
-        params = calls[-1][1]
-        assert params["p_model"] == "unknown" and params["p_cache_write_1h"] == 0, params
+        _, delta = b.accumulate_tokens("qa", transcript)
+        assert delta["model"] == "unknown" and delta["cache_write_1h"] == 0, delta
     finally:
-        supabase_client.rpc = old_rpc
-        supabase_client.load_config = old_cfg
         b.TOKENS_PATH = old_tokens_path
+
+
+def test_main_posttooluse_syncs_state_session_and_tokens_once():
+    import session_track
+    sent = []
+    old = (b.sync, b.write_state, b.accumulate_tokens, session_track.update_session)
+    b.sync = lambda *a: sent.append(a)
+    b.write_state = lambda **k: dict(k, ts=1)
+    b.accumulate_tokens = lambda *a: ({"prod": {}}, {"room": "prod"})
+    session_track.update_session = lambda key, **k: dict(k, transcript_path=key)
+    try:
+        _run_main({"hook_event_name": "PostToolUse", "tool_name": "Bash", "transcript_path": "/t",
+                   "tool_input": {"command": "ls"}})
+        assert len(sent) == 1, sent
+        state, session, delta = sent[0]
+        assert state["status"] == "writing" and state["tool"] == "Bash", state
+        assert session == {"status": "writing", "room": "prod", "node": None, "transcript_path": "/t"}, session
+        assert delta == {"room": "prod"}, delta
+    finally:
+        b.sync, b.write_state, b.accumulate_tokens, session_track.update_session = old
 
 
 def main():
@@ -239,8 +280,12 @@ def main():
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
-    test_write_state_calls_supabase_upsert()
-    test_accumulate_tokens_calls_rpc_with_deltas()
+    test_write_state_is_local_and_returns_the_snapshot()
+    test_sync_sends_one_record_event()
+    test_in_background_returns_before_the_job_ends()
+    test_accumulate_tokens_delta_for_supabase()
+    test_last_assistant_usage_reads_from_the_tail()
+    test_main_posttooluse_syncs_state_session_and_tokens_once()
     test_accumulate_tokens_sends_model_and_1h_cache_write()
     test_classify_agent_tool_same_as_task()
     test_main_pretooluse_agent_spawns_subagent()

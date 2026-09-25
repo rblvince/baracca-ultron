@@ -522,7 +522,7 @@ var DEMO = {
     {id:"pub",    n:"SPEDIZIONI", x:780, y:770,w:420,h:420, kind:"ship",  floor:"dirt",     c:P.blue},
     {id:"rs",     n:"LABORATORIO",x:1300,y:810,w:560,h:530, kind:"lab",   floor:"metal",    c:P.cyan}
   ]; },
-  assets: ["dome_bg","dome_corr","dome_room_ricerca","dome_room_prod","dome_room_qa","dome_room_vault","dome_room_pub","dome_room_rs"],
+  assets: ["dome_bg","dome_room_ricerca","dome_room_prod","dome_room_qa","dome_room_vault","dome_room_pub","dome_room_rs"],
   /* oggetti vivi mappati a mano sulle luci dipinte delle stanze (Giro 19):
      [tipo, u, v, colore] in frazioni dell'immagine 1024x1024, convertite
      qui nelle frazioni della stanza con la stessa proiezione "cover" di bakeRoom */
@@ -560,27 +560,15 @@ var DEMO = {
 
 var P = {
   out:"#1c130d",
-  skin:"#ffb37a", skinDk:"#d4824a", skinLt:"#ffdcb0",
-  hair:"#4a3020", hairLt:"#7a5636",
-  khaki:"#e8b464", khakiDk:"#b8823c", khakiLt:"#ffd98f", khakiXd:"#7a5228",
-  pants:"#2f6b7a", pantsDk:"#1d4652", pantsLt:"#4a92a3",
-  boot:"#3a2a1c", glove:"#8a6a42",
-  red:"#d9483a", redDk:"#8e2e25", redLt:"#e09e94",
+  khaki:"#e8b464", khakiDk:"#b8823c", khakiXd:"#7a5228",
+  red:"#d9483a",
   gold:"#e08a4a", goldDk:"#a16230", goldLt:"#e0bf9b",
-  green:"#2aa883", greenDk:"#197256",
+  green:"#2aa883",
   cyan:"#229fb3", violet:"#9c6fc4", blue:"#4f8fc4",
   amber:"#c97a3c",
-  metal:"#d7dde2", metalDk:"#9aa7b0", metalLt:"#f2f6f9", metalXd:"#5c6a74", metalXxd:"#3a434a",
-  cyanDk:"#155866", coat:"#f5ecd8", coatDk:"#d9c9a0", coatXd:"#b8a172", white:"#f0ede6", whiteDk:"#cfc9ba",
-  hairDk:"#2e1f14",
+  metalDk:"#9aa7b0", metalLt:"#f2f6f9",
   wood:"#a9743f", woodDk:"#7a4f26", woodLt:"#d69b5c", woodXd:"#4a2f16",
-  dirt:"#c9a066", dirt2:"#a9793f", dirt3:"#d9b47a", dirtLt:"#f0d9a8",
-  concrete:"#736656", concrete2:"#5e5245", concreteLt:"#8a7c68", concreteXd:"#4a4038",
-  paper:"#f6e8c9", ink:"#fbeedc",
-  /* vetrina konbini (Giro 6 — ambiente): vetro, asfalto bagnato, skyline */
-  glass:"#1c2f36", glassLt:"#ffcf8a", glassHi:"#eaf6ff",
-  wet:"#132430", wetDk:"#0a1620", wetHi:"#3f6b7a",
-  skyBld:"#0a1c22", skyWin:"#f2c14e", wireDk:"#050d12"
+  paper:"#f6e8c9", ink:"#fbeedc"
 };
 function lerp(a,b,t){return a+(b-a)*t;}
 function clamp(v,a,b){return v<a?a:v>b?b:v;}
@@ -1075,225 +1063,12 @@ var OBJ = {};
     g.r(1,3,2,2,P.gold); g.r(17,3,2,2,P.gold); g.r(1,15,2,2,P.gold); g.r(17,15,2,2,P.gold);
     g.r(0,17,20,1,"rgba(0,0,0,.4)");
   });
-  OBJ.barrel = spr(14,20,function(g){
-    g.r(1,2,12,17,P.out);
-    g.r(2,3,10,15,P.woodDk);
-    g.r(3,3,4,15,P.wood);
-    g.r(3,3,2,15,P.woodLt);
-    g.r(9,3,2,15,P.woodXd);
-    g.r(2,2,10,2,P.out); g.r(2,2,10,1,P.metalLt); g.r(2,3,10,1,P.metalDk);
-    g.r(2,17,10,2,P.out); g.r(2,17,10,1,P.metalLt); g.r(2,18,10,1,P.metalDk);
-    g.r(2,6,10,2,P.metalDk); g.r(2,6,10,1,P.metal);
-    g.r(2,13,10,2,P.metalDk); g.r(2,13,10,1,P.metal);
-    g.r(4,6,1,1,P.metalLt); g.r(9,6,1,1,P.metalLt);
-    g.r(4,13,1,1,P.metalLt); g.r(9,13,1,1,P.metalLt);
-    g.r(1,19,12,1,"rgba(0,0,0,.4)");
-  });
-  OBJ.sandbag = spr(22,12,function(g){
-    for(var i=0;i<3;i++){
-      var x=i*7;
-      g.r(x,4,8,7,P.out);
-      g.r(x+1,5,6,5,P.khaki);
-      g.r(x+1,5,6,2,P.khakiLt);
-      g.r(x+1,9,6,1,P.khakiDk);
-      g.r(x+3,6,1,3,P.goldDk);
-      g.r(x+2,7,1,1,"rgba(0,0,0,.18)"); g.r(x+5,8,1,1,"rgba(0,0,0,.18)");
-    }
-    g.r(3,0,8,5,P.out); g.r(4,1,6,3,P.khaki); g.r(4,1,6,1,P.khakiLt); g.r(4,3,6,1,P.khakiDk);
-    g.r(11,0,8,5,P.out); g.r(12,1,6,3,P.khakiLt); g.r(12,3,6,1,P.khaki);
-    g.r(6,3,2,1,P.khakiDk); g.r(14,3,2,1,P.khakiDk);
-    g.r(0,11,22,1,"rgba(0,0,0,.4)");
-  });
-  OBJ.terminal = spr(20,24,function(g){
-    box(g,2,4,16,18,P.woodDk,P.wood,P.woodXd);
-    g.r(3,6,1,14,P.woodLt); g.r(16,6,1,14,P.woodXd);
-    g.r(4,6,12,8,P.out); g.r(5,7,10,6,"#123028");
-    g.r(6,8,6,1,P.green); g.r(6,10,8,1,P.green); g.r(6,12,4,1,P.cyan);
-    g.r(9,9,2,1,"#bdf6c9");
-    g.r(4,14,12,1,"rgba(0,0,0,.3)");
-    g.r(4,16,12,4,P.out); g.r(5,17,10,2,P.wood);
-    for(var i=0;i<4;i++) g.r(6+i*2,17,1,1,P.woodXd);
-    g.r(3,20,2,2,P.gold); g.r(15,20,2,2,P.gold);
-    g.r(9,0,2,4,P.out); g.r(9,0,2,1,P.red); g.r(9,0,1,1,"#ff9a86");
-  });
-  OBJ.shelf = spr(34,26,function(g){
-    g.r(0,0,34,26,P.out); g.r(1,1,32,24,P.woodDk);
-    g.r(1,1,2,24,P.wood); g.r(31,1,2,24,P.woodDk);
-    for(var row=0;row<3;row++){
-      var y=2+row*8;
-      g.r(2,y,30,6,P.dirt);
-      g.r(2,y,30,1,P.dirt3);
-      for(var i=0;i<7;i++){
-        var col=[P.cyan,P.gold,P.violet,P.green][(row+i)%4];
-        var colDk=[P.cyanDk,P.goldDk,"#6e5a99",P.greenDk][(row+i)%4];
-        g.r(3+i*4,y+1,3,4,P.out);
-        g.r(4+i*4,y+2,1,2,col);
-        g.r(4+i*4,y+2,1,1,"rgba(255,255,255,.35)");
-        g.r(3+i*4,y+4,3,1,colDk);
-      }
-      g.r(2,y+6,30,1,P.wood); g.r(2,y+6,30,1,"rgba(0,0,0,.2)");
-    }
-  });
-  OBJ.bench = spr(30,20,function(g){
-    box(g,0,6,30,10,P.woodDk,P.wood,P.woodXd);
-    g.r(1,9,28,1,P.woodXd); g.r(1,10,28,1,"rgba(255,255,255,.05)");
-    g.r(2,16,3,4,P.out); g.r(3,17,1,2,P.metalDk); g.r(2,19,3,1,P.metalXd);
-    g.r(25,16,3,4,P.out); g.r(26,17,1,2,P.metalDk); g.r(25,19,3,1,P.metalXd);
-    g.r(11,15,8,2,P.out); g.r(12,15,6,1,P.woodDk);
-    g.r(4,2,6,5,P.out); g.r(5,3,4,3,P.metal); g.r(5,3,4,1,P.metalLt); g.r(6,5,2,1,P.metalDk); g.r(6,1,1,2,P.out); g.r(6,0,1,1,P.metalLt);
-    g.r(13,3,5,4,P.out); g.r(14,4,3,2,P.metalLt); g.r(14,4,3,1,"#e2e8ee"); g.r(17,5,2,2,P.wood);
-    g.r(21,1,2,6,P.out); g.r(21,1,2,2,P.gold); g.r(21,1,2,1,P.goldLt); g.r(21,3,2,3,P.metal);
-  });
-  OBJ.anvilStamp = spr(18,18,function(g){
-    g.r(2,10,14,5,P.out); g.r(3,11,12,3,P.metalDk);
-    g.r(3,11,12,1,P.metalLt); g.r(3,13,12,1,P.metalXd);
-    g.r(2,10,3,1,P.metalXd); g.r(13,10,3,1,P.metalXd);
-    g.r(6,14,6,3,P.out); g.r(7,15,4,1,P.metalXd);
-    g.r(7,2,4,8,P.out); g.r(8,3,1,6,P.metalLt); g.r(9,3,1,6,P.metal);
-    g.r(8,3,2,1,P.metalLt);
-    g.r(5,0,8,3,P.out); g.r(6,1,6,1,P.red); g.r(7,1,4,1,P.redLt); g.r(8,1,2,1,"#ffb89e");
-  });
-  OBJ.lamp = spr(12,30,function(g){
-    g.r(4,6,4,22,P.out);
-    g.r(5,7,1,20,P.woodLt); g.r(6,7,1,20,P.woodDk);
-    g.r(4,14,4,1,P.woodXd); g.r(4,22,4,1,P.woodXd);
-    g.r(1,0,10,7,P.out); g.r(2,1,8,5,P.goldDk);
-    g.r(2,1,8,1,P.goldLt); g.r(2,5,8,1,P.goldDk);
-    g.r(3,4,6,2,P.gold); g.r(4,4,4,1,P.goldLt); g.r(5,5,2,1,"#fff2c4");
-    g.r(2,28,8,2,P.out); g.r(3,28,6,1,P.woodDk); g.r(3,29,6,1,P.woodXd);
-  });
-  OBJ.flask = spr(16,20,function(g){
-    g.r(4,16,8,3,P.out); g.r(5,17,6,1,P.woodDk); g.r(5,17,3,1,P.woodLt);
-    g.r(5,6,6,11,P.out); g.r(6,7,4,9,"#1d3b3f");
-    g.r(6,11,4,5,P.cyan); g.r(6,11,4,1,"#b6f3ff");
-    g.r(7,13,1,1,P.cyanDk); g.r(8,14,1,1,"#bdf6ff");
-    g.r(6,8,1,3,"rgba(255,255,255,.22)");
-    g.r(6,2,4,5,P.out); g.r(7,3,2,3,P.goldLt); g.r(7,3,2,1,P.goldDk);
-    g.r(12,8,3,9,P.out); g.r(13,9,1,7,P.violet); g.r(13,9,1,2,"#d4c1ef"); g.r(13,13,1,1,"#7a5fa8");
-  });
-  OBJ.coil = spr(16,26,function(g){
-    g.r(5,18,6,6,P.out); g.r(6,19,4,4,P.woodDk); g.r(6,19,4,1,P.wood); g.r(6,22,4,1,P.woodXd);
-    g.r(6,6,4,12,P.out); g.r(7,7,1,10,P.woodLt); g.r(8,7,1,10,P.woodDk);
-    for(var i=0;i<5;i++){ var wy=8+i*2; g.r(5,wy,6,1,P.gold); g.r(5,wy,2,1,P.goldLt); g.r(9,wy,2,1,P.goldDk); }
-    g.r(6,1,4,5,P.out); g.r(7,2,2,3,P.cyan); g.r(7,2,1,1,"#d8fbff"); g.r(7,4,2,1,P.cyanDk);
-  });
-  OBJ.pallet = spr(34,14,function(g){
-    g.r(0,4,34,10,P.out); g.r(1,5,32,8,P.woodXd);
-    for(var i=0;i<5;i++){
-      var px=2+i*6;
-      g.r(px,5,4,8,P.wood);
-      g.r(px,5,1,8,P.woodLt);
-      g.r(px+3,5,1,8,P.woodDk);
-      g.r(px,5,4,1,P.woodLt);
-      g.r(px,12,4,1,P.woodXd);
-    }
-    g.r(0,0,34,4,P.out); g.r(1,1,32,2,P.goldDk);
-    g.r(1,1,32,1,P.goldLt); g.r(1,2,32,1,P.goldDk);
-  });
-  OBJ.truck = spr(46,28,function(g){
-    g.r(2,4,28,16,P.out); g.r(3,5,26,14,P.woodDk); g.r(3,5,26,4,P.wood);
-    g.r(3,5,26,1,P.woodLt); g.r(3,18,26,1,P.woodXd);
-    for(var i=0;i<5;i++){
-      var rx=5+i*5;
-      g.r(rx,10,3,8,P.wood); g.r(rx,10,1,8,P.woodLt); g.r(rx+2,10,1,8,P.woodDk);
-    }
-    g.r(29,8,15,12,P.out); g.r(30,9,13,10,P.cyanDk);
-    g.r(30,9,13,2,P.cyan); g.r(30,17,13,2,"#154a54");
-    g.r(37,9,1,10,"#154a54");
-    g.r(33,10,8,5,P.out); g.r(34,11,6,3,P.blue); g.r(34,11,6,1,"#dff4ff"); g.r(38,13,2,1,P.cyanDk);
-    g.r(43,13,2,3,P.gold); g.r(43,13,2,1,P.goldLt);
-    g.r(5,19,9,8,P.out); g.r(6,20,7,6,"#2a2a2a"); g.r(6,20,7,1,"#3c3c3c"); g.r(8,22,3,2,P.metal); g.r(9,22,1,1,P.metalXd);
-    g.r(31,19,9,8,P.out); g.r(32,20,7,6,"#2a2a2a"); g.r(32,20,7,1,"#3c3c3c"); g.r(34,22,3,2,P.metal); g.r(35,22,1,1,P.metalXd);
-  });
-  OBJ.map = spr(28,24,function(g){
-    g.r(2,2,24,18,P.out); g.r(3,3,22,16,"#d8c9a0");
-    g.r(3,3,22,1,"#e4d7ae"); g.r(3,18,22,1,"#c2b389");
-    g.r(5,6,10,1,P.redDk); g.r(9,6,1,8,P.redDk);
-    g.r(14,11,8,1,P.cyanDk); g.r(6,15,12,1,P.cyanDk);
-    g.r(4,9,1,1,P.cyanDk); g.r(22,8,1,1,P.cyanDk); g.r(11,17,1,1,P.cyanDk);
-    g.r(17,5,3,3,P.red); g.r(17,5,3,1,"#ff8a72"); g.r(18,6,1,1,P.redDk);
-    g.r(1,20,26,2,P.out); g.r(2,20,24,1,P.wood); g.r(2,21,24,1,P.woodDk);
-    g.r(6,22,2,2,P.out); g.r(7,22,1,1,P.goldDk);
-    g.r(20,22,2,2,P.out); g.r(21,22,1,1,P.goldDk);
-  });
-  OBJ.radar = spr(24,26,function(g){
-    g.r(10,14,4,10,P.out); g.r(11,15,1,8,P.metal); g.r(12,15,1,8,P.metalDk);
-    g.r(6,22,12,3,P.out); g.r(7,23,10,1,P.metalLt); g.r(8,24,8,1,P.metalXd);
-    g.r(3,2,18,12,P.out); g.r(4,3,16,10,P.metalDk);
-    g.r(4,3,16,1,P.metalLt); g.r(4,12,16,1,P.metalXd);
-    g.r(6,5,12,6,"#10262b");
-    g.r(11,5,1,6,P.green); g.r(8,8,7,1,P.green);
-    g.r(11,5,1,1,"#a9f6b0");
-    g.r(9,9,1,1,"rgba(123,189,90,.4)"); g.r(15,7,1,1,"rgba(123,189,90,.3)");
-    g.r(14,6,2,2,P.cyan); g.r(14,6,1,1,"#d8fbff");
-  });
-  OBJ.signal = spr(12,28,function(g){
-    g.r(4,10,4,18,P.out); g.r(5,11,1,16,P.woodLt); g.r(6,11,1,16,P.woodDk);
-    g.r(4,17,4,1,P.woodXd);
-    g.r(1,0,10,12,P.out); g.r(2,1,8,10,P.metalDk);
-    g.r(2,1,8,1,P.metalLt); g.r(2,10,8,1,P.metalXd);
-    g.r(3,2,6,3,P.out); g.r(4,3,4,1,"#4a1a14"); g.r(4,3,1,1,"#6e281f");
-    g.r(3,7,6,3,P.out); g.r(4,8,4,1,"#1e3a17"); g.r(4,8,1,1,"#2c521f");
-  });
-  OBJ.belt = spr(24,14,function(g){
-    g.r(0,2,24,10,P.out); g.r(1,3,22,8,P.goldDk); g.r(1,3,22,1,P.gold);
-    g.r(1,10,22,1,P.woodXd);
-    for(var i=0;i<6;i++){
-      var bx=2+i*4;
-      g.r(bx,5,2,5,"#2f5a56");
-      g.r(bx,5,1,5,"#3c6d67");
-      g.r(bx+1,5,1,5,"#1b3532");
-    }
-    g.r(0,12,24,2,P.out); g.r(1,12,22,1,P.goldDk);
-  });
   OBJ.node = spr(10,10,function(g){
     g.r(1,1,8,8,P.out); g.r(2,2,6,6,P.woodDk);
     g.r(2,2,6,1,P.woodLt); g.r(2,7,6,1,P.woodXd);
     g.r(3,3,4,2,P.cyan); g.r(4,3,2,1,"#d8fbff");
     g.r(3,6,4,1,P.wood); g.r(3,6,1,1,P.woodLt);
     g.r(2,2,1,1,P.goldDk); g.r(7,7,1,1,P.goldDk);
-  });
-  OBJ.cabinet = spr(20,28,function(g){
-    box(g,1,2,18,25,P.woodDk,P.wood,P.woodXd);
-    g.r(2,3,1,23,P.woodLt); g.r(17,3,1,23,P.woodXd);
-    for(var i=0;i<4;i++){
-      var dy=4+i*6;
-      g.r(3,dy,14,5,P.out);
-      g.r(4,dy+1,12,3,P.dirt);
-      g.r(4,dy+1,12,1,P.dirt3);
-      g.r(4,dy+3,12,1,P.dirt2);
-      g.r(9,dy+2,2,1,P.gold); g.r(9,dy+2,1,1,P.goldLt); g.r(10,dy+2,1,1,P.goldDk);
-    }
-  });
-  /* la torretta d'angolo: il segno più forte di "campo scoperto, non stanza".
-     Sagoma piena invece di pali sottili — a piccola scala e da lontano deve
-     leggersi come icona, non come struttura in dettaglio. */
-  OBJ.tower = spr(20,38,function(g){
-    /* gambe: toni ben separati (scuro-chiaro-scuro) invece di legno su
-       legno, così la sagoma resta leggibile anche rimpicciolita */
-    g.r(6,18,8,18,P.out);
-    g.r(7,19,2,16,P.woodXd); g.r(11,19,2,16,P.woodXd); g.r(9,19,2,16,P.woodLt);
-    /* controventatura in ottone a mezza altezza: una fascia chiara che
-       spezza il legno e si vede anche da lontano */
-    g.r(6,27,8,2,P.out); g.r(7,27,6,1,P.goldLt); g.r(7,28,6,1,P.goldDk);
-    /* ombra di contatto: prima mancava e la torretta "galleggiava" */
-    g.r(2,36,16,1,"rgba(0,0,0,.4)");
-    g.r(1,10,18,7,P.out); g.r(2,11,16,5,P.wood);
-    g.r(2,11,16,1,P.woodLt); g.r(2,15,16,1,P.woodXd);
-    /* montanti d'angolo in ottone, si leggono come pali veri anche da lontano */
-    g.r(2,7,2,4,P.out); g.r(3,7,1,4,P.goldLt);
-    g.r(16,7,2,4,P.out); g.r(16,7,1,4,P.goldDk);
-    g.r(4,8,12,1,P.woodDk);
-    /* cabina del faro: pareti chiare con fascia corallo, non più il khaki
-       militare — il segno più forte del passaggio da bunker a lanterna */
-    g.r(1,3,18,5,P.out); g.r(2,4,16,3,P.ink); g.r(2,4,16,1,"#fffaf0"); g.r(2,6,16,1,P.red);
-    /* feritoia/sensore: unica macchia satura di ciano sulla cabina chiara,
-       l'occhio ci cade per primo anche a distanza */
-    g.r(8,5,4,2,P.cyanDk); g.r(9,5,2,1,P.cyan); g.r(9,5,1,1,P.glassHi);
-    g.r(8,1,4,3,P.out); g.r(9,1,2,2,P.goldLt);
-    /* faro: anello nero di silhouette + nucleo acceso, la lanterna vera e
-       propria in cima alla torre */
-    g.r(8,0,4,2,P.out); g.r(9,0,2,1,P.goldLt); g.r(9,1,2,1,P.gold);
   });
 })();
 
@@ -1393,13 +1168,13 @@ function drawBeats(t){
   });
 }
 var CREW = [
-  {id:"orchestratore",n:"ORCH", col:P.gold,  hat:"cap",     room:"prod",   x:940, y:340,face:1,v:250,phase:0,path:[]},
-  {id:"ricerca-1",    n:"RIC-1",col:P.cyan,  hat:"bandana", room:"ricerca",x:300, y:340,face:1,v:255,phase:0,path:[]},
-  {id:"produzione-1", n:"PRD-1",col:P.green, hat:"helmet",  room:"prod",   x:820, y:360,face:1,v:255,phase:0,path:[]},
-  {id:"qualita-1",    n:"QA-1", col:P.red,   hat:"helmet",  room:"qa",     x:1600,y:340,face:1,v:255,phase:0,path:[]},
-  {id:"custode",      n:"MEM",  col:P.violet,hat:"hair",    room:"vault",  x:400, y:900,face:1,v:245,phase:0,path:[]},
-  {id:"volt",         n:"VOLT", col:P.cyan,  hat:"",  kind:"volt", room:"pub",  x:1120,y:960,face:1,v:270,phase:0,path:[]},
-  {id:"doc",          n:"DOC",  col:P.ink,   hat:"",  kind:"doc",  room:"rs",   x:1700,y:960,face:-1,v:235,phase:0,path:[]}
+  {id:"orchestratore",n:"ORCH", col:P.gold,  room:"prod",   x:940, y:340,face:1,v:250,phase:0,path:[]},
+  {id:"ricerca-1",    n:"RIC-1",col:P.cyan,  room:"ricerca",x:300, y:340,face:1,v:255,phase:0,path:[]},
+  {id:"produzione-1", n:"PRD-1",col:P.green, room:"prod",   x:820, y:360,face:1,v:255,phase:0,path:[]},
+  {id:"qualita-1",    n:"QA-1", col:P.red,   room:"qa",     x:1600,y:340,face:1,v:255,phase:0,path:[]},
+  {id:"custode",      n:"MEM",  col:P.violet,room:"vault",  x:400, y:900,face:1,v:245,phase:0,path:[]},
+  {id:"volt",         n:"VOLT", col:P.cyan,  room:"pub",  x:1120,y:960,face:1,v:270,phase:0,path:[]},
+  {id:"doc",          n:"DOC",  col:P.ink,   room:"rs",   x:1700,y:960,face:-1,v:235,phase:0,path:[]}
 ];
 CREW.forEach(function(a){ a.home = a.room; });   /* il reparto di appartenenza, per i token: non si muove quando a.room cambia */
 function crewBy(id){ return CREW.filter(function(a){return a.id===id;})[0]; }
@@ -1445,7 +1220,7 @@ SKILLS.forEach(function(sk){
   sk.homeX = sk.x; sk.y = POST_Y; sk.face = 1; sk.v = 240; sk.phase = 0;
   sk.path = []; sk.moving = false; sk.uses = 0; sk.escort = null;
   sk.idleSeed = Math.random()*6.283;
-  sk.wandering = false; sk.wanderAt = -1; sk.wTX = sk.x; sk.wTY = sk.y; sk.costume = null;
+  sk.wandering = false; sk.wanderAt = -1; sk.wTX = sk.x; sk.wTY = sk.y;
 });
 function skillBy(id){ return SKILLS.filter(function(s){ return s.id===id; })[0]; }
 var SK_AT = 0;
@@ -1456,9 +1231,7 @@ var SK_AT = 0;
    comprese, poi si ferma un momento prima di scegliere la prossima meta.
    sk.wandering è un flag apposta separato da sk.moving/sk.path: l'etichetta
    resta "AL POSTO" (vagare non è lavoro vero) e il lavoro vero, quando
-   arriva, lo interrompe subito (vedi il controllo in cima). sk.costume,
-   quando assegnato (vedi assignCameoCast più sotto), è l'aspetto vero e
-   permanente di quel personaggio: il vagare non lo tocca. */
+   arriva, lo interrompe subito (vedi il controllo in cima). */
 function stepWander(sk, t, dt){
   if(sk.moving || sk.escort || (sk.last && Date.now()-sk.last < 4000)){
     sk.wandering = false; return;
@@ -1518,200 +1291,6 @@ function skIcon(g, kind, col, ox, oy){
 
 /* lo specialista: stessa scheda degli operativi (Q_CAST, per id di SKILLS) */
 function specSprite(sk, f, give){ return qSprite(sk, Q_CAST[sk.id], false); }
-
-/* ================================================== EASTER EGG (2026-09-09)
-   Omaggio pixel-art a personaggi amati, mai col nome o il logo vero: solo
-   sagoma e colori che strizzano l'occhio, in caricatura — nessun testo in
-   pagina li nomina. Compaiono a caso, di rado, durante il pattugliamento
-   libero di uno specialista (vedi stepWander): puro decoro, non tocca mai
-   un'interazione vera. Stessa scuola di disegno e stesso schema di gambe
-   degli specialisti. */
-var CAMEO_KEYS = ["goku","luffy","mario","pikachu","naruto","spiderman","rick","morty"];
-function cameoLegs(g,y,walk,ph,col){
-  if(!walk || ph===0 || ph===2){
-    g.r(8,23+y,3,4,P.out); g.r(12,23+y,3,4,P.out);
-    g.r(9,23+y,1,3,col); g.r(9,23+y,1,1,"rgba(255,255,255,.18)"); g.r(9,25+y,1,1,"rgba(0,0,0,.22)");
-    g.r(13,23+y,1,3,col); g.r(13,23+y,1,1,"rgba(255,255,255,.18)"); g.r(13,25+y,1,1,"rgba(0,0,0,.22)");
-    g.r(7,26+y,4,3,P.out); g.r(12,26+y,4,3,P.out);
-  } else if(ph===1){
-    g.r(6,23+y,4,4,P.out); g.r(13,24+y,3,3,P.out);
-    g.r(7,23+y,2,3,col); g.r(7,23+y,2,1,"rgba(255,255,255,.18)"); g.r(7,25+y,2,1,"rgba(0,0,0,.22)");
-    g.r(14,24+y,1,2,col); g.r(14,25+y,1,1,"rgba(0,0,0,.22)");
-    g.r(5,26+y,5,3,P.out); g.r(13,26+y,4,3,P.out);
-  } else {
-    g.r(13,23+y,4,4,P.out); g.r(7,24+y,3,3,P.out);
-    g.r(14,23+y,2,3,col); g.r(14,23+y,2,1,"rgba(255,255,255,.18)"); g.r(14,25+y,2,1,"rgba(0,0,0,.22)");
-    g.r(8,24+y,1,2,col); g.r(8,25+y,1,1,"rgba(0,0,0,.22)");
-    g.r(13,26+y,5,3,P.out); g.r(6,26+y,4,3,P.out);
-  }
-}
-function drawCameo(g, kind, f){
-  var walk = f>=2, ph = walk?(f-2):0;
-  var bob = walk ? (ph===1||ph===3?1:0) : (f===1?1:0);
-  var y = bob+2, sw = walk ? (ph===1?1:ph===3?-1:0) : 0;
-  g.r(6,29,10,1,"rgba(0,0,0,.55)");
-
-  if(kind==="goku"){
-    /* guerriero saiyan: gi arancione, sottomaglia blu, capelli a punte */
-    cameoLegs(g,y,walk,ph,"#2b4a8f");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,"#f2831c");
-    g.r(6,14+y,10,2,"#ffb15c"); g.r(9,14+y,2,9,"#2b4a8f");
-    g.r(12,17+y,3,4,"rgba(0,0,0,.18)");
-    g.r(6,21+y,10,2,P.goldDk); g.r(6,21+y,10,1,P.gold);
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,"#f2831c"); g.r(4,19+y+sw,1,2,"#c96a15");
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,"#f2831c"); g.r(17,19+y-sw,1,2,"#c96a15");
-    g.r(4,20+y+sw,1,1,"#2b4a8f"); g.r(17,20+y-sw,1,1,"#2b4a8f");
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(8,10+y,1,1,"rgba(0,0,0,.12)"); g.r(13,10+y,1,1,"rgba(0,0,0,.12)");
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(6,0+y,10,7,P.out);
-    g.r(7,1+y,2,3,"#1a1410"); g.r(9,0+y,2,4,"#1a1410"); g.r(11,0+y,2,3,"#1a1410"); g.r(13,1+y,2,3,"#1a1410");
-    g.r(6,4+y,3,3,"#1a1410"); g.r(13,4+y,3,3,"#1a1410"); g.r(8,3+y,7,3,"#1a1410");
-    g.r(9,0+y,2,1,"#3a2a1c"); g.r(11,0+y,2,1,"#3a2a1c");
-  } else if(kind==="luffy"){
-    /* capitano con cappello di paglia, gilet rosso, cicatrice sotto l'occhio */
-    cameoLegs(g,y,walk,ph,"#2b3a5c");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,P.skin); g.r(6,14+y,10,2,P.skinLt);
-    g.r(9,15+y,2,4,"rgba(0,0,0,.1)");
-    g.r(9,19+y,2,1,P.skinDk);
-    g.r(6,20+y,10,3,P.red); g.r(6,20+y,10,1,"#ff8a72"); g.r(6,22+y,10,1,P.redDk);
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,P.skin); g.r(4,19+y+sw,1,2,P.skinDk);
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,P.skin); g.r(17,19+y-sw,1,2,P.skinDk);
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(8,10+y,1,1,"rgba(0,0,0,.12)"); g.r(13,10+y,1,1,"rgba(0,0,0,.12)");
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(9,10+y,1,1,P.redDk);
-    g.r(4,0+y,14,3,P.out); g.r(5,1+y,6,1,"#f2d685"); g.r(11,1+y,6,1,"#c9a54e");
-    g.r(7,3+y,6,3,P.out); g.r(8,3+y,4,1,"#e8c468"); g.r(8,4+y,4,1,P.red);
-  } else if(kind==="mario"){
-    /* idraulico coi baffi: cappello e maglia rossa, salopette blu */
-    cameoLegs(g,y,walk,ph,"#2b4a8f");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,"#2b4a8f");
-    g.r(9,14+y,2,9,P.goldDk);
-    g.r(12,18+y,3,4,"rgba(0,0,0,.16)");
-    g.r(6,14+y,10,1,"#ff8a72"); g.r(6,15+y,10,3,P.red);
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,P.red); g.r(4,19+y+sw,1,2,P.redDk);
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,P.red); g.r(17,19+y-sw,1,2,P.redDk); g.r(17,20+y-sw,1,1,P.ink);
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(8,10+y,6,1,"#5a3f28"); g.r(8,10+y,2,1,"#6e4c34");
-    g.r(6,3+y,10,4,P.out); g.r(7,4+y,8,1,"#ff8a72"); g.r(7,5+y,8,1,P.red); g.r(14,5+y,3,1,P.out);
-    g.r(9,4+y,3,1,"#ffffff"); g.r(10,4+y,1,1,P.red);
-  } else if(kind==="pikachu"){
-    /* criceto elettrico giallo: orecchie a punta, guanciotte rosse, coda a fulmine */
-    cameoLegs(g,y,walk,ph,"#a97f22");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,"#f2c14e");
-    g.r(6,14+y,10,3,"#ffe28a");
-    g.r(13,17+y,2,5,"rgba(0,0,0,.16)");
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,"#f2c14e"); g.r(4,19+y+sw,1,2,"#c99a1c");
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,"#f2c14e"); g.r(17,19+y-sw,1,2,"#c99a1c");
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,"#f2c14e"); g.r(8,7+y,6,1,"#ffe28a");
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(7,10+y,2,2,P.red); g.r(13,10+y,2,2,P.red);
-    g.r(7,10+y,1,1,"#ff8a72"); g.r(14,10+y,1,1,"#ff8a72");
-    g.r(6,0+y,3,6,P.out); g.r(7,1+y,1,4,"#f2c14e"); g.r(7,1+y,1,1,P.out); g.r(7,3+y,1,1,"#ffe28a");
-    g.r(13,0+y,3,6,P.out); g.r(14,1+y,1,4,"#f2c14e"); g.r(14,1+y,1,1,P.out); g.r(14,3+y,1,1,"#ffe28a");
-    g.r(19,14+y,3,3,P.out); g.r(20,15+y,1,1,"#f2c14e"); g.r(20,14+y,1,1,"#ffe28a");
-  } else if(kind==="naruto"){
-    /* ninja della foglia: tuta arancione e nera, bandana, tre baffi per guancia */
-    cameoLegs(g,y,walk,ph,"#1a1410");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,"#f2831c");
-    g.r(6,14+y,3,9,"#1a1410"); g.r(11,14+y,3,9,"#1a1410");
-    g.r(6,14+y,3,1,"#3a2f28"); g.r(11,14+y,3,1,"#3a2f28");
-    g.r(9,14+y,2,3,"#ffb15c"); g.r(9,20+y,2,3,"#c96a15");
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,"#f2831c"); g.r(4,19+y+sw,1,2,"#c96a15");
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,"#f2831c"); g.r(17,19+y-sw,1,2,"#c96a15");
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(8,10+y,1,1,P.skinDk); g.r(9,10+y,1,1,P.skinDk); g.r(10,10+y,1,1,P.skinDk);
-    g.r(13,10+y,1,1,P.skinDk); g.r(14,10+y,1,1,P.skinDk); g.r(15,10+y,1,1,P.skinDk);
-    g.r(6,3+y,10,3,P.out); g.r(7,4+y,8,1,"#8a949e"); g.r(7,4+y,3,1,P.metalLt); g.r(11,4+y,3,1,P.metalDk);
-    g.r(9,4+y,2,1,P.green);
-    g.r(6,1+y,3,3,"#f2c14e"); g.r(6,1+y,3,1,"#ffe28a"); g.r(6,3+y,3,1,"#c99a1c");
-    g.r(13,1+y,3,3,"#f2c14e"); g.r(13,1+y,3,1,"#ffe28a"); g.r(13,3+y,3,1,"#c99a1c");
-  } else if(kind==="spiderman"){
-    /* acrobata in rosso e blu: maschera intera, occhi a lente, linee di rete */
-    cameoLegs(g,y,walk,ph,"#2b4a8f");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,P.red);
-    g.r(6,14+y,3,9,"#2b4a8f"); g.r(11,14+y,3,9,"#2b4a8f");
-    g.r(6,14+y,1,9,"rgba(255,255,255,.14)"); g.r(13,14+y,1,9,"rgba(0,0,0,.18)");
-    g.r(9,14+y,2,4,"#ff7a68"); g.r(9,20+y,2,2,P.redDk);
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,P.red); g.r(4,19+y+sw,1,2,P.redDk);
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,P.red); g.r(17,19+y-sw,1,2,P.redDk);
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.red); g.r(8,7+y,6,1,"#ff7a68"); g.r(8,11+y,6,2,P.redDk);
-    g.r(9,9+y,1,2,"#fff"); g.r(12,9+y,1,2,"#fff");
-    g.r(9,9+y,1,1,P.out); g.r(12,9+y,1,1,P.out);
-    g.r(8,16+y,1,4,P.out); g.r(12,18+y,1,2,P.out); g.r(6,18+y,3,1,P.out); g.r(11,20+y,3,1,P.out);
-  } else if(kind==="rick"){
-    /* scienziato eccentrico: capelli grigio-argento a punte, camice chiaro su camicia blu */
-    cameoLegs(g,y,walk,ph,"#4a3720");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,P.coat);
-    g.r(6,14+y,10,2,P.coatDk); g.r(9,14+y,2,9,P.cyanDk);
-    g.r(6,16+y,2,4,"rgba(0,0,0,.14)"); g.r(12,16+y,2,4,"rgba(0,0,0,.14)");
-    g.r(9,14+y,2,1,P.cyan); g.r(6,14+y,2,1,"rgba(255,255,255,.25)");
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,P.coat); g.r(4,19+y+sw,1,2,P.coatDk);
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,P.coat); g.r(17,19+y-sw,1,2,P.coatDk);
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(8,9+y,1,1,"rgba(0,0,0,.1)"); g.r(13,9+y,1,1,"rgba(0,0,0,.1)");
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(8,10+y,6,1,P.skinDk);
-    g.r(6,0+y,10,6,P.out);
-    g.r(7,1+y,2,4,P.metalLt); g.r(9,0+y,2,3,"#ffffff"); g.r(11,0+y,2,3,P.metalLt); g.r(13,1+y,2,4,P.metal);
-    g.r(6,4+y,3,2,P.metal); g.r(13,4+y,3,2,P.metal);
-  } else {
-    /* nipote nervoso: maglietta gialla, ciuffo castano spettinato */
-    cameoLegs(g,y,walk,ph,"#7a5a33");
-    g.r(5,13+y,12,11,P.out); g.r(6,14+y,10,9,P.gold);
-    g.r(6,14+y,10,2,"#ffe28a"); g.r(9,14+y,2,9,P.goldDk);
-    g.r(12,17+y,3,4,"rgba(0,0,0,.16)");
-    g.r(3,15+y+sw,3,7,P.out); g.r(4,16+y+sw,1,3,P.gold); g.r(4,19+y+sw,1,2,P.goldDk);
-    g.r(16,15+y-sw,3,7,P.out); g.r(17,16+y-sw,1,3,P.gold); g.r(17,19+y-sw,1,2,P.goldDk);
-    g.r(7,6+y,8,8,P.out);
-    g.r(8,7+y,6,6,P.skin); g.r(8,7+y,6,1,P.skinLt); g.r(8,11+y,6,2,P.skinDk);
-    g.r(8,10+y,1,1,"rgba(0,0,0,.12)"); g.r(13,10+y,1,1,"rgba(0,0,0,.12)");
-    g.r(9,9+y,1,2,P.out); g.r(12,9+y,1,2,P.out);
-    g.r(6,1+y,10,4,P.out); g.r(7,2+y,8,3,P.hairLt); g.r(7,4+y,8,1,P.hairDk);
-    g.r(6,1+y,3,2,P.hair); g.r(6,1+y,3,1,P.hairLt); g.r(15,2+y,2,3,P.hair); g.r(15,2+y,2,1,P.hairLt);
-  }
-}
-var CAMEO_SPR = {};
-function cameoSprite(kind, f){
-  var k = "cam"+kind+f;
-  if(!CAMEO_SPR[k]) CAMEO_SPR[k] = spr(22,32,function(g){ drawCameo(g,kind,f); });
-  return CAMEO_SPR[k];
-}
-/* le skin cameo omaggio (Goku/Pikachu/Mario/ecc.) restano nel file, pronte a
-   essere riattivate, ma spente: richiesta esplicita di Vincent (2026-09-22)
-   dopo il giro precedente ("riducile a 3-4") — anche solo 4 su 15 rendevano
-   incerto a colpo d'occhio chi fosse Veterani e chi no (alcuni reparti hanno
-   un colore base già vicino a quello di una skin, es. ORCH arancio vs Goku).
-   Decisione finale: "le nuove skin degli npc devono essere la proposta C",
-   cioè il Veterani — sempre, per tutti, nessuna skin omaggio a sostituirlo.
-   CAMEO_COUNT a 0 spegne l'assegnazione (pool.slice(0,0) è vuoto, nessuno
-   riceve .costume, ognuno disegna sempre il proprio specSprite/crewSprite
-   Veterani) senza cancellare il codice del sistema, se un giorno serve
-   di nuovo basta rialzare il numero. */
-var CAMEO_COUNT = 0;
-(function assignCameoCast(){
-  var pool = SKILLS.concat(CREW);
-  for(var i=pool.length-1;i>0;i--){
-    var j = Math.floor(Math.random()*(i+1));
-    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-  }
-  var keys = CAMEO_KEYS.slice();
-  for(var k=keys.length-1;k>0;k--){
-    var m = Math.floor(Math.random()*(k+1));
-    var tmpK = keys[k]; keys[k] = keys[m]; keys[m] = tmpK;
-  }
-  pool.slice(0, CAMEO_COUNT).forEach(function(who, i){ who.costume = keys[i]; });
-})();
 
 var SK_ITEM = {};
 function skItem(sk){
@@ -1774,7 +1353,7 @@ function skillForEvent(s){
     })[0];
     return m ? m.id : "taste";
   }
-  if(tool === "Task") return "reparti";
+  if(tool === "Task" || tool === "Agent") return "reparti";
   if(/^(Bash|BashOutput|KillShell)$/.test(tool)) return "officina";
   if(/^(WebSearch|WebFetch|Grep|Glob)$/.test(tool)) return "recon";
   if(/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(tool)) return s.node ? "vault" : "officina";
@@ -1792,11 +1371,11 @@ function drawSpecs(t, det){
       ctx.globalAlpha = .16 + (Math.floor(t*.006)%2)*.12; ctx.fillStyle = sk.c;
       ctx.beginPath(); ctx.ellipse(sk.x, sk.y, 26, 9, 0, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
     }
-    var img = sk.costume ? cameoSprite(sk.costume, f) : specSprite(sk, f, give);
+    var img = specSprite(sk, f, give);
     drawSprite(img, sk.x, sk.y, 2.2, sk.face<0);
     if(give) drawSprite(BUBBLE, sk.x+14, sk.y-72, 2, false);
     if(give) drawSprite(skItem(sk), sk.x+14, sk.y-78, 1.4, false);
-    if(det > .3) label(sk.n, sk.x, sk.y-76, hot ? sk.c : P.ink_soft || P.ink);
+    if(det > .3) label(sk.n, sk.x, sk.y-76, hot ? sk.c : P.ink);
     if(det > .55) label(sk.escort ? "AL SEGUITO" : sk.moving ? "IN CAMMINO" : "AL POSTO",
                         sk.x, sk.y+16, P.gold);
   });
@@ -1882,12 +1461,6 @@ function shake(){
 }
 
 /* ------------------------------------------------- vita nelle stanze */
-var BLIPS = [];
-(function(){ for(var i=0;i<7;i++) BLIPS.push({a:Math.random()*6.2832, r:30+Math.random()*80}); })();
-var MOTES = [];
-(function(){ var v = R("vault");
-  for(var i=0;i<26;i++) MOTES.push({x:v.x+30+Math.random()*(v.w-60), y:v.y+30+Math.random()*(v.h-60),
-                                    s:.12+Math.random()*.3, p:Math.random()*6.2832}); })();
 var lastAmb = 0;
 function ambience(t, dt){
   if(reduce) return;
@@ -1937,46 +1510,6 @@ var NODES=[], EDGES=[], pulses=[];
 })();
 
 /* ---------------------------------------------------------- fondali */
-function floorTile(kind){
-  return spr(16,16,function(g){
-    if(kind==="dirt"){
-      /* bande piene in alto/basso: si ripetono senza cucitura per costruzione.
-         Ogni macchia interna resta rigorosamente lontana dai 4 bordi (righe/colonne
-         1-14), quindi non può mai spezzarsi a metà nel punto di giunzione. */
-      g.r(0,0,16,16,P.dirt); g.r(0,0,16,1,P.dirt3);
-      g.r(3,4,2,1,P.dirt3); g.r(10,9,3,1,P.dirt2); g.r(6,12,2,1,P.dirt3);
-      g.r(2,9,1,1,P.dirt2); g.r(8,3,1,1,P.dirtLt); g.r(13,6,1,1,P.dirt2);
-      g.r(5,7,1,1,P.dirtLt); g.r(12,13,2,1,P.dirt2);
-      /* sassolino con la sua ombra, una crepa sottile e una piccola pesta —
-         stesso trattamento del cemento/metallo, stessi margini di sicurezza */
-      g.r(4,10,1,1,P.dirtLt); g.r(5,11,1,1,P.dirt2);
-      g.r(9,5,1,2,P.dirt2); g.r(10,6,1,1,P.dirt2);
-      g.r(11,11,2,1,P.dirt2); g.r(11,12,1,1,P.dirtLt);
-      /* sabbia di spiaggia: un frammento di vetro di mare e un pezzetto
-         di conchiglia, stessi margini di sicurezza dei dettagli sopra */
-      g.r(7,10,1,1,P.cyan); g.r(3,12,1,1,P.paper);
-    } else if(kind==="concrete"){
-      /* la giunta di malta usa solo riga0 + colonna0 (piena): il tile adiacente
-         ripete lo stesso bordo, quindi il motivo continua identico oltre. */
-      g.r(0,0,16,16,P.concrete2); g.r(0,0,16,1,P.concreteLt); g.r(0,0,1,16,P.concreteLt);
-      g.r(2,5,5,1,P.concrete); g.r(9,11,4,1,P.concrete);
-      g.r(6,3,3,1,P.concrete);
-      g.r(11,4,1,4,P.concreteXd); g.r(4,12,3,1,P.concreteXd);
-      g.r(13,8,1,1,P.concreteLt); g.r(3,2,1,1,P.concreteLt);
-      /* massetto "a conchiglie" (tabby): frammenti chiari inglobati nella
-         malta, coerente con una base costiera invece che un bunker */
-      g.r(10,3,1,1,P.paper); g.r(5,9,1,1,P.paper);
-    } else {
-      /* lamiera di banchina con patina rame-verderame, non più acciaio
-         freddo: stessa costruzione a bande, solo tinta */
-      g.r(0,0,16,16,"#2f5a56"); g.r(0,0,16,1,"#4a8078"); g.r(0,15,16,1,"#1b3532");
-      g.r(2,2,3,3,"#3c6d67"); g.r(11,9,3,3,"#3c6d67"); g.r(7,7,2,2,"#254541");
-      g.r(3,3,1,1,"#5c948b"); g.r(12,10,1,1,"#5c948b");
-      g.r(6,3,4,1,"#20403c"); g.r(6,12,4,1,"#20403c");
-    }
-  });
-}
-var TILES = {dirt:floorTile("dirt"), concrete:floorTile("concrete"), metal:floorTile("metal")};
 var SIGN_S = 3;   /* scala delle targhe: a 2 dalla vista generale erano ~9 px */
 function sign(text, col){
   return spr(text.length*6+10,16,function(g){
@@ -1990,77 +1523,12 @@ function sign(text, col){
     g.r(3,14,2,2,P.out); g.r(w-5,14,2,2,P.out);
   });
 }
-var BAKED = {}, CORR_C = null;
-/* vetrina sul lato corridoio (Giro 6 — ambiente): il lotto resta
-   attraversabile esattamente come prima, doorX/doorY/isTop non cambiano
-   di un pixel — ma ora quel bordo porta una facciata disegnata invece di
-   restare nudo. Il varco è centrato sulla stessa x di doorX(r) e largo
-   quanto basta a leggersi come ingresso: è pura pittura sopra il fondale,
-   non un ostacolo, i personaggi ci passano sopra senza saperlo. */
-var FACADE_H = 40;
-function bakeFacade(x, r){
-  var top = isTop(r);
-  var faceY = top ? r.h - FACADE_H : 0;
-  var doorLocalX = r.w/2;                    /* = doorX(r)-r.x, stessa formula */
-  var gap = Math.min(112, r.w*0.18);
-  var leftW = doorLocalX - gap/2;
-  var rightX = doorLocalX + gap/2;
-  var rightW = r.w - rightX;
-
-  function panel(px, pw){
-    if(pw <= 4) return;
-    /* intelaiatura opaca: parete/serramento */
-    x.fillStyle = P.metalXxd; x.fillRect(px, faceY, pw, FACADE_H);
-    x.fillStyle = P.metalXd;  x.fillRect(px, faceY, pw, 3);
-    x.fillStyle = P.metalDk;  x.fillRect(px, faceY+FACADE_H-3, pw, 3);
-    /* vetrata: il caldo di dentro domina (è quello che deve leggersi da
-       lontano), il vetro scuro resta solo un velo sottile sopra, non la
-       base — altrimenti il caldo affoga e resta un muro grigio invece
-       di una vetrina accesa */
-    var wx = px+7, wy = faceY+6, ww = pw-14, wh = FACADE_H-12;
-    if(ww > 6 && wh > 4){
-      x.save();
-      x.shadowColor = P.glassLt; x.shadowBlur = 10;
-      x.fillStyle = P.glassLt; x.globalAlpha = .82; x.fillRect(wx,wy,ww,wh);
-      x.shadowBlur = 0;
-      x.globalAlpha = .22; x.fillStyle = P.glass; x.fillRect(wx,wy,ww,wh);
-      /* sagome di scaffali/prodotti dietro il vetro, così si legge come
-         interno vero e non un rettangolo pieno */
-      x.globalAlpha = .5; x.fillStyle = P.metalXxd;
-      for(var sx = wx+2; sx < wx+ww-2; sx += 5) x.fillRect(Math.round(sx), wy+wh*.55, 2, wh*.4);
-      x.globalAlpha = 1;
-      x.fillStyle = P.glassHi; x.globalAlpha = .55; x.fillRect(wx+2, wy+2, Math.max(2,ww*.3), 2); x.globalAlpha = 1;
-      x.restore();
-      x.fillStyle = P.metalXd;
-      for(var mx = wx+ww/3; mx < wx+ww-1; mx += ww/3) x.fillRect(Math.round(mx), wy, 1, wh);
-    }
-  }
-  panel(0, leftW);
-  panel(rightX, rightW);
-  /* stipiti che inquadrano il varco — il varco stesso resta interamente
-     libero, nessun pixel opaco tra leftW e rightX */
-  x.fillStyle = P.metalXd;
-  x.fillRect(Math.round(leftW)-2, faceY, 2, FACADE_H);
-  x.fillRect(Math.round(rightX),  faceY, 2, FACADE_H);
-}
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
-/* skyline e cavi in controluce: sfondo notturno dietro il complesso,
-   cotto una sola volta come BAKED/CORR_C qui sopra. Non tocca dayNightTint
-   (che resta l'unica fonte di verità sull'ora reale): questo strato è
-   statico, sempre presente, solo più assorbito dal velo blu quando cala
-   la sera — stessa idea delle finestre dei palazzi, "vita non uniforme". */
-var SKY_C = null;
-function towerTop(r){
-  var towerX = (ROOMS.indexOf(r)%2===0) ? r.w-40 : 6;
-  return { x: r.x + towerX + 15, y: r.y + (isTop(r) ? 2 : r.h-60) + 1.5 };
-}
-function bakeSky(){ SKY_C = null; /* il fondale ora è il mare (drawWorld) */ }
-function bakeAll(){ ROOMS.forEach(bakeRoom); bakeCorr(); bakeSky(); }
+var BAKED = {};
+function bakeAll(){ ROOMS.forEach(bakeRoom); }
 
 /* ------------------------------------------------------------ camera */
 var cam = {x:WORLD.w/2,y:WORLD.h/2,s:.5,tx:WORLD.w/2,ty:WORLD.h/2,ts:.5};
-var focus = null, GROUND_PAT = null;
+var focus = null;
 var cv = document.getElementById("world"), ctx = cv.getContext("2d");
 var VW=0, VH=0, dpr=1;
 function resize(){
@@ -2859,11 +2327,6 @@ function markLink(k){ LINK_HIT[k] = true; LINK_LAST = k; LINK_AT = Date.now(); }
    vanilla continua da solo. */
 var DASH = null, DASH_TRIED = false;
 function dashEngine(){
-  function sprite(w, h, img){
-    var c = cvs(w, h);
-    c.getContext("2d").drawImage(img, Math.round((w-img.width)/2), h-img.height);
-    return c;
-  }
   /* primo piano dalla testa alle gambe: gli omini sono più alti delle cornici, e rimpiccioliti si sgranerebbero */
   function closeUp(img, w, h){
     var c = cvs(w, h), x = c.getContext("2d"); x.imageSmoothingEnabled = false;
@@ -2875,10 +2338,8 @@ function dashEngine(){
   return {
     sprites: {
       bust: function(st, blink, talk){ return bustSprite(st, blink, talk); },
-      crew: function(id){ var a = crewById(id); return a.costume ? sprite(24, 30, cameoSprite(a.costume, 0)) : closeUp(crewSprite(a, 0, false), 24, 30); },
-      spec: function(id){ var s = skillById(id);
-        if(!s.costume) return closeUp(specSprite(s, 0, false), 22, 32);
-        var c = cvs(22, 32); c.getContext("2d").drawImage(cameoSprite(s.costume, 0), 0, 0); return c; }
+      crew: function(id){ return closeUp(crewSprite(crewById(id), 0, false), 24, 30); },
+      spec: function(id){ return closeUp(specSprite(skillById(id), 0, false), 22, 32); }
     },
     openPriority: function(t){
       openItemDetail("PRIORITÀ APERTA", "ACTIVE PRIORITIES.MD · SOLA LETTURA",
@@ -2983,17 +2444,6 @@ function bub(x, y, c, big){
   BUBS.push({x:x+(Math.random()-.5)*10, y:y+(Math.random()-.5)*10, t:0, l:.7+Math.random()*.6,
              r:(big?4:2)+Math.random()*3, c:c});
 }
-
-/* luce della stanza: si accende quando dentro c'è qualcuno, si abbassa
-   quando si svuota — lo stato arriva solo dalle posizioni degli NPC */
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
-
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
-
-/* sopra i personaggi: bolle (scia di chi cammina + vasche attive) e pesci
-   che nuotano sopra le cupole e scappano da chi gli passa sotto */
-var envLast = 0;
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
 /* ------------------------------------------------------------ render */
 /* campo scoperto, quindi l'ora vera conta: un velo blu che cresce verso
@@ -3133,7 +2583,6 @@ function drawLabels(){
 }
 
 
-/* (versione Base Abissale rimossa: la ridefinisce la scenografia Cupole più sotto) */
 
 function drawRoomLive(r, det, t){
   ctx.save();
@@ -3544,7 +2993,7 @@ function cableAt(pts, k){
 
 
 var THEME = {
-  dir: "dome", fishBehind: false, strips: "95,243,255", glow: "95,243,255", void: "#021219",
+  dir: "dome", strips: "95,243,255", glow: "95,243,255", void: "#021219",
   clip: function(c, r, dx, dy){ ell(c, r, dx, dy, 8); c.clip(); },
   outline: function(c, r){ ell(c, r, 0, 0, 6); },
   signAt: function(r, sg){
@@ -3703,11 +3152,9 @@ var THEME = {
   }
 };
 
-/* ================================================ DEMO FORME: stage ==
-   Iniettato da build.py DENTRO la IIFE, dopo il tema (THEME). Qui dentro
-   l'ultima dichiarazione vince: queste funzioni sostituiscono solo la
-   scenografia della Baracca vera. Personaggi, pathing, dati, pannelli e
-   simulatore restano quelli originali, non toccati.
+/* ================================================ SCENOGRAFIA ==
+   Cottura delle stanze e ambiente vivo sopra THEME. Personaggi, pathing,
+   dati, pannelli e simulatore non sanno niente di questo strato.
 
    Contratto del tema (coordinate mondo; dx/dy spostano il disegno quando
    si cuoce una stanza nel suo canvas locale):
@@ -3719,8 +3166,6 @@ var THEME = {
      THEME.door(r, o, t)        varco, o = 0 chiuso .. 1 aperto
      THEME.front(t)             sopra personaggi e bolle, sotto il velo notte
      THEME.signAt(r, sg)        posizione locale dell'insegna
-     THEME.inner(c, r)          opz.: effetto cotto nella stanza, dentro il clip
-     THEME.fishBehind           true: i pesci nuotano dietro al mondo
      THEME.strips               colore delle strisce del corridoio, o null
 */
 /* server.py serve solo .jpg piatti in assets/: dome_<nome>.jpg */
@@ -3743,7 +3188,6 @@ function bakeRoom(r){
     x.drawImage(im, (r.w-iw)/2, (r.h-ih)/2, iw, ih);
   }
   else { x.fillStyle = "#0b2a38"; x.fillRect(0, 0, r.w, r.h); }
-  if(THEME.inner) THEME.inner(x, r);
   x.restore();
   /* interni alla stessa griglia di pixel degli omini (Sea of Stars), un po' più saturi; l'insegna resta nitida */
   var lo = document.createElement("canvas"); lo.width = Math.max(1, Math.round(r.w/ROOM_PX)); lo.height = Math.max(1, Math.round(r.h/ROOM_PX));
@@ -3758,7 +3202,6 @@ function bakeRoom(r){
   x.drawImage(sg, at.x, at.y, sg.width*SIGN_S, sg.height*SIGN_S);
   BAKED[r.id] = c;
 }
-function bakeCorr(){ CORR_C = null; }   /* il corridoio lo disegna THEME.corridor, dal vivo */
 
 function envRoomLight(r){
   var acts = envActors(), inside = false;
@@ -3835,8 +3278,7 @@ function drawEnvFloor(t){
   ctx.restore();
 }
 
-/* pesci e bolle dell'originale, separati: col sottomarino i pesci stanno
-   dietro lo scafo, nelle altre demo nuotano sopra */
+/* pesci (scappano da chi passa sotto) e bolle (scia di chi cammina, vasche attive) */
 var envLast = 0, envDt = .016;
 function stepFish(t){
   var acts = envActors(), dt = envDt;
@@ -3859,7 +3301,7 @@ function stepFish(t){
     }
     var ang = Math.atan2(f.vy, f.vx);
     ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(ang); ctx.scale(f.s, f.s);
-    ctx.fillStyle = THEME.fishFill || "rgba(6,28,38,.55)";
+    ctx.fillStyle = "rgba(6,28,38,.55)";
     ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.2832); ctx.fill();
     var wag = reduce ? 0 : Math.sin(t*.02 + f.p)*3;
     ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-20,-6+wag); ctx.lineTo(-20,6+wag); ctx.closePath(); ctx.fill();
@@ -3881,7 +3323,7 @@ function drawEnvTop(t){
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r*(1+k*1.4), 0, 6.2832); ctx.stroke();
   }
   ctx.restore();
-  if(!THEME.fishBehind) stepFish(t);
+  stepFish(t);
 }
 
 function drawWorld(t){
@@ -3899,7 +3341,6 @@ function drawWorld(t){
   var v = {x:cam.x - VW/2/cam.s, y:cam.y - VH/2/cam.s, w:VW/cam.s, h:VH/cam.s};
 
   THEME.back(t, v);
-  if(THEME.fishBehind) stepFish(t);
   THEME.corridor(t);
 
   var det = clamp((cam.s-.55)/.35,0,1);
@@ -3923,7 +3364,7 @@ function drawWorld(t){
   ctx.imageSmoothingEnabled = false;
 
   drawEnvFloor(t);
-  if(typeof drawAtlas === "function") drawAtlas(t, det);   /* solo domes: atlante.js */
+  drawAtlas(t, det);
 
   /* ---- da qui in giù identico all'originale: casse, persone, Ultron ---- */
   sceneTasks().forEach(function(k){
@@ -3937,7 +3378,7 @@ function drawWorld(t){
   CREW.forEach(function(a){
     var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
     var f = a.moving ? 2 + (Math.floor(a.phase)%4) : 0;
-    var im = a.costume ? cameoSprite(a.costume, f) : crewSprite(a,f,!!carrying);
+    var im = crewSprite(a,f,!!carrying);
     drawSprite(im, a.x, a.y, 2.2, a.face<0);
     if(carrying){
       var cy = a.y - 62 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0);
@@ -4000,13 +3441,12 @@ function drawWorld(t){
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
-/* ============================================ DEMO CUPOLE: ATLANTE ==
+/* ================================================== ATLANTE ==
    I meccanismi del foglio "Atlante Abissale" sono DIPINTI nelle stanze
    (Leonardo Phoenix, Giro 19). Qui non si disegna nessun oggetto: solo luce
    e movimento sopra quelli dipinti, e solo quando arriva un segnale VERO
    (LAST_STATE degli hook, VAULT, STATE.tokens, window.mountDashboard).
-   Iniettato da build.py solo in domes.html; stage.js chiama drawAtlas()
-   sotto i personaggi. Coordinate in frazioni dell'immagine della stanza
+   drawWorld() chiama drawAtlas() sotto i personaggi. Coordinate in frazioni dell'immagine della stanza
    (1024x1024), misurate a mano sulle immagini scelte. */
 var AT = {sig:null, lsp:-1e9, review:-1e9, probe:-1e9, pub:-1e9, pulses:[], pings:[], last:0};
 
@@ -4171,7 +3611,6 @@ function boot(){
   CREW.forEach(function(a){ a.moving = false; a.dest = a.room; });
   logEvent("read","sessione aperta · <b>CLAUDE.md</b>");
   setTimeout(function(){ banner("BASE", "LA BARACCA · TURNO APERTO", P.gold); }, 500);
-  logEvent("deleg","briefing: <b>4 missioni</b> in coda");
   goTo(ULTRON, "prod", .5, .5, function(){ STATE.room = "prod"; });
   requestAnimationFrame(loop);
 }

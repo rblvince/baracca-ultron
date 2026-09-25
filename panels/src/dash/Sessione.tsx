@@ -83,7 +83,7 @@ function PonteHook() {
   const raw = useSection('debugRaw');
   const idx = Math.max(0, STATIONS.findIndex((s) => s.k === l?.last));
   return (
-    <div className="dp c8"><h4>PONTE CON CLAUDE CODE <DTag id="tagLink" /><em id="dLinkSub">hook · state.json · poll 400 ms</em></h4>
+    <div className="dp c8"><h4>PONTE CON CLAUDE CODE <DTag id="tagLink" /><em id="dLinkSub">hook · Supabase Realtime</em></h4>
       <div className="link" id="dLink">
         {STATIONS.map((s) => (
           <div key={s.k} className={`stn${l?.hit[s.k] ? ' on' : ''}${l?.last === s.k && l.hot ? ' hot' : ''}`} data-k={s.k}>

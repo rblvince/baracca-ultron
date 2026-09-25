@@ -1,8 +1,7 @@
-import { act } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { mountDashboard } from './mountDashboard';
 import { PanelBoundary } from './Boundary';
-import { render, screen } from '@testing-library/react';
 import { fakeEngine } from './fixture';
 
 describe('mountDashboard', () => {

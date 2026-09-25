@@ -9,13 +9,14 @@ Stesso schema di write_state() in barracks.py: ogni scrittura è
 un'istantanea fresca dei soli campi noti in quel momento, non un merge con
 quella precedente — il client accumula sul proprio oggetto di stato lato
 JS esattamente come già fa con lo stato del titolare.
+
+supabase_client si importa dentro le funzioni dei sub-agenti (rare): così il
+giro normale di un hook non paga l'import di urllib (vedi barracks.sync()).
 """
 from datetime import datetime, timedelta, timezone
 import json
 import os
 import time
-import urllib.parse
-import supabase_client
 
 CLAIM_WINDOW_S = 60  # una riga PreToolUse più vecchia di questo non è più reclamabile
 
@@ -23,10 +24,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_PATH = os.path.join(HERE, "..", "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "..", "state", "subagents.json")
 MAX_AGE_MS = 60 * 60 * 1000  # un'ora: oltre, la sessione/coda è morta per davvero
-
-# le colonne che sessions ha davvero (supabase/schema.sql): update_session()
-# accetta **fields aperti, a Supabase va solo ciò che la tabella conosce.
-SESSION_COLUMNS = ("user_id", "transcript_path", "status", "room", "node", "ts")
 
 
 def _load(path, default):
@@ -52,9 +49,10 @@ def update_session(session_key, **fields):
     """Un terminale (identificato dal suo transcript_path) ha appena fatto
     qualcosa: scrive la sua istantanea, scartando le sessioni troppo vecchie
     così il file non cresce all'infinito con terminali chiusi da settimane.
-    Doppia scrittura: anche su Supabase, stesso identico contenuto."""
+    Ritorna la stessa istantanea con transcript_path, per Supabase (la manda
+    barracks.sync()); None senza chiave."""
     if not session_key:
-        return
+        return None
     now = int(time.time() * 1000)
     data = _load(SESSIONS_PATH, {})
     data = {k: v for k, v in data.items() if now - v.get("ts", 0) < MAX_AGE_MS}
@@ -62,19 +60,7 @@ def update_session(session_key, **fields):
     entry["ts"] = now
     data[session_key] = entry
     _save(SESSIONS_PATH, data)
-
-    # il file locale è già salvato: da qui in giù è tutto "in più", e niente
-    # di quello che succede a Supabase può far saltare l'hook
-    try:
-        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
-        if user_id:
-            row = dict(entry)
-            row["transcript_path"] = session_key
-            row["user_id"] = user_id
-            row = {k: v for k, v in row.items() if k in SESSION_COLUMNS}
-            supabase_client.upsert("sessions", row, on_conflict="user_id,transcript_path")
-    except Exception:
-        pass
+    return dict(entry, transcript_path=session_key)
 
 
 def spawn_subagent(room, agent, task, tool_use_id=None):
@@ -89,6 +75,7 @@ def spawn_subagent(room, agent, task, tool_use_id=None):
     _save(SUBAGENTS_PATH, data)
 
     try:
+        import supabase_client
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
             row = {"user_id": user_id, "room": room, "agent": agent, "task": task}
@@ -115,6 +102,8 @@ def claim_subagent(agent_id):
     if not agent_id:
         return
     try:
+        import supabase_client
+        import urllib.parse
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
             cutoff = datetime.now(timezone.utc) - timedelta(seconds=CLAIM_WINDOW_S)
@@ -134,6 +123,7 @@ def reconcile_subagent(tool_use_id, agent_id):
     if not tool_use_id or not agent_id:
         return
     try:
+        import supabase_client
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if not user_id:
             return
@@ -165,6 +155,7 @@ def reap_subagent(agent_id=None):
         _save(SUBAGENTS_PATH, data)
 
     try:
+        import supabase_client
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
         if user_id:
             now = {"finished_at": datetime.now(timezone.utc).isoformat()}
