@@ -1351,10 +1351,10 @@ function crewBy(id){ return CREW.filter(function(a){return a.id===id;})[0]; }
 
 var STAGES = ["ricerca","prod","qa","pub"];
 var TASKS = [
-  {id:1,t:"rackfocus · ricerca",     stage:0,p:.35,who:"ricerca-1",   st:"work"},
-  {id:2,t:"vinland · prototipo",     stage:1,p:.62,who:"produzione-1",st:"work"},
-  {id:3,t:"ultrarantino · montaggio",stage:1,p:.18,who:"produzione-1",st:"work"},
-  {id:4,t:"gmscreen · collaudo",     stage:2,p:.80,who:"qualita-1",  st:"work"}
+  {id:1,t:"bandi-cinema · ricerca",  stage:0,p:.35,who:"ricerca-1",   st:"work"},
+  {id:2,t:"siti-pmi · prototipo",    stage:1,p:.62,who:"produzione-1",st:"work"},
+  {id:3,t:"baracca · pubblica",      stage:1,p:.18,who:"produzione-1",st:"work"},
+  {id:4,t:"audit-a11y · collaudo",   stage:2,p:.80,who:"qualita-1",  st:"work"}
 ];
 TASKS.forEach(function(t){
   var r = R(STAGES[t.stage]), p = inRoom(r,.28+Math.random()*.4,.72);
@@ -1851,7 +1851,7 @@ function simulate(){
           delivered++;
           TASKS.splice(TASKS.indexOf(t),1);
           var r0 = R("ricerca"), p0 = inRoom(r0,.3,.72);
-          TASKS.push({id:nextId++, t:["vetrina · revisione","recapito · script","monologo · bozza","clipping-vyro · editing"][nextId%4],
+          TASKS.push({id:nextId++, t:["bandi-cinema · eval","siti-pmi · assistente","audit-a11y · rapporto","portfolio · sito"][nextId%4],
                       stage:0,p:.05,who:"ricerca-1",st:"work",x:p0.x,y:p0.y,carrier:null});
           DELIVERED_LOG.unshift(t.t); if(DELIVERED_LOG.length > 4) DELIVERED_LOG.pop();
           logEvent("pub","consegnato <b>"+t.t+"</b>");
