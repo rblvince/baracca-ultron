@@ -1043,6 +1043,7 @@ var Q_CAST = {
   "doc":           {skin:0, hair:"white",  hairStyle:"messy", hat:"goggles", coat:true, shirt:P.cyan, held:"wrench", w:14},
   "volt":          {robot:true, band:P.blue},
   "custode":       {skin:1, hair:"brown",  hairStyle:"short", beard:"full",   shirt:P.violet, back:"books", held:"case", w:16, tall:1},
+  "marconi":       {skin:2, hair:"grey",   hairStyle:"short", glasses:true, hat:"headset", shirt:"#3f6fb0", held:"clip", w:14},
   "taste":    {skin:0, hair:"brown",  hairStyle:"long",  hat:"beret",  hatCol:"#6b3fa0", shirt:"#9b6fd6", held:"palette", w:12},
   "guide":    {skin:1, hair:"black",  hairStyle:"short", glasses:true, shirt:"#3f8fc9", held:"ruler", w:14, tall:1},
   "mkt":      {skin:3, hair:"black",  hairStyle:"bald",  beard:"stubble", shirt:"#d68a3c", held:"horn", w:16},
@@ -1270,7 +1271,7 @@ function goTo(e, roomId, fx, fy, onArrive){
   var target = e.isUltron ? {x:c.x + c.w*(.35+Math.random()*.3), y:c.y + c.h*(.45+Math.random()*.25)}
                           : {x:clamp(p.x, c.x+30, c.x+c.w-30), y:clamp(p.y, c.y+40, c.y+c.h-24)};
   e.path = ringRoute(e, target.x, target.y); e.dest = roomId; e.onArrive = onArrive || null; e.noBeat = false;
-  e.calledAt = Date.now(); e.wandering = false;
+  e.calledAt = Date.now(); e.resting = false;
 }
 function goToPoint(e, x, y, cb){
   e.path = ringRoute(e, x, y); e.dest = null; e.onArrive = cb || null; e.noBeat = true;
@@ -1295,24 +1296,23 @@ function stepEntity(e, dt){
       e.phase = (e.phase || 0) + step * 0.07;
     }
   } else e.moving = false;
-  if(CREW.indexOf(e) >= 0) stepWander(e, performance.now(), dt);
+  if(CREW.indexOf(e) >= 0) stepWander(e);
 }
 
 /* -------------------------------------------------------- popolazione */
 var ULTRON = {x:940,y:CORR_Y,tx:0,ty:0,room:null,dest:null,face:1,v:330,phase:0,path:[],moving:false,isUltron:true};
 
 /* ------------------------------------------- il battito d'interazione
-   Quando Ultron arriva dove stava andando: un pop sopra la testa e
-   l'oggetto del reparto che risponde, per ~600ms. Solo overlay: il
-   pathing e gli stati non lo sanno nemmeno. */
-var BEATS = [], PULSE = {};
-/* l'oggetto "caldo" di ogni reparto, in coordinate della stanza (vedi bakeRoom) */
-var HOT = {ricerca:{x:40,y:70,w:56,h:48}, prod:{x:500,y:250,w:40,h:48}, qa:{x:190,y:100,w:40,h:48},
-           vault:{x:700,y:60,w:40,h:48}, pub:{x:60,y:60,w:92,h:56}, rs:{x:80,y:340,w:40,h:48}};
+   Quando Ultron arriva dove stava andando: un pop sopra la testa e la sottostanza
+   dove lavora che lampeggia tre volte (rossa se l'evento è un errore). Prima si
+   accendeva un "oggetto caldo" a coordinate fisse delle vecchie cupole: con l'anello
+   cadeva nel vuoto (il quadratino giallo in mezzo al TERMINALE). */
+var BEATS = [], CELL_FLASH = null;
 function beat(e){
   if(reduce) return;
   BEATS.push({x:e.x, y:e.y-96, t0:performance.now()});
-  if(e.room && HOT[e.room]) PULSE[e.room] = performance.now();
+  var c = cellAt(e.x, e.y);
+  if(c) CELL_FLASH = {c:c, t0:performance.now(), col: STATE.status === "failing" ? P.red : R(c.room).c};
 }
 var POP = [0,1,2].map(function(k){ return spr(14,14,function(g){
   g.r(1,1,12,12,P.out);
@@ -1329,13 +1329,15 @@ function drawBeats(t){
     var lift = age < 460 ? (Math.floor(age/80)%2)*3 : 0;
     drawSprite(POP[k], b.x, b.y-lift, 2.4, false);
   }
-  ROOMS.forEach(function(r){
-    var t0 = PULSE[r.id]; if(!t0) return;
-    var age = now-t0; if(age > 640){ delete PULSE[r.id]; return; }
-    if(Math.floor(age/100)%2) return;
-    var h = HOT[r.id];
-    ctx.fillStyle = "rgba(242,193,78,.55)"; ctx.fillRect(r.x+h.x, r.y+h.y, h.w, h.h);
-  });
+  var f = CELL_FLASH;
+  if(f){
+    var age = now - f.t0;
+    if(age > 720) CELL_FLASH = null;
+    else if(!(Math.floor(age/120)%2)){
+      ctx.save(); ctx.globalAlpha = .22; ctx.fillStyle = f.col;
+      ctx.beginPath(); ctx.roundRect(f.c.x+5, f.c.y+5, f.c.w-10, f.c.h-10, 14); ctx.fill(); ctx.restore();
+    }
+  }
 }
 var CREW = [
   {id:"orchestratore",n:"ORCH", col:P.gold,  room:"prod",   x:940, y:340,face:1,v:250,phase:0,path:[]},
@@ -1344,7 +1346,9 @@ var CREW = [
   {id:"qualita-1",    n:"QA-1", col:P.red,   room:"qa",     x:1600,y:340,face:1,v:255,phase:0,path:[]},
   {id:"custode",      n:"MEM",  col:P.violet,room:"vault",  x:400, y:900,face:1,v:245,phase:0,path:[]},
   {id:"volt",         n:"VOLT", col:P.cyan,  room:"pub",  x:1120,y:960,face:1,v:270,phase:0,path:[]},
-  {id:"doc",          n:"DOC",  col:P.ink,   room:"rs",   x:1700,y:960,face:-1,v:235,phase:0,path:[]}
+  {id:"doc",          n:"DOC",  col:P.ink,   room:"rs",   x:1700,y:960,face:-1,v:235,phase:0,path:[]},
+  /* il radiotelegrafista: sta in CABINA e non si muove mai, è il filo con te (prompt, attesa, fine turno) */
+  {id:"marconi",      n:"MARCONI",col:P.blue,room:"rs",   x:180, y:760,face:1,v:220,phase:0,path:[]}
 ];
 CREW.forEach(function(a){ a.home = a.room; });   /* il reparto di appartenenza, per i token: non si muove quando a.room cambia */
 function crewBy(id){ return CREW.filter(function(a){return a.id===id;})[0]; }
@@ -1400,34 +1404,30 @@ SKILLS.forEach(function(sk, i){
 function skillBy(id){ return SKILLS.filter(function(s){ return s.id===id; })[0]; }
 var SK_AT = 0;
 
-/* A RIPOSO SI GIRA IL CORRIDOIO: chi non è chiamato (truppa e specialisti) sceglie un punto a caso
-   sull'anello o sui rami e ci va col percorso vero; una chiamata (goTo, cassa in mano, uso della
-   skill) lo interrompe subito. La truppa resta ferma 15 s dopo una chiamata: sta lavorando. */
-var RING_WALK = RING.segs.filter(function(s){ return DEMO.graph.nodes[s[0]] && DEMO.graph.nodes[s[1]]; });
-function corridorSpot(){
-  var s = RING_WALK[Math.floor(Math.random()*RING_WALK.length)], a = RING.pts[s[0]], b = RING.pts[s[1]], k = .1 + Math.random()*.8;
-  return {x:a.x + (b.x-a.x)*k + (Math.random()-.5)*30, y:a.y + (b.y-a.y)*k + (Math.random()-.5)*30};
+/* A RIPOSO OGNUNO STA AL SUO POSTO (25/09, prima giravano l'anello a caso). Un operativo si
+   muove solo perché è successo qualcosa: una chiamata (goTo), una cassa, un sub-agente, un errore.
+   Finito il lavoro (15 s dall'ultima chiamata, nessuna cassa in mano) torna alla postazione
+   del suo mestiere e lì resta: chi cammina nella base sta lavorando, chi è fermo aspetta.
+   Gli specialisti aspettano al loro posto nel corridoio (sendHome dopo la scorta). */
+var STATION = {                                   /* [reparto, sottostanza, fx, fy] */
+  "orchestratore":["rs","plan",.5,.55], "ricerca-1":["ricerca","search",.7,.55], "produzione-1":["prod","bash",.78,.62],
+  "qualita-1":["qa","test",.72,.5], "custode":["vault","read",.8,.55], "volt":["pub","dock",.72,.5],
+  "doc":["rs","browser",.72,.6], "marconi":["rs","booth",.5,.45]
+};
+function stationPoint(e){
+  var st = STATION[e.id]; if(!st) return null;
+  var c = RING.cells.filter(function(q){ return q.room === st[0] && q.id === st[1]; })[0]; if(!c) return null;
+  return {room:st[0], x:c.x + c.w*st[2], y:c.y + c.h*st[3]};
 }
-function stepWander(e, t, dt){
-  var crew = !e.homeX;
-  var busy = (e.path && e.path.length) || e.escort || (e.last && Date.now()-e.last < 4000) ||
-             (crew && ((e.calledAt && Date.now()-e.calledAt < 15000) || TASKS.some(function(k){ return k.carrier === e.id; })));
-  if(busy){ e.wandering = false; return; }
-  if(!(e.wanderAt > 0)) e.wanderAt = t + 1500 + Math.random()*5000;
-  if(e.wandering){
-    var w = e.wPath[0], dx = w.x-e.x, dy = w.y-e.y, d = Math.hypot(dx, dy), step = 78*dt;
-    if(d <= step){
-      e.x = w.x; e.y = w.y; e.wPath.shift();
-      if(!e.wPath.length){ e.wandering = false; e.wanderAt = t + 4000 + Math.random()*8000; }
-    } else {
-      e.x += dx/d*step; e.y += dy/d*step;
-      if(Math.abs(dx) > 1) e.face = dx < 0 ? -1 : 1;
-      e.phase = (e.phase || 0) + step*.07;
-    }
-    if(crew) e.moving = e.wandering;   /* le gambe della truppa si muovono solo se moving */
-  } else if(t >= e.wanderAt){
-    var p = corridorSpot(); e.wPath = ringRoute(e, p.x, p.y); e.wandering = true;
-  }
+function goStation(e){
+  var p = stationPoint(e); if(!p) return;
+  e.resting = true; e.path = ringRoute(e, p.x, p.y); e.dest = p.room; e.onArrive = function(a){ a.face = 1; };
+}
+function stepWander(e){
+  if(e.homeX || e.resting) return;                /* gli specialisti tornano al posto con sendHome */
+  var busy = (e.path && e.path.length) || (e.calledAt && Date.now()-e.calledAt < 15000) ||
+             TASKS.some(function(k){ return k.carrier === e.id; });
+  if(!busy) goStation(e);
 }
 
 /* l'attrezzo del mestiere, 12x10: sta in mano allo specialista e vola a Ultron */
@@ -1628,25 +1628,248 @@ function shake(){
   scEl.classList.remove("shake"); void scEl.offsetWidth; scEl.classList.add("shake");
 }
 
-/* ------------------------------------------------- vita nelle stanze */
-var lastAmb = 0;
+/* ========================================================= LAVORO =====
+   Quello che si vede quando Ultron arriva nella sottostanza dello strumento vero.
+   Ogni animazione nasce da un evento degli hook e racconta quell'evento: niente
+   parte da solo, niente gira a vuoto. Dura finché lui resta lì (al massimo 7 s).
+     type   TERMINALE           il comando battuto a blocchi: il ritmo delle parole vere, mai il testo
+     weld   BANCO, FORGIA       una modifica saldata: scintille dalle pinze (rosse se il tool ha dato errore)
+     sheet  SCRITTOIO, SCRIVANIA un file scritto va sulla pila (la pila conta le scritture viste da questa pagina)
+     sonar  SETACCIO, MAPPE, SONAR, SCHEDARIO  onde che cercano, col pattern cercato sotto
+     wave   ANTENNA, POSTA, OBLÒ il segnale che esce dalla base: si va a prendere qualcosa fuori
+     read   LETTURA, SCAFFALI   una pagina con la riga di lettura che scende
+     lamp   COLLAUDO            il semaforo: giallo mentre gira, verde se è passato, rosso se ha dato errore
+     ship   MOLO, RAMPA         la cassa che parte verso fuori
+     plan   PIANI               la lista che si spunta
+   Senza voce (NUCLEO, ATTREZZI, CABINA): lì parlano già il grafo delle note, gli specialisti e MARCONI. */
+/* WORK-PURE-START */
+var WORK_KIND = {
+  "prod:bash":"type", "prod:edit":"weld", "prod:write":"sheet", "prod:forge":"weld",
+  "qa:test":"lamp", "qa:lint":"lamp", "qa:diff":"lamp", "qa:review":"lamp",
+  "ricerca:read":"read", "ricerca:grep":"sonar", "ricerca:glob":"sonar", "ricerca:search":"sonar", "ricerca:fetch":"wave",
+  "vault:read":"read", "vault:write":"sheet", "vault:index":"sonar",
+  "pub:dock":"ship", "pub:ramp":"ship",
+  "rs:browser":"wave", "rs:mcp":"wave", "rs:plan":"plan"
+};
+function workKind(room, cell){ return WORK_KIND[room + ":" + cell] || null; }
+/* le parole del comando diventano solo lunghezze: la scena mostra il ritmo, mai il testo */
+function workWords(task){
+  return String(task || "").split(/\s+/).filter(Boolean).slice(0, 12).map(function(w){ return Math.min(w.length, 12); });
+}
+/* UserPromptSubmit scrive solo lo status "thinking" (set_state.py): niente tool, reparto, riga */
+function isPromptEvent(s){ return !!s && s.status === "thinking" && !s.tool && !s.room && !s.line; }
+/* token d'uscita spesi da questo evento nel suo reparto. null senza uno stato precedente:
+   il primo totale letto è la storia intera, non il costo di un evento */
+function outDelta(prev, next, room){
+  if(!prev || !next || !room || !next[room]) return null;
+  var d = (next[room].out || 0) - ((prev[room] && prev[room].out) || 0);
+  return d > 0 ? d : null;
+}
+/* monete nella cassa di un reparto: scala log2 dei token d'uscita visti da questa pagina (500 = una moneta, max 12) */
+function coinCount(out){ return out > 0 ? Math.min(12, Math.max(1, Math.floor(Math.log2(1 + out/500)))) : 0; }
+/* WORK-PURE-END */
+
+var WORK = null, SHEETS = {}, TOKOUT = {}, FLOATS = [];
+function startWork(s){
+  var c = cellAt(ULTRON.x, ULTRON.y); if(!c) return;
+  var kind = workKind(c.room, c.id); if(!kind) return;
+  WORK = {kind:kind, c:c, t0:performance.now(), fail:s.status === "failing", words:workWords(s.task),
+          text: kind === "sonar" && s.task ? String(s.task).slice(0, 24) : ""};
+  if(kind === "sheet" && !WORK.fail){ var k = c.room + ":" + c.id; SHEETS[k] = Math.min(14, (SHEETS[k] || 0) + 1); WORK.pile = k; }
+  if(kind === "ship" && !WORK.fail) delivered++;
+}
+function fillPx(x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+function panel(x, y, w, h, col){ fillPx(x-3, y-3, w+6, h+6, P.out); fillPx(x, y, w, h, "#07201c"); fillPx(x, y, w, 5, col); }
+function pileAt(c){ return {x:c.x + c.w - 52, y:c.y + c.h - 34}; }
+var SHEET = spr(18, 12, function(g){ g.r(0,0,18,12,P.out); g.r(1,1,16,10,P.paper); g.r(3,3,11,1,"#b9a47c"); g.r(3,5,9,1,"#b9a47c"); g.r(3,7,12,1,"#b9a47c"); });
+var COIN = spr(12, 6, function(g){ g.r(1,0,10,6,P.out); g.r(0,1,12,4,P.out); g.r(1,1,10,3,P.khaki); g.r(2,1,6,1,"#fff1b8"); g.r(1,4,10,1,P.khakiXd); });
+var PAPER = {
+  order:  spr(10, 12, function(g){ g.r(0,0,10,12,P.out); g.r(1,1,8,10,P.paper); g.r(2,3,6,1,"#b9a47c"); g.r(2,5,5,1,"#b9a47c"); g.r(4,7,3,3,P.red); }),
+  report: spr(10, 12, function(g){ g.r(0,0,10,12,P.out); g.r(1,1,8,10,P.paper); g.r(2,3,6,1,"#b9a47c"); g.r(2,5,6,1,"#b9a47c"); g.r(2,7,4,1,"#b9a47c"); g.r(6,8,3,3,P.green); })
+};
+
+function drawWork(t){
+  var w = WORK; if(!w) return;
+  var age = (performance.now() - w.t0)/1000;
+  if(age > 7 || cellAt(ULTRON.x, ULTRON.y) !== w.c){ WORK = null; return; }
+  if(reduce) age = Math.max(age, 3);                        /* meno movimento: si vede subito il risultato */
+  var ux = ULTRON.x, uy = ULTRON.y, f = ULTRON.face < 0 ? -1 : 1, col = w.fail ? P.red : R(w.c.room).c;
+  ctx.save(); ctx.globalAlpha = age > 6.2 ? Math.max(0, (7-age)/.8) : 1;
+  var bx = ux + 34, by = uy - 132;                          /* i pannelli stanno a destra della testa */
+  if(w.kind === "type"){
+    var W = 112, n = Math.floor(age*28), x = bx+6, y = by+11, done = true;
+    panel(bx, by, W, 66, col);
+    for(var i=0;i<w.words.length && y < by+58;i++){
+      var L = w.words[i];
+      if(x + L*5 > bx+W-6){ x = bx+6; y += 9; if(y >= by+58) break; }
+      var show = Math.max(0, Math.min(L, n)); n -= L + 1;
+      if(show) fillPx(x, y, show*5-1, 4, i ? "#7fe0a6" : "#e8f7a0");  /* la prima parola è il programma */
+      if(show < L){ done = false; if(Math.floor(t/260)%2) fillPx(x + show*5, y, 4, 5, "#d6ffe6"); break; }
+      x += L*5 + 5;
+    }
+    if(done && age > .3){ y += 11; if(y < by+62) fillPx(bx+6, y, w.fail ? 30 : 12, 4, w.fail ? P.red : P.green); }
+  } else if(w.kind === "weld"){
+    var hx = ux + 16*f, hy = uy - 40;
+    if(age < 2.2){
+      if(Math.random() < .55) sparks(hx, hy, w.fail ? P.red : "#ffd27a", 2);
+      ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = w.fail ? "rgba(224,72,58,.5)" : "rgba(255,230,160,.55)";
+      ctx.beginPath(); ctx.arc(hx, hy, 6 + (Math.floor(t/60)%2)*4, 0, 6.2832); ctx.fill();
+    }
+  } else if(w.kind === "sheet" && w.pile && age < .8){
+    var p = pileAt(w.c), k = age/.8, top = SHEETS[w.pile]-1;
+    drawSprite(SHEET, lerp(ux, p.x, k), lerp(uy-50, p.y - top*3, k) - Math.sin(k*Math.PI)*50, 2, false);
+  } else if(w.kind === "sonar"){
+    ctx.lineWidth = 3;
+    for(var r=0;r<3;r++){
+      var a = age - r*.55; if(a < 0 || a > 1.5) continue;
+      ctx.strokeStyle = col; ctx.globalAlpha = (1 - a/1.5)*.85;
+      ctx.beginPath(); ctx.ellipse(ux, uy-18, 12 + a*120, (12 + a*120)*.55, 0, 0, 6.2832); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if(w.text) label("« " + w.text + " »", ux, uy + 30, col);
+  } else if(w.kind === "wave"){
+    var ang = Math.atan2(uy - WORLD.h/2, ux - WORLD.w/2), ax = ux, ay = uy - 92;
+    ctx.lineWidth = 3; ctx.strokeStyle = col;
+    for(var q=0;q<4;q++){
+      var ph = (age*.9 + q/4) % 1;
+      ctx.globalAlpha = (1-ph)*.8; ctx.beginPath(); ctx.arc(ax, ay, 16 + ph*150, ang-.45, ang+.45); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  } else if(w.kind === "read"){
+    panel(bx, by+8, 46, 56, col); fillPx(bx, by+13, 46, 51, P.paper);
+    var scan = (age*34) % 46;
+    for(var l=0;l<9;l++) fillPx(bx+5, by+17+l*5, l%3 === 2 ? 26 : 36, 2, (17+l*5) < scan+13 ? "#6f5d3e" : "#cdbb95");
+    fillPx(bx, by+13+scan, 46, 3, "rgba(" + hexRgb(R(w.c.room).c) + ",.7)");
+  } else if(w.kind === "lamp"){
+    fillPx(bx-3, by+3, 22, 58, P.out); fillPx(bx, by+6, 16, 52, "#16252c");
+    var on = age < .6 ? (Math.floor(t/150)%2 ? 1 : -1) : w.fail ? 0 : 2;
+    [["#e0483a", 0], ["#e8b84a", 1], ["#3fdc7a", 2]].forEach(function(L){
+      var lit = on === L[1];
+      fillPx(bx+3, by+10+L[1]*16, 10, 10, lit ? L[0] : "#2a3a40");
+      if(lit){ ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = .35; ctx.fillStyle = L[0];
+        ctx.beginPath(); ctx.arc(bx+8, by+15+L[1]*16, 16, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; }
+    });
+  } else if(w.kind === "ship" && !w.fail){
+    var ex = w.c.x + w.c.w - 40, kx = Math.min(1, age/2.2), cx0 = lerp(ux + 30, ex, kx);
+    ctx.globalAlpha = kx < 1 ? 1 : Math.max(0, 1 - (age-2.2)*1.5);
+    drawSprite(OBJ.crateGold, cx0, uy - 6, 2, false);
+    if(kx < 1 && Math.random() < .3) bub(cx0 - 20, uy - 20, "200,240,255", false);
+  } else if(w.kind === "plan"){
+    panel(bx, by, 70, 50, col);
+    for(var j=0;j<3;j++){
+      var yy = by + 12 + j*12, tick = age > .5 + j*.6;
+      fillPx(bx+6, yy, 7, 7, P.out); fillPx(bx+7, yy+1, 5, 5, tick ? P.green : "#2a3a40");
+      fillPx(bx+18, yy+2, 40 - j*8, 3, tick ? "#6f8f7c" : "#cfe6d8");
+    }
+  }
+  ctx.restore();
+}
+
+/* le pile di fogli scritti e le casse dei reparti: restano, sono il conto di questa pagina */
+var CASSA = {};
+function cassaAt(r){
+  if(CASSA[r.id]) return CASSA[r.id];
+  var w = r.n.length*6 + 10, at = THEME.signAt(r, {width:w, height:16});
+  return CASSA[r.id] = {x:r.x + at.x + w*SIGN_S + 26, y:r.y + at.y + 16*SIGN_S - 2};
+}
+function drawPiles(det){
+  Object.keys(SHEETS).forEach(function(k){
+    var c = RING.cells.filter(function(q){ return q.room + ":" + q.id === k; })[0]; if(!c) return;
+    var p = pileAt(c), n = SHEETS[k] - (WORK && WORK.pile === k && (performance.now()-WORK.t0) < 800 ? 1 : 0);
+    for(var i=0;i<n;i++) drawSprite(SHEET, p.x + (i%2 ? 1.5 : -1.5), p.y - i*3, 2, false);
+  });
+  ROOMS.forEach(function(r){
+    var n = coinCount(TOKOUT[r.id] || 0); if(!n) return;
+    var p = cassaAt(r);
+    for(var i=0;i<n;i++) ctx.drawImage(COIN, p.x - 12, p.y - 12 - i*7, 24, 12);
+    if(det > .3) label(fmtTok(TOKOUT[r.id]) + " out", p.x, p.y + 20, P.khaki);
+  });
+}
+/* i token spesi da un evento: "+1,2k" che sale da Ultron e una moneta che vola alla cassa del reparto */
+function onTokens(s){
+  var d = outDelta(STATE.tokens, s.tokens, s.room); if(!d) return;
+  TOKOUT[s.room] = (TOKOUT[s.room] || 0) + d;
+  FLOATS.push({txt:"+" + fmtTok(d), x:ULTRON.x, y:ULTRON.y, t0:performance.now(), to:cassaAt(R(s.room))});
+}
+function drawFloats(){
+  var now = performance.now();
+  for(var i=FLOATS.length-1;i>=0;i--){
+    var fl = FLOATS[i], k = (now - fl.t0)/1600;
+    if(k >= 1 || reduce){ FLOATS.splice(i, 1); continue; }
+    label(fl.txt, fl.x, fl.y - 112 - k*40, P.khaki);
+    var kc = Math.min(1, k*1.4), cx = lerp(fl.x, fl.to.x, kc), cy = lerp(fl.y - 90, fl.to.y - 20, kc) - Math.sin(kc*Math.PI)*120;
+    if(kc < 1) ctx.drawImage(COIN, cx - 12, cy - 6, 24, 12);
+  }
+}
+
+/* MARCONI, il filo con te. Un prompt arriva alla CABINA e parte in capsula pneumatica lungo
+   il corridoio fino a Ultron; quando Ultron ti aspetta (Notification) Marconi trasmette finché
+   non rispondi; a fine turno (Stop) chiude la linea con un segnale verde. */
+var TUBE = null, LINE_CLOSED = 0;
+function onPrompt(){
+  var m = crewBy("marconi"); if(!m) return;
+  emote(m, "!", "#c98a1c", 92);
+  logEvent("deleg", "<b>MARCONI</b> riceve un ordine e lo spedisce in capsula");
+  if(reduce) return;
+  TUBE = {x:m.x, y:m.y, path:ringRoute(m, ULTRON.x, ULTRON.y), hops:0};
+}
+function stepTube(dt){
+  var T = TUBE; if(!T) return;
+  var step = 1000*dt;
+  while(step > 0 && T.path.length){
+    var w = T.path[0], d = Math.hypot(w.x-T.x, w.y-T.y);
+    if(d <= step){ T.x = w.x; T.y = w.y; T.path.shift(); step -= d; }
+    else { T.x += (w.x-T.x)/d*step; T.y += (w.y-T.y)/d*step; step = 0; }
+  }
+  if(T.path.length) return;
+  if(Math.hypot(ULTRON.x-T.x, ULTRON.y-T.y) > 30 && T.hops++ < 3){ T.path = ringRoute(T, ULTRON.x, ULTRON.y); return; }
+  sparks(ULTRON.x, ULTRON.y-60, P.gold, 12); emote(ULTRON, "!", "#c98a1c", 104);
+  TUBE = null;
+}
+function drawMarconi(t){
+  var m = crewBy("marconi"); if(!m) return;
+  if(TUBE){
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,200,110,.35)";
+    ctx.beginPath(); ctx.arc(TUBE.x, TUBE.y-30, 14, 0, 6.2832); ctx.fill(); ctx.restore();
+    fillPx(TUBE.x-10, TUBE.y-35, 20, 10, P.out); fillPx(TUBE.x-9, TUBE.y-34, 18, 8, "#c9a04a"); fillPx(TUBE.x-9, TUBE.y-34, 18, 2, "#ffe39a"); fillPx(TUBE.x-2, TUBE.y-34, 4, 8, "#8a6a2a");
+  }
+  var waiting = STATE.status === "waiting", closing = performance.now() - LINE_CLOSED < 1400;
+  if(!waiting && !closing) return;
+  var ph = closing ? (performance.now() - LINE_CLOSED)/1400 : (t % 1300)/1300;
+  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = closing ? P.green : P.blue;
+  for(var r=0;r<(closing ? 1 : 2);r++){
+    var k = (ph + r*.5) % 1; ctx.globalAlpha = 1 - k;
+    ctx.beginPath(); ctx.arc(m.x, m.y-72, 10 + k*90, Math.PI*1.1, Math.PI*1.9); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* il collaudo respinge: QA-1 raggiunge Ultron dov'è finito il lavoro e lo segnala */
+function qaRejects(room){
+  var q = crewBy("qualita-1"); if(!q) return;
+  var end = ULTRON.path.length ? ULTRON.path[ULTRON.path.length-1] : ULTRON;
+  q.path = ringRoute(q, end.x - 44, end.y + 6); q.dest = room; q.calledAt = Date.now(); q.resting = false;
+  q.onArrive = function(a){ a.face = 1; emote(a, "!", "#c8372d", 92); };
+}
+
+/* i sub-agenti: partono da Ultron con l'ordine sigillato, lavorano nel reparto, rientrano col rapporto */
+function sendBack(m){
+  if(m.back) return;
+  m.back = Date.now(); m.carry = "report";
+  var end = ULTRON.path.length ? ULTRON.path[ULTRON.path.length-1] : ULTRON;
+  goToPoint(m, end.x + 30, end.y + 4, function(){
+    sparks(ULTRON.x, ULTRON.y-50, P.green, 10);
+    logEvent("deleg", "un sub-agente consegna il <b>rapporto</b> a Ultron");
+    var i = MINIS.indexOf(m); if(i >= 0) MINIS.splice(i, 1);
+  });
+}
+
+/* ------------------------------------------------- vita nelle stanze
+   Niente più scintille e fumo a ritmo fisso (erano a coordinate delle cupole e andavano anche
+   a base vuota): le stanze si muovono solo col lavoro vero, vedi LAVORO più sotto. Qui resta
+   la polvere sotto i piedi di chi cammina. */
 function ambience(t, dt){
   if(reduce) return;
-  /* scintille dal banco dell'officina e fumo dal camion, a ritmo lento */
-  if(t - lastAmb > 220){
-    lastAmb = t;
-    var prod = R("prod");
-    if(Math.random() < .7) sparks(prod.x+310, prod.y+150, P.gold, 3);
-    var pub = R("pub");
-    if(Math.random() < .5) smoke(pub.x+72, pub.y+64, "#5a5750");
-    var rs = R("rs");
-    if(Math.random() < .4) part(rs.x+72, rs.y+120, (Math.random()-.5)*10, -22, P.cyan, .9, 2, -12);
-    if(STATE.status === "failing" && Math.random() < .6) sparks(R("qa").x+200, R("qa").y+120, P.red, 3);
-    /* polvere che attraversa il campo scoperto, non legata a un reparto */
-    if(Math.random() < .3) part(Math.random()*WORLD.w, Math.random()*WORLD.h,
-      14+Math.random()*14, -3, "rgba(200,182,140,.4)", 2.6+Math.random()*1.2, 1, 4);
-  }
-  /* polvere sotto i piedi di chi cammina */
   if(ULTRON.moving && Math.random() < .28) dust(ULTRON.x - ULTRON.face*10, ULTRON.y);
   for(var i=0;i<CREW.length;i++) if(CREW[i].moving && Math.random() < .1) dust(CREW[i].x, CREW[i].y);
   for(var j=0;j<SKILLS.length;j++) if(SKILLS[j].moving && Math.random() < .1) dust(SKILLS[j].x, SKILLS[j].y);
@@ -1812,7 +2035,49 @@ function haul(task, fromAgent, toRoom, then){
   });
 }
 
+/* LA DEMO È UN TURNO VERO, FINTO: la stessa sequenza di stati che scrivono gli hook (prompt, letture,
+   un sub-agente, modifiche, test, push, attesa, fine) passa da applyLive come in LIVE, così ogni
+   animazione della demo è quella che vedrai col lavoro vero. Un turno sì e uno no il test fallisce.
+   Fra un turno e l'altro gira la scena delle casse (MISSIONI). */
+var DEMO_TURN = null, DEMO_N = 0, DEMO_GAP = 0, DEMO_TOK = {}, DEMO_MINI = null;
+function demoTurn(){
+  var fail = DEMO_N++ % 2 === 1, test = {status:"thinking", room:"qa", tool:"Bash", task:"npm test -- --run", tok:300};
+  var st = [
+    {status:"thinking"},
+    {status:"reading", room:"ricerca", tool:"Read", tok:900},
+    {status:"reading", room:"ricerca", tool:"Grep", task:"function goTo", tok:400},
+    {status:"spawning", room:"ricerca", agent:"ricerca-1", task:"trova dove nascono i cloni", sub:"add"},
+    {status:"writing", room:"prod", tool:"Edit", tok:2600}
+  ];
+  if(fail) st.push({status:"failing", room:"prod", tool:"Bash", task:"npm test -- --run", tok:500},
+                   {status:"writing", room:"prod", tool:"Edit", tok:1800});
+  st.push(test,
+          {status:"thinking", room:"prod", line:"reparto rientrato", sub:"done"},
+          {status:"writing", room:"prod", tool:"Write", tok:3100},
+          {status:"delegating", room:"pub", tool:"Bash", task:"git push origin main", tok:200},
+          {status:"waiting"}, {status:"waiting"}, {status:"idle"});
+  return st;
+}
+function demoStep(){
+  var e = DEMO_TURN && DEMO_TURN.shift(); if(!e){ DEMO_TURN = null; return false; }
+  var s = {ts:Date.now(), status:e.status, room:e.room, tool:e.tool, task:e.task, agent:e.agent, line:e.line};
+  if(e.tok){
+    if(!STATE.tokens) STATE.tokens = {};
+    var r = DEMO_TOK[e.room] = DEMO_TOK[e.room] || {in:0, out:0, cread:0, cwrite:0};
+    r.out += e.tok; s.tokens = JSON.parse(JSON.stringify(DEMO_TOK));
+  }
+  if(e.sub === "add"){ DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; }
+  if(e.sub === "done" && DEMO_MINI){ sendBack(DEMO_MINI); DEMO_MINI = null; }
+  if(e.status === "waiting" && STATE.status === "waiting") return true;   /* la seconda attesa è solo tempo che passa */
+  applyLive(s);
+  return true;
+}
 function simulate(){
+  if(DEMO_TURN && demoStep()) return;
+  if(DEMO_GAP-- > 0){ simulateScene(); return; }
+  DEMO_GAP = 3; DEMO_TURN = demoTurn(); demoStep();
+}
+function simulateScene(){
   var roll = Math.random();
   /* ogni tanto, in demo, passa dall'arsenale a equipaggiarsi */
   if(!SKFX && roll < .17){
@@ -2061,6 +2326,8 @@ function onLocalState(s){
     var pill = document.getElementById("mode");
     pill.className = "pill live"; pill.textContent = "LIVE";
     renderTasks();
+    STATE.tokens = null; TOKOUT = {}; DEMO_TURN = null;
+    MINIS = MINIS.filter(function(m){ return !m.demo; });
     logEvent("deleg","collegato a <b>Claude Code</b>");
   }
   lastSeen = Date.now(); LAST_STATE = s;
@@ -2104,19 +2371,21 @@ function applyLive(s){
   if(s.node) LAST_NODE = s.node;
   markLink(s.tool ? "tool" : s.status === "idle" ? "stop"
           : (s.line && s.line.indexOf("reparto") >= 0) ? "sub" : "prompt");
-  if(STATE.status === "failing" && was !== "failing"){ shake(); banner("RESPINTO", "COLLAUDO", P.red); }
+  if(STATE.status === "failing" && was !== "failing"){ shake(); banner("RESPINTO", "COLLAUDO", P.red); qaRejects(s.room || "prod"); }
+  if(isPromptEvent(s)) onPrompt();
+  if(s.status === "idle" && was !== "idle"){ LINE_CLOSED = performance.now(); logEvent("deleg", "<b>MARCONI</b> chiude la linea: turno finito"); }
   if(STATE.status === "spawning" && was !== "spawning" && s.agent){
     var spawned = crewBy(s.agent);
     if(spawned){ banner("RINFORZO", spawned.n, P.gold); puff(spawned.x, spawned.y-20, P.gold, 14); }
   }
-  if(s.tokens) STATE.tokens = s.tokens;
+  if(s.tokens){ onTokens(s); STATE.tokens = s.tokens; }
 
   /* il reparto: Ultron ci va a piedi, e se l'evento richiede un attrezzo
      passa prima dall'arsenale a prenderlo. */
   var go = function(){
     if(s.room && R(s.room)){
       STATE.target = s.room;
-      goTo(ULTRON, s.room, .42+Math.random()*.2, .5, function(){ STATE.room = s.room; });
+      goTo(ULTRON, s.room, .42+Math.random()*.2, .5, function(){ STATE.room = s.room; startWork(s); });
     }
   };
   var skid = skillForEvent(s);
@@ -2343,15 +2612,16 @@ function renderSubagents(data){
   (data.list||[]).forEach(function(s){
     ids[s.id] = true;
     var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
-    if(!m){
-      m = ghost(1.4); m.id = s.id; m.status = "delegating"; MINIS.push(m);
-      if(s.room && R(s.room)) goTo(m, s.room, .2+Math.random()*.5, .6);
-    }
+    if(!m) launchMini(s.id, s.room);
   });
-  MINIS = MINIS.filter(function(m){
-    if(ids[m.id]) return true;
-    puff(m.x, m.y-14, P.violet, 8); return false;
-  });
+  MINIS.forEach(function(m){ if(!ids[m.id] && !m.demo) sendBack(m); });
+}
+/* parte da Ultron con l'ordine sigillato e lo porta nel reparto */
+function launchMini(id, room){
+  var m = ghost(1.4); m.id = id; m.status = "delegating"; m.x = ULTRON.x; m.y = ULTRON.y; m.carry = "order";
+  MINIS.push(m);
+  if(room && R(room)) goTo(m, room, .2+Math.random()*.5, .6, function(a){ a.carry = null; });
+  return m;
 }
 
 /* ripiego locale: gira solo finché Realtime non ha preso il comando */
@@ -2817,16 +3087,11 @@ function drawRoomLive(r, det, t){
       ctx.fillStyle = "#fff7d8"; ctx.fillRect(px-1,py-1,2,2);
       if(p.t>=1){ b.heat = 1; pulses.splice(i,1); }
     }
-  } else if(r.kind === "check"){
-    var ok = STATE.status !== "failing";
-    if(!ok && Math.floor(t*.006)%2){
-      ctx.globalAlpha = .3; ctx.fillStyle = P.red;
-      ctx.fillRect(r.x+14,r.y+18,r.w-28,r.h-32); ctx.globalAlpha = .35+det*.65;
-    }
   } else if(r.kind === "ship"){
-    for(var d=0; d<Math.min(delivered,8); d++){
-      var cx2 = r.x+72+(d%2)*46, cy2 = r.y+416-Math.floor(d/2)*34;
-      ctx.drawImage(OBJ.crateGold, cx2, cy2, 40, 36);
+    /* le consegne di questa pagina, impilate nel MOLO */
+    var dock = RING.cells.filter(function(q){ return q.room === "pub" && q.id === "dock"; })[0];
+    for(var d=0; dock && d<Math.min(delivered,8); d++){
+      ctx.drawImage(OBJ.crateGold, dock.x+dock.w-66-(d%4)*44, dock.y+dock.h-50-Math.floor(d/4)*34, 40, 36);
     }
   }
   ctx.restore();
@@ -2978,7 +3243,7 @@ hudEl.addEventListener("change", function(e){
   buildHud(); var cb = document.getElementById("hud_"+k); if(cb) cb.focus();
 });
 function renderHud(){
-  var waiting = STATE.status === "waiting";
+  var waiting = STATE.status === "waiting" && LIVE;
   var st = document.getElementById("hudSt");
   if(st){ st.textContent = waiting ? "TI ASPETTA" : stateWord(); st.style.setProperty("--dot", waiting ? "#fff" : stColor()); }
   HUD_ITEMS.forEach(function(it){
@@ -3049,6 +3314,7 @@ function vignette(title, text){
 /* una spedizione vera (evento nel reparto SPEDIZIONI); il primo stato letto
    all'apertura non è un evento, e a raffica ne basta una ogni 20 s */
 function vigOnLive(s){
+  if(!LIVE) return;
   if(!vigArmed){ vigArmed = true; return; }
   if(s.room === "pub" && s.tool && Date.now()-vigAt > 20000)
     vignette("SPEDITO!", toolLabel(s.tool) + (s.task ? " · " + String(s.task).slice(0,70) : ""));
@@ -3080,16 +3346,16 @@ function loop(t){
   var dt = Math.min((t-last)/1000, .05); last = t;
   if(!paused){
     acc += dt*1000;
-    if(acc > (LIVE ? 1e9 : 3400)){ acc = 0; simulate(); }
+    /* nel turno finto un passo ogni 5,6 s: il tempo di attraversare la base e vedere il lavoro */
+    if(acc > (LIVE ? 1e9 : DEMO_TURN ? 5600 : 3400)){ acc = 0; simulate(); }
     stepEntity(ULTRON, dt);
     CREW.forEach(function(a){ stepEntity(a, dt); });
     SKILLS.forEach(function(a){ stepEntity(a, dt); });
     CLONES.forEach(function(a){ stepEntity(a, dt); });
     MINIS.forEach(function(a){ stepEntity(a, dt); });
-    /* al posto ma non congelati: chi non è in uso gira liberamente vicino
-       al suo punto — cammino vero, non oscillazione — finché non serve per
-       davvero (moving/escort prendono il sopravvento, vedi stepWander). */
-    SKILLS.forEach(function(a){ stepWander(a, t, dt); });
+    stepTube(dt);
+    /* un rapporto che non arriva (Ultron irraggiungibile) non resta in scena */
+    MINIS = MINIS.filter(function(m){ if(m.back && Date.now()-m.back > 25000){ puff(m.x, m.y-14, P.violet, 8); return false; } return true; });
     stepParts(dt);
     if(t - pulseAt > 240){                 /* il polso scorre di continuo */
       pulseAt = t; pulseLevel *= .68;
@@ -3382,8 +3648,8 @@ var THEME = {
 /* server.py serve solo .jpg piatti in assets/: ring_<nome>.jpg */
 function img(n){ return ENV_IMG[THEME.dir + "_" + n]; }
 
-/* la truppa parte a spasso nel corridoio */
-CREW.forEach(function(a){ var p = corridorSpot(); a.x = p.x; a.y = p.y; });
+/* la truppa apre il turno alla sua postazione */
+CREW.forEach(function(a){ var p = stationPoint(a); if(p){ a.x = p.x; a.y = p.y; a.room = p.room; a.resting = true; } });
 ULTRON.x = CORR.x + CORR.w/2; ULTRON.y = CORR_Y;
 
 /* il reparto cotto una volta sola: pavimento dell'atrio con la trama del corridoio tinta del
@@ -3559,6 +3825,7 @@ function drawWorld(t){
     ctx.fillStyle = k.st==="qa" ? P.red : P.gold; ctx.fillRect(k.x-19,k.y-45,38*k.p,5);
     if(det > .45) label(k.t.slice(0,13), k.x, k.y-52, P.ink);
   });
+  drawPiles(det);
   drawSpecs(t, det);
   CREW.forEach(function(a){
     var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
@@ -3597,10 +3864,14 @@ function drawWorld(t){
     ctx.save(); ctx.filter = "sepia(1) saturate(5) hue-rotate(220deg) brightness(.95)";
     drawSprite(ultronSprite(mf, "point", m.status), m.x, m.y, m.scale, m.face<0);
     ctx.restore();
+    if(m.carry) drawSprite(PAPER[m.carry], m.x, m.y - 50 - (m.moving ? Math.abs(Math.sin(m.phase*1.6))*2 : 0), 2, false);
   });
+  drawWork(t);
+  drawMarconi(t);
   drawSkillFx(t);
   drawBeats(t);
   drawParts();
+  drawFloats();
   drawEnvTop(t);
   if(OVERLAY) drawOverlay();
   ctx.imageSmoothingEnabled = true;
