@@ -460,7 +460,7 @@
     <kbd>D</kbd><span>sala comando</span>
     <kbd>T</kbd><span>status</span>
     <kbd>O</kbd><span>strato token e tempo per reparto</span>
-    <kbd>F</kbd><span>segui Ultron</span>
+    <kbd>U</kbd><span>segui Ultron</span>
     <kbd>spazio</kbd><span>pausa</span>
     <kbd>?</kbd><span>questo pannello</span>
   </div>
@@ -2174,13 +2174,13 @@ function unfocus(){
   if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>vista generale</b>";
   document.getElementById("hint").textContent = "clicca un settore per entrarci";
 }
-/* F: la camera segue Ultron di reparto in reparto; F, esc o trascinare la lasciano */
+/* U: la camera segue Ultron di reparto in reparto; U, esc o trascinare la lasciano */
 var FOLLOW = false;
 function toggleFollow(){
   FOLLOW = !FOLLOW; focus = null; if(tipEl) tipEl.hidden = true;
   if(FOLLOW){ cam.ts = Math.max(cam.ts, .9);
     if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>segui Ultron</b>";
-    document.getElementById("hint").textContent = "F o esc per smettere di seguirlo"; }
+    document.getElementById("hint").textContent = "U o esc per smettere di seguirlo"; }
   else unfocus();
 }
 function s2w(px,py){ return {x:(px-VW/2)/cam.s+cam.x, y:(py-VH/2)/cam.s+cam.y}; }
@@ -2207,7 +2207,7 @@ cv.addEventListener("wheel", function(e){
 window.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName === "INPUT")) return;   /* si scrive nel login, non si comandano scorciatoie */
   if(e.key==="Escape"){ if(!keysEl.hidden) toggleKeys(false); else if(itemMcOn) closeItemDetail(); else if(mcOn) toggleMC(); else { FOLLOW = false; unfocus(); } }
-  else if(e.key==="f"||e.key==="F") toggleFollow();
+  else if(e.key==="u"||e.key==="U") toggleFollow();
   else if(e.key==="?") toggleKeys();
   else if(e.key==="o"||e.key==="O") OVERLAY = !OVERLAY;
   else if(e.key==="t"||e.key==="T") toggleMC();
