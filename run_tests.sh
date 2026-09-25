@@ -19,6 +19,7 @@ run python3 test_server.py
 run node test_dash.mjs
 run node test_aux.mjs
 run node test_lavoro.mjs
+run node test_pianta.mjs
 if [ -d panels/node_modules ]; then
   run npm --prefix panels test
   run npm --prefix panels run typecheck
