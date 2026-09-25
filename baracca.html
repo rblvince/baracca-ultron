@@ -150,7 +150,7 @@
   .banner.violet{border-color:var(--violet);} .banner.violet .bk{background:var(--violet);color:#170f28;}
 
   /* ---- sala comando ---- */
-  .dashv{display:none;min-height:0;overflow-y:auto;padding:12px;gap:10px;align-content:start;align-items:start;
+  .dashv{display:none;min-height:0;overflow-y:auto;padding:12px;gap:10px;align-content:start;align-items:stretch;
     grid-template-columns:repeat(12,1fr);
     background:var(--dash-bg);
     background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 2px,transparent 2px 9px),
@@ -200,7 +200,7 @@
   .tl-axis{position:relative;height:14px;margin-left:46px;}
   .tl-axis span{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--ink-soft);}
   #storico .empty{font-size:12px;color:var(--ink-soft);}
-  #dashSessione > .dgroup, #storico > .dgroup{padding-top:0;}
+  #storico > .dgroup{padding-top:0;}
   .dtag{display:inline-block;font-family:var(--arc);font-size:10px;padding:2px 5px;margin-left:7px;border-radius:4px;
       border:1px solid;letter-spacing:.05em;vertical-align:middle;}
   .dtag.real{color:var(--green);border-color:var(--green);}
@@ -209,37 +209,110 @@
   .dp canvas{display:block;image-rendering:pixelated;}
   .c12{grid-column:span 12;} .c8{grid-column:span 8;} .c6{grid-column:span 6;} .c5{grid-column:span 5;} .c4{grid-column:span 4;} .c3{grid-column:span 3;} .c2{grid-column:span 2;}
 
-  /* testata: ritratto grande + stato */
-  .dp.hdr{display:grid;grid-template-columns:124px 1fr auto;gap:16px;align-items:center;padding:12px 14px;
-      background:linear-gradient(90deg,var(--surface),var(--panel) 40%);}
-  .dp.hdr canvas{width:120px;height:84px;border:2px solid var(--bg);border-radius:6px;background:var(--canvasbg);}
-  .dp.hdr .st{font-family:var(--arc);font-size:20px;text-shadow:3px 3px 0 var(--panel-lo);line-height:1.3;}
-  .dp.hdr .wh{font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-top:6px;}
-  .dp.hdr .wh b{color:var(--ink);font-weight:400;}
-  .dp.hdr .id{font-size:12px;color:var(--ink-dim);margin-top:4px;}
-  .dp.hdr .meta{text-align:right;font-family:var(--arc);font-size:11px;color:var(--ink-dim);line-height:2.2;}
-  .dp.hdr .meta b{color:var(--ink);font-weight:400;font-variant-numeric:tabular-nums;}
-  .dp.hdr .meta .pill{display:inline-block;margin-top:4px;}
+  /* ---- sala comando riordinata (26/09): ADESSO, OGGI, SQUADRA, VAULT, STORICO ---- */
+  /* la barra delle sezioni resta in alto mentre scorri */
+  .dnav{grid-column:1/-1;position:sticky;top:-12px;z-index:3;display:flex;gap:6px;flex-wrap:wrap;margin:-12px -12px 0;padding:8px 12px;
+      background:linear-gradient(180deg,var(--dash-bg) 70%,transparent);}
+  .dnav button{appearance:none;font-family:var(--arc);font-size:10px;letter-spacing:.1em;padding:5px 9px;border-radius:6px;cursor:pointer;
+      background:var(--surface);color:var(--ink-soft);border:2px solid var(--bg);box-shadow:inset 0 1px 0 var(--surface-hi);}
+  .dnav button:hover{color:var(--ink);} .dnav button:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
 
-  /* schermi: minimappa e segnale */
-  .dp.scr{background:var(--scr);box-shadow:inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 0 var(--scr-lo), 0 4px 10px var(--shadow);}
-  .dp.scr h4{background:var(--scr-hdr);color:var(--green);} .dp.scr h4::before{background:var(--green);box-shadow:inset 0 -2px 0 var(--green-dk);}
-  .dp.scr canvas{width:100%;background:var(--scr-dark);border:2px solid var(--bg);border-radius:6px;}
-  .dp.scr .stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:8px;font-size:12px;color:var(--ink-soft);}
-  .dp.scr .stats b{display:block;font-family:var(--arc);font-size:10px;color:var(--green);font-variant-numeric:tabular-nums;margin-top:2px;}
+  /* ADESSO: ritratto, stato grande, l'avviso se ti aspetta, quattro numeri */
+  .dp.now{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:12px 14px;
+      background:linear-gradient(90deg,var(--surface),var(--panel) 45%);}
+  .dp.now.wait{box-shadow:inset 0 0 0 2px var(--gold), 0 4px 10px var(--shadow);}
+  .nowport{appearance:none;padding:0;border:0;background:none;cursor:pointer;border-radius:8px;}
+  .nowport:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .nowport canvas{width:120px;height:84px;border:2px solid var(--bg);border-radius:6px;background:var(--canvasbg);}
+  .nowport:hover canvas{border-color:var(--gold);}
+  .nowmode{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink-dim);}
+  .nowmode .pill{cursor:default;}
+  .dp.now .st{font-family:var(--arc);font-size:22px;text-shadow:3px 3px 0 var(--panel-lo);line-height:1.25;margin-top:6px;}
+  .dp.now .wh{font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+  .dp.now .wh b{color:var(--ink);font-weight:400;}
+  .waitbar{margin-top:9px;display:inline-block;padding:6px 10px;border-radius:6px;background:var(--gold);color:var(--bg);font-size:13px;}
+  .waitbar b{font-family:var(--arc);font-weight:400;font-size:11px;letter-spacing:.1em;margin-right:6px;}
+  .tiles{display:grid;grid-template-columns:repeat(2,minmax(96px,1fr));gap:6px;}
+  .tile{background:var(--bg);border:2px solid var(--panel-lo);border-radius:8px;padding:6px 9px;}
+  .tile i{display:block;font-style:normal;font-size:10.5px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;}
+  .tile b{display:block;font-family:var(--arc);font-weight:400;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:3px;}
 
-  /* la truppa: ritratti */
-  .crewrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;}
-  .cc{background:var(--surface);border:2px solid var(--bg);border-radius:8px;padding:6px 4px 5px;text-align:center;box-shadow:inset 0 1px 0 var(--surface-hi);}
-  .cc canvas{width:48px;height:60px;margin:0 auto;background:var(--canvasbg);border:2px solid var(--bg);border-radius:4px;}
-  .cc .n{font-family:var(--arc);font-size:10px;margin-top:5px;}
-  /* il reparto intero: schede un po' più larghe e testo più piccolo invece di "LABORATO…" */
-  .cc .r{font-size:9px;color:var(--ink-dim);text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:clip;}
-  .cc.busy{box-shadow:inset 0 1px 0 var(--surface-hi), inset 0 0 0 2px var(--gold);}
-  .cc.busy .r{color:var(--gold);}
-  .cc .tok{height:6px;margin-top:4px;display:flex;overflow:hidden;border:1px solid var(--panel-lo);border-radius:3px;background:var(--bg);}
-  .cc .tok i{display:block;height:100%;}
-  .cc .tok.empty{visibility:hidden;}
+  /* OGGI · attività: una riga per reparto, un punto per evento */
+  .act{position:relative;}
+  .act-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:var(--ink-dim);}
+  .act svg{display:block;}
+  .act-row{cursor:pointer;} .act-row rect:first-child{fill:transparent;} .act-row rect.odd{fill:rgba(255,255,255,.025);}
+  .act-row:hover rect:first-child{fill:rgba(224,138,74,.08);}
+  .act-grid{stroke:var(--surface-hi);stroke-width:1;stroke-dasharray:2 4;}
+  .act-lbl{fill:var(--ink-soft);font-family:var(--arc);font-size:9px;letter-spacing:.06em;}
+  .act-n{fill:var(--ink-dim);font-family:var(--arc);font-size:9px;}
+  .act-ax{fill:var(--ink-dim);font-family:var(--arc);font-size:9px;}
+  .act-ev{cursor:pointer;outline:none;}
+  .act-dot{stroke:var(--panel);stroke-width:2;}
+  .act-ev.on .act-dot,.act-ev:focus-visible .act-dot{stroke:var(--ink);}
+  .act-tip{position:absolute;z-index:2;width:170px;pointer-events:none;padding:6px 8px;border-radius:6px;background:var(--panel-lo);
+      border:2px solid var(--bg);font-size:11.5px;line-height:1.35;color:var(--ink);box-shadow:0 4px 10px var(--shadow);}
+  .act-tip b{font-family:var(--arc);font-weight:400;font-size:9px;color:var(--gold);letter-spacing:.06em;}
+  .act-tip i{font-style:normal;color:var(--ink-dim);font-size:10.5px;}
+
+  /* OGGI · reparti: righe cliccabili */
+  .rlist{display:grid;gap:4px;}
+  .rrow{appearance:none;display:grid;grid-template-columns:1fr 40px;gap:1px 8px;align-items:center;text-align:left;cursor:pointer;
+      background:var(--surface);border:2px solid var(--bg);border-radius:7px;padding:3px 8px;color:var(--ink);font:inherit;}
+  .rrow:hover{border-color:var(--panel-hi);} .rrow:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .rrow.here{box-shadow:inset 0 0 0 2px var(--gold);}
+  .rname{font-family:var(--arc);font-size:10px;letter-spacing:.06em;display:flex;align-items:center;gap:6px;}
+  .rname i{display:inline-block;width:8px;height:8px;border-radius:2px;}
+  .rname em{font-style:normal;font-size:9px;color:var(--bg);background:var(--gold);padding:1px 4px;border-radius:3px;}
+  .rbar{grid-column:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;}
+  .rbar b{display:block;height:100%;border-radius:3px;}
+  .rnum{grid-row:1 / span 2;grid-column:2;text-align:right;font-family:var(--arc);font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .rsub{grid-column:1 / -1;font-size:10.5px;color:var(--ink-dim);}
+
+  /* SQUADRA: filtri e persone */
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .chips button{appearance:none;font:inherit;font-size:11px;padding:3px 9px;border-radius:12px;cursor:pointer;
+      background:var(--bg);color:var(--ink-soft);border:2px solid var(--panel-lo);}
+  .chips button[aria-pressed="true"]{background:var(--gold);color:var(--bg);border-color:var(--gold);}
+  .chips button:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .squad{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;max-height:340px;overflow-y:auto;}
+  .who{appearance:none;display:grid;grid-template-columns:34px 1fr;gap:9px;align-items:center;text-align:left;cursor:pointer;min-width:0;
+      background:var(--surface);border:2px solid var(--bg);border-radius:8px;padding:5px 8px;color:var(--ink);font:inherit;}
+  .who:hover{border-color:var(--panel-hi);} .who:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .who.busy{box-shadow:inset 0 0 0 2px var(--gold);}
+  .who canvas{width:34px;height:44px;background:var(--canvasbg);border:2px solid var(--bg);border-radius:4px;}
+  .wtxt{display:grid;min-width:0;}
+  .wn{font-family:var(--arc);font-size:10px;letter-spacing:.05em;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;}
+  .wn i{display:inline-block;flex:none;width:8px;height:8px;border-radius:2px;}
+  .wn em{font-style:normal;font-family:var(--pix);font-size:10px;color:var(--ink-dim);letter-spacing:0;}
+  .wd{font-size:11px;color:var(--ink-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ws{font-size:11px;color:var(--ink-soft);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .who.busy .ws{color:var(--gold);}
+
+  /* COLLEGAMENTO: gli hook in colonna */
+  .hooks{list-style:none;margin:0;padding:0;display:grid;gap:3px;}
+  .hooks li{display:grid;grid-template-columns:12px auto 1fr auto;gap:8px;align-items:center;padding:4px 6px;border-radius:6px;font-size:11px;color:var(--ink-dim);}
+  .hooks li:nth-child(odd){background:rgba(255,255,255,.025);}
+  .hooks li i{width:10px;height:10px;border-radius:50%;background:#16394a;border:2px solid var(--bg);}
+  .hooks li.on i{background:var(--green);} .hooks li.hot i{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+  .hooks li b{font-family:var(--arc);font-weight:400;font-size:9.5px;color:var(--ink);letter-spacing:.04em;}
+  .hooks li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hooks li em{font-style:normal;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+  .hooks li.never em{color:var(--red-hi);} .hooks li.never i{background:transparent;border-color:var(--red-hi);border-style:dashed;}
+
+  /* VAULT · memoria compatta */
+  .memday{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ink-soft);}
+  .memday b{font-family:var(--arc);font-weight:400;font-size:28px;color:var(--ink);background:var(--paper);color:var(--paper-ink);
+      border-radius:6px;padding:2px 8px;box-shadow:inset 0 -2px 0 var(--paper-shd);}
+  .memday i{font-style:normal;color:var(--ink-dim);font-size:11px;}
+  .folders{display:grid;gap:4px;margin-top:10px;font-size:10.5px;}
+  .folders div{display:grid;grid-template-columns:88px 1fr 22px;gap:6px;align-items:center;color:var(--ink-soft);}
+  .folders i{display:block;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;}
+  .folders i b{display:block;height:100%;border-radius:3px;}
+  .folders small{text-align:right;font-family:var(--arc);font-size:9px;color:var(--ink-dim);}
+  .vin{margin-top:9px;font-family:var(--arc);font-size:9px;letter-spacing:.06em;color:var(--ink-dim);}
+  .scenenote{margin-top:9px;font-size:11px;color:var(--paper);opacity:.85;}
+  .dp .empty{font-size:12px;color:var(--ink-dim);}
 
   /* bacheca di sughero e fogli appuntati */
   .dp.cork{background:var(--cork);background-image:radial-gradient(rgba(0,0,0,.18) 1px,transparent 1px);background-size:5px 5px;
@@ -256,8 +329,6 @@
   .paper.qa .bar i{background:var(--red);}
   .paper.done{opacity:.6;} .paper.done .stg{color:var(--green-dk);border-color:var(--green-dk);}
   .papers .none{grid-column:span 2;color:var(--paper);font-size:12px;opacity:.8;}
-  .stamp{position:absolute;right:12px;top:34px;font-family:var(--arc);font-size:11px;color:var(--red);border:3px solid var(--red);border-radius:6px;
-      padding:5px 7px;transform:rotate(-12deg);opacity:.9;letter-spacing:.1em;text-shadow:1px 1px 0 var(--panel-lo);}
 
   /* clipboard: carta chiara, testo scuro */
   .dp.clip{background:var(--paper);color:var(--paper-ink);box-shadow:inset 0 1px 0 var(--paper-hi), inset 0 -2px 0 var(--paper-shd), 0 4px 10px var(--shadow);}
@@ -270,51 +341,6 @@
   .dp.clip li.empty{color:#6b5a40;padding-left:0;} .dp.clip li.empty::before{display:none;}
   .dp.clip .tot{margin-top:8px;font-family:var(--arc);font-size:10px;color:#6b5a40;letter-spacing:.06em;}
 
-  /* arsenale: le skill come casse d'armi */
-  .arsenal{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-  @media (max-width:1180px){ .arsenal{grid-template-columns:1fr;} }
-  .sk{display:grid;grid-template-columns:44px 1fr;gap:9px;align-items:center;background:var(--surface);border:2px solid var(--bg);border-radius:8px;padding:5px 7px;
-      box-shadow:inset 0 1px 0 var(--surface-hi);min-width:0;}
-  .sk canvas{width:44px;height:64px;background:var(--canvasbg);border:2px solid var(--bg);border-radius:4px;}
-  .sk .n{font-family:var(--arc);font-size:10px;display:flex;justify-content:space-between;gap:6px;align-items:baseline;}
-  .sk .n i{font-style:normal;color:var(--ink-dim);font-size:10px;letter-spacing:.06em;flex-shrink:0;}
-  .sk .d{font-size:11px;color:var(--ink-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .sk .p{font-size:10.5px;color:var(--ink-soft);margin-top:5px;text-transform:uppercase;letter-spacing:.05em;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .sk.eq .p{color:var(--gold);}
-  .sk > div{min-width:0;}
-  .sk.eq{box-shadow:inset 0 1px 0 var(--surface-hi), inset 0 0 0 2px var(--gold);} .sk.eq .n i{color:var(--gold);}
-
-  /* scaffali e calendario */
-  .dp.wood{background:var(--wood);box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -2px 0 var(--wood-lo), 0 4px 10px var(--shadow);}
-  .dp.wood h4{background:var(--wood-lo);}
-  .dp.wood canvas{width:100%;}
-  .dp.cal{background:var(--paper);color:var(--paper-ink);text-align:center;box-shadow:inset 0 1px 0 var(--paper-hi), inset 0 -2px 0 var(--paper-shd), 0 4px 10px var(--shadow);}
-  .dp.cal h4{background:#b83a2e;color:#fff;} .dp.cal h4::before{background:#fff;box-shadow:none;}
-  .dp.cal .day{font-family:var(--arc);font-size:34px;line-height:1.2;margin-top:6px;}
-  .dp.cal .mon{font-family:var(--arc);font-size:11px;letter-spacing:.14em;color:#6b5a40;margin-top:6px;}
-  .dp.cal .cnt{font-size:12px;color:#6b5a40;margin-top:10px;}
-
-  /* barre del tempo per reparto */
-  .bars{display:grid;gap:5px;font-size:11.5px;}
-  .bars div{display:grid;grid-template-columns:78px 1fr 36px;gap:8px;align-items:center;color:var(--ink-soft);}
-  .bars i{display:block;height:10px;background:var(--bg);border:1px solid var(--panel-lo);border-radius:5px;overflow:hidden;position:relative;}
-  .bars i b{position:absolute;left:0;top:0;bottom:0;box-shadow:inset 0 2px 0 rgba(255,255,255,.35);}
-  .bars small{font-family:var(--arc);font-size:10px;color:var(--ink-dim);text-align:right;font-variant-numeric:tabular-nums;}
-
-  /* il ponte: quattro stazioni e il segnale che corre */
-  .link{display:grid;grid-template-columns:repeat(8,1fr);gap:0;position:relative;}
-  .link::before{content:"";position:absolute;left:6%;right:6%;top:20px;height:4px;background:var(--bg);}
-  .stn em{display:block;font-style:normal;font-size:10.5px;color:var(--ink-dim);margin-top:3px;}
-  .stn.never em{color:var(--red-hi);}
-  @media (max-width:900px){ .link{grid-template-columns:repeat(4,1fr);row-gap:10px;} .link::before,.link .sig{display:none;} }
-  .stn{position:relative;text-align:center;padding-top:34px;font-size:11.5px;color:var(--ink-soft);}
-  .stn i{position:absolute;left:50%;top:10px;width:20px;height:20px;margin-left:-10px;background:var(--surface);border:2px solid var(--bg);border-radius:50%;
-      box-shadow:inset 0 1px 0 var(--surface-hi);}
-  .stn i::after{content:"";position:absolute;inset:4px;border-radius:50%;background:#16394a;}
-  .stn.on i::after{background:var(--green);box-shadow:0 0 8px var(--green);}
-  .stn.hot i::after{background:var(--gold);box-shadow:0 0 10px var(--gold);}
-  .stn b{display:block;font-family:var(--arc);font-size:10px;color:var(--ink);margin-bottom:4px;letter-spacing:.06em;}
   .raw{margin-top:12px;padding:7px 9px;background:var(--canvasbg);border:2px solid var(--panel-lo);border-radius:6px;box-shadow:inset 0 2px 0 var(--panel-lo);
       font-family:"Courier New",monospace;font-size:12px;color:var(--blue);overflow-x:auto;white-space:nowrap;}
   .raw b{color:var(--ink-dim);font-weight:400;}
@@ -331,7 +357,7 @@
     .side{border-left:0;border-top:2px solid var(--bg);}
     .dashv{grid-template-columns:repeat(2,1fr);}
     .c12,.c8,.c6,.c5,.c4,.c3,.c2{grid-column:span 2;}
-    .dp.hdr{grid-template-columns:100px 1fr;} .dp.hdr .meta{grid-column:span 2;text-align:left;}
+    .dp.now{grid-template-columns:auto 1fr;} .dp.now .tiles{grid-column:1 / -1;grid-template-columns:repeat(4,1fr);}
   }
   /* telefono: la barra in alto su una riga (niente briciole, marchio corto), ritratto piccolo */
   @media (max-width:600px){
@@ -497,11 +523,11 @@
 
   <!-- la vista DASHBOARD: la sala comando. Prende il posto della scena, la colonna a destra resta -->
   <div class="dashv" id="dashv">
-    <div class="dslot" id="dashSessione"></div>
+    <div class="dslot" id="dashAdesso"></div>
 
-    <div class="dslot" id="dashLavoro"></div>
+    <div class="dslot" id="dashSquadra"></div>
 
-    <div class="dslot" id="dashMemoria"></div>
+    <div class="dslot" id="dashVault"></div>
     <!-- isola React (panels/): il vanilla non tocca mai niente qui dentro -->
     <div id="storico"></div>
   </div>
@@ -1745,6 +1771,20 @@ function tokDelta(prev, next, room, key){
 function outDelta(prev, next, room){ return tokDelta(prev, next, room, "out"); }
 /* monete nella cassa di un reparto: scala log2 dei token d'uscita visti da questa pagina (500 = una moneta, max 12) */
 function coinCount(out){ return out > 0 ? Math.min(12, Math.max(1, Math.floor(Math.log2(1 + out/500)))) : 0; }
+/* una riga dell'attività in sala comando: lo strumento, o cosa è successo nel turno */
+function activityLabel(s, toolName){
+  var line = String(s.line || "");
+  if(s.tool) return (s.status === "failing" ? "errore · " : "") + toolName(s.tool) + (s.task && s.tool !== "Bash" ? " · " + String(s.task).slice(0, 40) : "");
+  if(line.indexOf("reparto") >= 0) return "un sub-agente rientra";
+  if(line.indexOf("sessione aperta") === 0) return "terminale aperto";
+  if(line === "contesto compattato") return "contesto compattato";
+  if(s.status === "spawning") return "parte un sub-agente" + (s.task ? " · " + String(s.task).slice(0, 40) : "");
+  if(s.status === "compacting") return "compatta il contesto";
+  if(s.status === "waiting") return line.indexOf("permesso") === 0 ? "chiede il permesso" + (line.split("· ")[1] ? " · " + line.split("· ")[1] : "") : "ti aspetta";
+  if(isPromptEvent(s)) return "il tuo messaggio";
+  if(s.status === "idle") return "fine turno";
+  return s.status || "evento";
+}
 /* quale hook ha scritto questo stato: la stazione del PONTE in sala comando */
 function linkKeyFor(s){
   if(!s) return null;
@@ -2679,7 +2719,11 @@ function stepQueue(){
 }
 document.addEventListener("visibilitychange", function(){ if(document.hidden) while(QUEUE.length) applyLive(QUEUE.shift()); });
 
+/* l'attività per la sala comando: ogni evento che passa, con l'ora */
+var ACTIVITY = [], WAIT_LINE = null;
 function applyLive(s){
+  ACTIVITY.push({ts: Date.now(), room: s.room && R(s.room) ? s.room : null, label: activityLabel(s, toolLabel), fail: s.status === "failing"});
+  if(ACTIVITY.length > 300) ACTIVITY.shift();
   vigOnLive(s);
   var was = STATE.status;
   if(s.status) STATE.status = s.status;
@@ -2687,6 +2731,7 @@ function applyLive(s){
   if(s.tool) LAST_TOOL = s.tool;
   if(s.node) LAST_NODE = s.node;
   var line = String(s.line || "");
+  if(s.status === "waiting") WAIT_LINE = line || "attesa";
   /* nel pannello dei collegamenti contano solo i quattro hook che ha: gli altri stati non accendono niente */
   var link = linkKeyFor(s);
   if(link) markLink(link);
@@ -2775,11 +2820,13 @@ function applyLive(s){
 /* L'istantanea della sala comando per l'isola React (panels/src/dash). Legge
    solo quello che le passa il chiamante (m, vedi dashState()), mai le globali:
    così test_dash.mjs la prova da Node. */
+/* l'attività che la sala comando può mostrare: le ultime 2 ore (il pannello sceglie 5 min, 30 min o 2 h) */
+var ACT_WIN = 2*3600000;
 function dashSnapshot(m){
   var st = m.state || {}, live = !!m.live;
   var vaultOk = m.vault && !m.vaultDown ? m.vault : null;
   var where = m.moving
-    ? (m.skfxName ? "verso l'arsenale · "+m.skfxName : st.target ? "in cammino verso "+m.R(st.target).n : "nel corridoio")
+    ? (st.target ? "in cammino verso "+m.R(st.target).n : "nel corridoio")
     : (st.room ? "in "+m.R(st.room).n : "nel corridoio");
   var id = vaultOk && vaultOk.identity || {};
   var identity = vaultOk ? (id.name||"Ultron") + (id.role ? " · "+id.role : "")
@@ -2790,19 +2837,36 @@ function dashSnapshot(m){
   var scene = live ? [] : m.tasks;
   function n(o){ return o && o.notes ? o.notes.length : 0; }
   var v = vaultOk;
+  var tick = Math.floor(m.now/5000)*5000;
+  var acts = (m.activity || []).filter(function(e){ return e.ts <= tick && tick - e.ts <= ACT_WIN; });
+  var evByRoom = {};
+  acts.forEach(function(e){ if(e.room) evByRoom[e.room] = (evByRoom[e.room] || 0) + 1; });
+  var totMs = m.rooms.reduce(function(a, r){ return a + (m.roomTime[r.id] || 0); }, 0);
   return {
     header: {
       status: m.statusWord, rawStatus: st.status, color: m.statusColor,
       where: where, whereBold: st.node ? st.node : st.task ? m.taskText : null,
       identity: identity, clock: m.clock, live: live,
       lastSeenS: live ? Math.max(0, Math.round((m.now - m.lastSeen)/1000)) : null,
-      moving: !!m.moving
+      moving: !!m.moving,
+      mode: live ? "live" : m.rest ? "rest" : "demo",
+      waiting: st.status === "waiting" ? (m.waitLine || "attesa") : null,
+      queue: m.queue || 0, terminals: m.terminals || 0, subagents: m.subagents || 0,
+      events: m.events, perMin: mins > .2 ? (m.events/mins).toFixed(1) : null
     },
-    signal: {
-      pulse: m.pulse.slice(), events: m.events,
-      perMin: mins > .2 ? (m.events/mins).toFixed(1) : null,
-      lastTool: m.lastTool, lastToolLabel: m.lastToolLabel, node: String(m.lastNode).slice(0,14)
+    activity: {
+      /* a scatti di 5 s: la cronologia scorre calma e non si ridisegna a ogni pubblicazione */
+      now: Math.floor(m.now/5000)*5000, win: ACT_WIN,
+      rows: m.rooms.map(function(r){ return {id: r.id, name: r.n, color: r.c}; })
+        .concat([{id: "turno", name: "TURNO", color: m.P.ink}]),
+      events: acts.map(function(e){ return {ts: e.ts, row: e.room || "turno", label: e.label, fail: !!e.fail}; })
     },
+    rooms: m.rooms.map(function(r){
+      var ms = m.roomTime[r.id] || 0;
+      return {id: r.id, name: r.n, color: r.c, ms: ms, share: totMs ? ms/totMs : 0,
+              out: (m.tokout && m.tokout[r.id]) || 0, events: evByRoom[r.id] || 0,
+              here: st.room === r.id && !m.moving};
+    }),
     link: (function(){
       var keys = ["session", "prompt", "pre", "tool", "notify", "sub", "compact", "stop"], h = {}, seen = {}, sn = m.link.seen || {};
       keys.forEach(function(k){ h[k] = !!hit[k]; seen[k] = sn[k] ? Math.max(0, Math.round((m.now - sn[k])/1000)) : null; });
@@ -2810,11 +2874,12 @@ function dashSnapshot(m){
     })(),
     crew: m.crew.map(function(a){
       var carrying = m.tasks.filter(function(k){ return k.carrier === a.id; })[0];
-      var td = live && st.tokens && st.tokens[a.home];
-      return {id: a.id, name: a.n, color: a.col,
+      var busy = !!carrying || !!a.moving;
+      return {id: a.id, name: a.n, color: a.col, desc: (m.crewRole || {})[a.id] || "",
               role: carrying ? "PORTA CASSA" : a.moving ? "IN CAMMINO" : a.room ? m.R(a.room).n : "PORTELLONE",
-              busy: !!carrying || !!a.moving,
-              tokens: td ? [td.in||0, td.out||0, td.cread||0, td.cwrite||0] : null};
+              state: carrying ? "porta " + carrying.t : a.moving ? "in cammino" + (a.dest ? " verso " + m.R(a.dest).n.toLowerCase() : "")
+                     : "alla postazione · " + (a.room ? m.R(a.room).n.toLowerCase() : "portellone"),
+              busy: busy};
     }),
     board: {
       real: realMs.map(function(ms, i){
@@ -2832,10 +2897,9 @@ function dashSnapshot(m){
     skills: m.skills.map(function(sk){
       return {id: sk.id, name: sk.n, color: sk.c, desc: sk.d, uses: sk.uses||0,
               hot: !!(sk.last && m.now - sk.last < 4000),
-              where: sk.escort ? "al lavoro · "+m.R(sk.escort).n.toLowerCase() : sk.moving ? "in cammino" : "al posto"};
+              where: sk.escort ? "al lavoro · "+m.R(sk.escort).n.toLowerCase() : sk.wander ? "a spasso nel corridoio" : sk.moving ? "in cammino" : "al posto",
+              busy: !!sk.escort};
     }),
-    roomTime: m.rooms.map(function(r){ return {id: r.id, name: r.n, color: r.c, ms: m.roomTime[r.id]||0}; })
-      .sort(function(a,b){ return b.ms - a.ms; }),
     shelf: [
       {label:"00 INBOX",     count: v ? n(v.inbox) : 0, color: m.P.cyan},
       {label:"01 DAILY",     count: v ? (v.daily && v.daily.count)||0 : 0, color: m.P.violet},
@@ -3039,6 +3103,8 @@ ROOMS.forEach(function(r){ ROOMTIME[r.id] = 0; });
 function showView(v){
   VIEW = v;
   document.body.dataset.view = v;
+  /* la tela era nascosta: se la finestra è cambiata intanto, misurava zero e la base restava nera */
+  if(v === "base") resize();
   if(DASH) DASH.setActive(v === "dash");
   document.getElementById("tabBase").className = "tab"+(v==="base"?" on":"");
   document.getElementById("tabDash").className = "tab"+(v==="dash"?" on":"");
@@ -3191,6 +3257,15 @@ function dashEngine(){
         "<div style='white-space:pre-wrap;line-height:1.5;color:var(--ink-soft);max-width:480px;'>"+esc(t)+"</div>");
     },
     openMission: function(i){ var m = activeMissions(VAULT)[i]; if(m) showMissionDetail(m); },
+    /* dalla sala comando alla base: un reparto, o una persona (la camera la va a prendere) */
+    goRoom: function(id){ showView("base"); FOLLOW = false; if(R(id) && R(id).id === id) focusRoom(R(id)); },
+    goActor: function(id){
+      showView("base");
+      if(id === "ultron"){ if(!FOLLOW) toggleFollow(); return; }
+      var a = crewById(id) || skillById(id); if(!a) return;
+      FOLLOW = false; unfocus(); cam.tx = a.x; cam.ty = a.y - 40; cam.ts = 1.1;
+      emote(a, "!", "#c98a1c", 92);
+    },
     openTask: function(id){ var k = TASKS.filter(function(x){ return x.id === id; })[0]; if(k) showTaskDetail(k); },
     openDelivered: function(nm){
       openItemDetail(esc(nm), "MISSIONE", "<div class='tele'><div class='k'>Stato</div><div class='v'>consegnata</div></div>"+
@@ -3200,9 +3275,9 @@ function dashEngine(){
 }
 function dashSlots(){
   return {
-    sessione: document.getElementById("dashSessione") || undefined,
-    lavoro: document.getElementById("dashLavoro") || undefined,
-    memoria: document.getElementById("dashMemoria") || undefined,
+    adesso: document.getElementById("dashAdesso") || undefined,
+    squadra: document.getElementById("dashSquadra") || undefined,
+    vault: document.getElementById("dashVault") || undefined,
     storico: document.getElementById("storico") || undefined
   };
 }
@@ -3224,6 +3299,10 @@ function dashState(){
     crew: CREW, tasks: sceneTasks(), skills: SKILLS, rooms: ROOMS, roomTime: ROOMTIME, stages: STAGES,
     deliveredLog: DELIVERED_LOG, delivered: delivered,
     pulse: pulseHist, link: {hit: LINK_HIT, last: LINK_LAST, at: LINK_AT, seen: LINK_SEEN},
+    rest: REST, queue: QUEUE.length, waitLine: STATE.status === "waiting" ? String((LAST_STATE && LAST_STATE.line) || WAIT_LINE || "attesa") : null,
+    terminals: (LIVE ? 1 : 0) + CLONES.filter(function(c){ return !c.leaving; }).length,
+    subagents: MINIS.filter(function(x){ return !x.back; }).length,
+    activity: ACTIVITY, tokout: TOKOUT, crewRole: CREW_ROLE,
     vault: VAULT, vaultDown: VAULT_DOWN, P: P,
     R: R, activeMissions: activeMissions, nextStep: nextStep, missionStepParts: missionStepParts, plainMd: plainMd
   };

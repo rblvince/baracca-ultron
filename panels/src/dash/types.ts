@@ -3,6 +3,8 @@
 
 export type LinkKey = 'session' | 'prompt' | 'pre' | 'tool' | 'notify' | 'sub' | 'compact' | 'stop';
 
+export type Mode = 'live' | 'rest' | 'demo';
+
 export type DashHeader = {
   status: string;          // parola dello stato (stateWord)
   rawStatus: string;       // STATE.status grezzo, per l'animazione del ritratto
@@ -14,25 +16,37 @@ export type DashHeader = {
   live: boolean;
   lastSeenS: number | null; // secondi dall'ultimo segnale se LIVE, altrimenti null ("demo")
   moving: boolean;
-};
-
-export type DashSignal = {
-  pulse: number[];         // pulseHist, 48 valori 0..1
+  mode: Mode;              // LIVE, A RIPOSO o DEMO
+  waiting: string | null;  // "permesso · Bash", "attesa": Ultron aspetta te; null se no
+  queue: number;           // eventi ancora in coda nella scena
+  terminals: number;       // terminali Claude Code attivi
+  subagents: number;       // sub-agenti al lavoro
   events: number;
   perMin: string | null;   // "3.4" oppure null ("—")
-  lastTool: string;        // nome grezzo (title)
-  lastToolLabel: string;   // toolLabel(LAST_TOOL)
-  node: string;            // già tagliato a 14 caratteri
 };
 
-// seen: secondi dall'ultimo evento VERO di quell'hook (ricordato nel browser), null = mai visto
+/** Una riga dell'attività: un reparto, o "turno" per prompt, attese e fine turno. */
+export type ActivityRow = { id: string; name: string; color: string };
+export type ActivityEvent = { ts: number; row: string; label: string; fail: boolean };
+export type DashActivity = { now: number; win: number; rows: ActivityRow[]; events: ActivityEvent[] };
+
+export type RoomCard = {
+  id: string; name: string; color: string;
+  ms: number;              // tempo di Ultron nel reparto da quando è aperta la pagina
+  share: number;           // 0..1 sul totale
+  out: number;             // token d'uscita spesi lì da quando è aperta la pagina
+  events: number;          // eventi negli ultimi 30 minuti
+  here: boolean;           // Ultron è lì adesso
+};
+
 export type DashLink = { hit: Record<LinkKey, boolean>; last: LinkKey | null; hot: boolean; seen: Record<LinkKey, number | null> };
 
 export type CrewCard = {
   id: string; name: string; color: string;
+  desc: string;            // il mestiere, in una riga
   role: string;            // nome del reparto, "IN CAMMINO" o "PORTA CASSA"
+  state: string;           // cosa sta facendo, in parole
   busy: boolean;
-  tokens: [number, number, number, number] | null; // in, out, cache-r, cache-w (solo LIVE)
 };
 
 export type RealPaper = { index: number; title: string; done: number; total: number; nextTag: string | null };
@@ -46,8 +60,7 @@ export type DashBoard = {
   sub: string;             // "2 ATTIVE" oppure "3 IN CORSO · 5 CONSEGNATE"
 };
 
-export type SkillCard = { id: string; name: string; color: string; desc: string; uses: number; hot: boolean; where: string };
-export type RoomTimeRow = { id: string; name: string; color: string; ms: number }; // già ordinate, dalla più alta
+export type SkillCard = { id: string; name: string; color: string; desc: string; uses: number; hot: boolean; where: string; busy: boolean };
 export type ShelfRow = { label: string; count: number; color: string };
 
 export type VaultSnap = {
@@ -60,12 +73,12 @@ export type Palette = { gold: string; cyan: string; violet: string; green: strin
 
 export type DashSnapshot = {
   header: DashHeader;
-  signal: DashSignal;
+  activity: DashActivity;
+  rooms: RoomCard[];
   link: DashLink;
   crew: CrewCard[];
   board: DashBoard;
   skills: SkillCard[];
-  roomTime: RoomTimeRow[];
   shelf: ShelfRow[];                  // sempre 6 righe
   vault: VaultSnap | 'down' | null;   // null = non ancora letto
   debugRaw: { label: string; json: string } | null; // solo con #debug
@@ -83,6 +96,8 @@ export type Engine = {
   openMission(index: number): void;
   openTask(id: number): void;
   openDelivered(name: string): void;
+  goRoom(id: string): void;          // alla BASE, camera sul reparto
+  goActor(id: string): void;         // alla BASE, camera sulla persona ('ultron' = seguilo)
 };
 
-export type Slots = { sessione?: HTMLElement; lavoro?: HTMLElement; memoria?: HTMLElement; storico?: HTMLElement };
+export type Slots = { adesso?: HTMLElement; squadra?: HTMLElement; vault?: HTMLElement; storico?: HTMLElement };
