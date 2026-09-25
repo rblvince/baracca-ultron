@@ -1945,10 +1945,11 @@ function applyLive(s){
     else light();
   }
 
-  if(s.line) logEvent(s.status==="failing"?"fail":"write", s.line);
+  /* task è l'inizio di un comando Bash o di un pattern di grep: testo, mai HTML */
+  if(s.line) logEvent(s.status==="failing"?"fail":"write", esc(s.line));
   else if(s.tool) logEvent(
     s.status==="writing" ? "write" : s.status==="delegating" ? "deleg" : s.status==="failing" ? "fail" : "read",
-    "<b>"+s.tool+"</b> "+(s.node || s.task || (s.room ? R(s.room).n : "")));
+    "<b>"+esc(s.tool)+"</b> "+esc(s.node || s.task || (s.room ? R(s.room).n : "")));
   renderTasks();
 }
 
