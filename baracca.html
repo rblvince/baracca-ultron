@@ -1533,7 +1533,7 @@ var BUBBLE = spr(20,16,function(g){
    quali mestieri ci servono in questo momento. */
 var SKFX = null, SK_STAY = 20000;
 function sendHome(sk){
-  sk.escort = null; sk.hotUntil = 0;
+  sk.escort = null; sk.hotUntil = 0; sk.v = 240; sk.wander = false;
   goToPoint(sk, sk.homeX, POST_Y, function(){ sk.face = 1; });
 }
 function handoff(sk){
@@ -1546,6 +1546,7 @@ function handoff(sk){
 function useSkill(id, then, room, isSkill){
   if(then) then();                                   /* Ultron va dritto al lavoro */
   var sk = skillBy(id); if(!sk) return;
+  sk.v = 240; sk.wander = false; sk.wanderAt = 0;           /* lascia la passeggiata */
   sk.uses++; sk.last = Date.now();
   if(isSkill) banner("SKILL", sk.n, sk.c);          /* la fascia solo per le skill vere, non per ogni Bash */
   if(!room || !R(room)){ handoff(sk); return; }
@@ -1556,9 +1557,26 @@ function useSkill(id, then, room, isSkill){
   goTo(sk, room, .55 + Math.random()*.25, .62, function(a){ handoff(a); });
 }
 /* il reparto tace: gli specialisti tornano al loro posto nel corridoio */
+/* A RIPOSO GLI SPECIALISTI PASSEGGIANO (scelta di Vincent, 25/09): chi non è al lavoro fa due passi
+   lungo il corridoio verso un punto a caso, piano, si ferma qualche secondo e riparte. Una skill
+   usata lo richiama subito (useSkill); di notte (sleeping) tornano al loro posto e restano lì. */
+var RING_WALK = RING.segs.filter(function(q){ return DEMO.graph.nodes[q[0]] && DEMO.graph.nodes[q[1]]; });
+function corridorSpot(){
+  var q = RING_WALK[Math.floor(Math.random()*RING_WALK.length)], a = RING.pts[q[0]], b = RING.pts[q[1]], k = .1 + Math.random()*.8;
+  return {x:a.x + (b.x-a.x)*k + (Math.random()-.5)*30, y:a.y + (b.y-a.y)*k + (Math.random()-.5)*30};
+}
 function stepSpecs(){
-  var now = Date.now();
-  SKILLS.forEach(function(sk){ if(sk.escort && sk.hotUntil && now > sk.hotUntil) sendHome(sk); });
+  var now = Date.now(), night = sleeping();
+  SKILLS.forEach(function(sk){
+    if(sk.escort){ if(sk.hotUntil && now > sk.hotUntil) sendHome(sk); return; }
+    if(sk.path && sk.path.length) return;                      /* sta già camminando */
+    if(night){ if(Math.hypot(sk.x - sk.homeX, sk.y - POST_Y) > 20) sendHome(sk); sk.wanderAt = 0; return; }
+    if(!sk.wanderAt){ sk.wanderAt = now + 1500 + Math.random()*6000; return; }
+    if(now < sk.wanderAt) return;
+    var p = corridorSpot();
+    sk.v = 80; sk.wander = true;
+    goToPoint(sk, p.x, p.y, function(a){ a.wander = false; a.v = 240; a.wanderAt = Date.now() + 3000 + Math.random()*7000; });
+  });
 }
 /* chi serve per l'evento che è appena arrivato dagli hook */
 /* solo le skill chiamano uno specialista: Bash, letture, vault e sub-agenti li fa la truppa */
@@ -1574,7 +1592,7 @@ function skillForEvent(s){
    specialista è fuori a lavorare il posto resta lì, vuoto: si vede chi manca e perché */
 function drawPosts(){
   SKILLS.forEach(function(sk){
-    var away = Math.hypot(sk.x - sk.homeX, sk.y - POST_Y) > 20;
+    var away = !!sk.escort;                                /* l'attrezzo sul posto vuoto solo se è fuori a lavorare */
     ctx.save(); ctx.globalAlpha = away ? .95 : .55;
     ctx.fillStyle = "rgba(4,16,24,.8)"; ctx.beginPath(); ctx.ellipse(sk.homeX, POST_Y + 2, 22, 9, 0, 0, 6.2832); ctx.fill();
     ctx.strokeStyle = sk.c; ctx.lineWidth = 2; ctx.stroke();
@@ -3624,7 +3642,9 @@ function hoverAt(p){
     test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
   });
   SKILLS.forEach(function(k){
-    test(k.x, k.y, k.n, k.d + " · " + (k.moving ? (k.escort ? "va in " + R(k.escort).n.toLowerCase() : "torna al posto") : k.escort ? "al lavoro in " + R(k.escort).n.toLowerCase() : "al posto"));
+    var here = Math.hypot(k.x - k.homeX, k.y - POST_Y) < 20;
+    test(k.x, k.y, k.n, k.d + " · " + (k.escort ? (k.moving ? "va in " : "al lavoro in ") + R(k.escort).n.toLowerCase()
+      : k.wander ? "a spasso nel corridoio" : k.moving ? "torna al posto" : here ? "al posto" : "in pausa nel corridoio"));
   });
   CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
   MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
