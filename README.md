@@ -7,7 +7,8 @@ Dashboard locale in pixel-art che rappresenta visivamente l'attività reale di u
 ## Stack
 
 - `baracca.html` — frontend canvas/JS puro, nessuna dipendenza.
-- `server.py` — server Python stdlib-only, legge lo stato locale e la sessione, nessuna dipendenza esterna.
+- `server.py` — server Python stdlib-only, legge lo stato locale e la sessione, nessuna dipendenza esterna. Senza Supabase manda stato, sessioni e sub-agenti alla pagina via Server-Sent Events (`/api/events`); il polling resta solo come ripiego.
+- `hooks/soglie.py` — le soglie di tempo (stato fermo, LIVE, sub-agenti), in un posto solo: la pagina le riceve con `/api/config`.
 - `hooks/` — script Python richiamati dagli hook di Claude Code (`PostToolUse`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `Notification`, `PreToolUse`) che scrivono lo stato osservato.
 
 ## Avvio
@@ -17,6 +18,23 @@ Dashboard locale in pixel-art che rappresenta visivamente l'attività reale di u
 ```
 
 Avvia il server (porta 8795 se non già attivo), apre la pagina in Chrome e una sessione Claude Code in un terminale.
+
+## Test
+
+    ./run_tests.sh
+
+Lancia tutti i controlli: hook e server (Python), blocchi puri della pagina (Node) e, se `panels/node_modules` c'è, vitest e typecheck dei pannelli. Esce con 1 se anche uno solo fallisce.
+
+## Migrazioni Supabase
+
+Le migrazioni in `supabase/migrations/` si applicano a mano dall'editor SQL, in ordine; `supabase/schema.sql` è lo schema completo dopo l'ultima.
+
+- `009_subagents_indici.sql` — solo indici, si può rilanciare.
+- `010_discord_menzione_dal_vault.sql` — l'id Discord da menzionare nell'avviso "Ultron ti aspetta" si legge dal Vault. **Prima** di applicarla:
+
+      select vault.create_secret('<il tuo id Discord>', 'discord_user_id');
+
+  Senza quel segreto l'avviso parte ancora, ma senza menzione (e in un canale di server non suona).
 
 ## Nota
 

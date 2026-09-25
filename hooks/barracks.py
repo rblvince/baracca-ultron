@@ -16,6 +16,7 @@ importa mai nel processo che Claude Code aspetta.
 """
 import json
 import os
+import re
 import sys
 import time
 
@@ -41,7 +42,7 @@ WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 QA_WORDS = ("test", "pytest", "jest", "lint", "eslint", "ruff", "mypy",
             "build", "tsc", "vitest", "git diff", "git status", "check")
 PUB_WORDS = ("git push", "deploy", "publish", "npm publish", "rsync",
-             "scp ", "gh release", "vercel", "netlify")
+             "scp", "gh release", "vercel", "netlify")
 # skill di verifica (code-review, security-review, verification-before-completion):
 # sono collaudo, non "tutto il resto"
 QA_SKILL_WORDS = ("review", "verification")
@@ -99,25 +100,7 @@ def write_state(**kw):
     return data
 
 
-def in_background(job):
-    """Esegue job() in un figlio staccato (nuova sessione, stdin/stdout/stderr
-    su /dev/null): il padre torna subito e Claude Code non aspetta la rete."""
-    try:
-        pid = os.fork()
-    except OSError:
-        return
-    if pid:
-        return
-    try:
-        os.setsid()
-        null = os.open(os.devnull, os.O_RDWR)
-        for fd in (0, 1, 2):
-            os.dup2(null, fd)
-        job()
-    except Exception:
-        pass
-    finally:
-        os._exit(0)
+in_background = session_track.in_background   # qui come nome, così i test lo sostituiscono
 
 
 def sync(state, session=None, tokens=None):
@@ -151,7 +134,9 @@ def save_tokens(data):
 
 
 def last_assistant_usage(transcript_path, chunk=262144):
-    """(uuid, usage, model) dell'ultimo messaggio assistant nel transcript, o (None, None, None).
+    """(chiave, usage, model) dell'ultimo messaggio assistant nel transcript, o
+    (None, None, None). La chiave è l'id del messaggio API (message.id), uguale
+    su tutte le righe in cui Claude Code spezza una risposta; uuid se manca.
     Legge dalla coda (256 KB, poi il doppio finché serve): su un transcript da
     57 MB il file intero costava 0,2-2 s a ogni tool, la coda 4 ms."""
     if not transcript_path:
@@ -176,25 +161,36 @@ def last_assistant_usage(transcript_path, chunk=262144):
                         continue
                     message = entry.get("message") or {}
                     if message.get("usage"):
-                        return entry.get("uuid"), message["usage"], message.get("model")
+                        return message.get("id") or entry.get("uuid"), message["usage"], message.get("model")
     except OSError:
         pass
     return None, None, None
 
 
+SEEN_MAX = 500  # chiavi di messaggio ricordate: bastano per molte sessioni in parallelo
+
+
 def accumulate_tokens(room, transcript_path):
     """Somma i token dell'ultimo turno assistant nel reparto dato, deduplicando
-    per uuid così un turno con più tool in parallelo non si conta più volte.
+    per messaggio così un turno con più tool in parallelo non si conta più volte.
+    Si ricordano le ultime SEEN_MAX chiavi, non solo l'ultima: con due terminali
+    gli eventi arrivano alternati (A, B, A) e il secondo A va riconosciuto.
     Ritorna (totale cumulativo per reparto, delta di QUESTO turno per Supabase):
     il delta finisce in una riga aggregata per giorno/reparto/modello, mai una
     riga per evento. (None, None) se non c'è nulla da sommare."""
     if not room:
         return None, None
-    uuid, usage, model = last_assistant_usage(transcript_path)
+    key, usage, model = last_assistant_usage(transcript_path)
     if not usage:
         return None, None
+    with session_track.locked(TOKENS_PATH):
+        return _add_tokens(room, key, usage, model)
+
+
+def _add_tokens(room, key, usage, model):
     tokens = load_tokens()
-    if uuid and tokens.get("_last") == uuid:
+    seen = tokens.get("_seen") or []
+    if key and key in seen:
         return tokens.get("rooms"), None
     bucket = tokens.setdefault("rooms", {})
     r = bucket.setdefault(room, {"in": 0, "out": 0, "cread": 0, "cwrite": 0})
@@ -208,8 +204,9 @@ def accumulate_tokens(room, transcript_path):
     r["out"] += d_out
     r["cread"] += d_cread
     r["cwrite"] += d_cwrite
-    if uuid:
-        tokens["_last"] = uuid
+    if key:
+        tokens["_seen"] = (seen + [key])[-SEEN_MAX:]
+    tokens.pop("_last", None)   # formato vecchio: una chiave sola
     save_tokens(tokens)
     return bucket, {"day": time.strftime("%Y-%m-%d"), "room": room,
                     "input": d_in, "output": d_out, "cache_read": d_cread, "cache_write": d_cwrite,
@@ -238,16 +235,35 @@ def note_name(path):
     return None
 
 
+def words(text):
+    """Il testo come parole separate da spazi (e uno spazio ai bordi), per
+    cercare parole intere: "latest.txt" non contiene "test", "test_x.py" sì.
+    Via le stringhe tra virgolette: il messaggio di un git commit o un echo
+    non dicono cosa fa il comando."""
+    text = re.sub(r'"[^"]*"|\'[^\']*\'', " ", str(text).lower())
+    return " " + " ".join(re.findall(r"[a-z0-9&àèéìòù]+", text)) + " "
+
+
+def has_phrase(ws, phrases):
+    return any(words(p) in ws for p in phrases)
+
+
 def subagent_room_agent_task(ti):
     """A quale reparto/operativo appartiene un Task, dedotto da subagent_type/description.
     Condivisa fra la classificazione a fine Task (PostToolUse) e l'annuncio
-    di partenza (PreToolUse, vedi 'spawning' in main()): stesso identico reparto."""
-    raw = str(ti.get("subagent_type") or ti.get("description") or "").lower()
-    room = "prod"
-    for key, value in SUBAGENT_ROOM.items():
-        if key in raw:
-            room = value
-            break
+    di partenza (PreToolUse, vedi 'spawning' in main()): stesso identico reparto.
+    Chiavi più lunghe prima ("ricerca-e-sviluppo" non è "ricerca"); il tipo
+    accetta anche un pezzo di parola lungo almeno 4 lettere ("code-researcher"),
+    la descrizione, testo libero, solo parole intere ("users" non è "rs")."""
+    kind = str(ti.get("subagent_type") or "").lower()
+    keys = sorted(SUBAGENT_ROOM, key=len, reverse=True)
+    room = SUBAGENT_ROOM.get(kind)
+    if room is None:
+        ws = words(kind or ti.get("description") or "")
+        room = next((SUBAGENT_ROOM[k] for k in keys if words(k) in ws), None)
+    if room is None and kind:
+        room = next((SUBAGENT_ROOM[k] for k in keys if len(k) >= 4 and k in kind), None)
+    room = room or "prod"
     task = ti.get("description") or ti.get("prompt", "")[:60]
     return room, SUBAGENT_CREW.get(room), task
 
@@ -267,9 +283,10 @@ def classify(payload):
 
     if tool == "Bash":
         cmd = str(ti.get("command", "")).lower()
-        if any(w in cmd for w in PUB_WORDS):
+        ws = words(cmd)
+        if has_phrase(ws, PUB_WORDS):
             return "delegating", "pub", None, "orchestratore", cmd[:50]
-        if any(w in cmd for w in QA_WORDS):
+        if has_phrase(ws, QA_WORDS):
             return "thinking", "qa", None, "qualita-1", cmd[:50]
         return "writing", "prod", None, "produzione-1", cmd[:50]
 
