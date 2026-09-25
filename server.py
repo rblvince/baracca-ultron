@@ -26,6 +26,10 @@ STATE_PATH = os.path.join(HERE, "state", "state.json")
 SESSIONS_PATH = os.path.join(HERE, "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "state", "subagents.json")
 PORT = 8795
+# 127.0.0.1 da solo non basta: un sito aperto nel browser può mandare POST qui
+# (niente preflight per un fetch semplice) e, con il DNS rebinding, leggere
+# /api/vault sotto un suo nome di dominio. Si risponde solo al proprio nome.
+LOCAL_NAMES = ("127.0.0.1", "localhost")
 MISSIONS_DIR = os.path.join(VAULT, "05 - Resources", "Missioni")
 
 
@@ -252,7 +256,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _forbidden(self):
+        self.send_response(403)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _trusted(self, need_origin=False):
+        """Host nostro sempre; per le scritture anche l'Origin, se il browser lo
+        manda (lo manda sempre su una POST; curl no, e curl non è un sito)."""
+        hosts = {"%s:%d" % (n, self.server.server_address[1]) for n in LOCAL_NAMES}
+        if self.headers.get("Host") not in hosts:
+            return False
+        origin = self.headers.get("Origin")
+        return not (need_origin and origin is not None and origin not in {"http://" + h for h in hosts})
+
     def do_GET(self):
+        if not self._trusted():
+            return self._forbidden()
         path = self.path.split("?", 1)[0]   # "/baracca.html?v=2" è la stessa pagina
         if path == "/api/vault":
             self._send_json(build_vault_snapshot())
@@ -282,6 +302,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        if not self._trusted(need_origin=True):
+            return self._forbidden()
         if self.path == "/api/talk":
             # riavvia l'unico ascoltatore Discord invece di aprirne un altro
             r = subprocess.run(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{DISCORD_SERVICE}"],
