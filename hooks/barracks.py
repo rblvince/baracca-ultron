@@ -40,7 +40,7 @@ AGENT_HOME = os.path.expanduser("~/my-agent")
 READ_TOOLS = {"Read", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookRead"}
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 
-QA_WORDS = ("test", "pytest", "jest", "lint", "eslint", "ruff", "mypy",
+QA_WORDS = ("test", "tests", "pytest", "jest", "lint", "eslint", "ruff", "mypy",
             "build", "tsc", "vitest", "git diff", "git status", "check")
 PUB_WORDS = ("git push", "deploy", "publish", "npm publish", "rsync",
              "scp", "gh release", "vercel", "netlify")
@@ -277,8 +277,12 @@ def words(text):
     return " " + " ".join(re.findall(r"[a-z0-9&àèéìòù]+", text)) + " "
 
 
+def first_phrase(ws, phrases):
+    return next((p for p in phrases if words(p) in ws), None)
+
+
 def has_phrase(ws, phrases):
-    return any(words(p) in ws for p in phrases)
+    return first_phrase(ws, phrases) is not None
 
 
 def subagent_room_agent_task(ti):
@@ -319,8 +323,12 @@ def classify(payload):
         ws = words(cmd)
         if has_phrase(ws, PUB_WORDS):
             return "delegating", "pub", None, "orchestratore", cmd[:50]
-        if has_phrase(ws, QA_WORDS):
-            return "thinking", "qa", None, "qualita-1", cmd[:50]
+        hit = first_phrase(ws, QA_WORDS)
+        if hit:
+            # la parola che ha fatto scattare il collaudo va davanti: la pagina
+            # sceglie la sottostanza (PROVE, VERIFICHE, CONFRONTO) su questo testo,
+            # e dopo 50 caratteri di "cd /percorso/lungo" la parola non ci sarebbe
+            return "thinking", "qa", None, "qualita-1", hit + ": " + cmd[:50]
         return "writing", "prod", None, "produzione-1", cmd[:50]
 
     # il language server segnala errori e una skill di review li cerca: collaudo
