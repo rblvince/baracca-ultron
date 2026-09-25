@@ -10,6 +10,10 @@ import session_track as st
 import supabase_client
 
 supabase_client.CONFIG_PATH = "/nonexistent/baracca/.env"   # cintura: mai il database vero
+# la coda verso Supabase in una cartella di prova, svuotata subito e in questo
+# processo (niente figli staccati): i finti select/patch vedono le chiamate
+st.QUEUE_PATH = os.path.join(tempfile.mkdtemp(), "supabase_queue.json")
+st.KICK = st.drain
 
 
 def test_update_session_writes_locally_and_returns_the_row():
@@ -44,6 +48,73 @@ def test_last_room_reads_the_terminal_last_event():
         assert st.last_room(None) is None
     finally:
         st.SESSIONS_PATH = old_sessions_path
+
+
+def test_hooks_only_enqueue_and_the_drain_keeps_the_order():
+    """Nel processo che Claude Code aspetta non parte nessuna chiamata di
+    rete: le scritture vanno in coda e si svuotano dopo, nell'ordine degli
+    eventi (la claim deve trovare la riga dello spawn di un istante prima)."""
+    import supabase_client
+    seen = []
+    old = (st.KICK, supabase_client.insert, supabase_client.patch_oldest, supabase_client.load_config,
+           st.SUBAGENTS_PATH)
+    st.KICK = lambda: None
+    supabase_client.insert = lambda table, row: seen.append(("insert", row["task"])) or 201
+    supabase_client.patch_oldest = lambda table, f, n, v, extra=None: seen.append(("patch", sorted(v))) or 204
+    supabase_client.load_config = lambda: {"SUPABASE_USER_ID": "u1"}
+    st.SUBAGENTS_PATH = os.path.join(tempfile.mkdtemp(), "subagents.json")
+    try:
+        st.spawn_subagent("qa", "qualita-1", "primo", "tu-1")
+        st.claim_subagent("ag-1")
+        st.reap_subagent("ag-1")
+        assert seen == [], "nessuna rete prima del drain: " + str(seen)
+        assert [op for op, _ in st._load(st.QUEUE_PATH, [])] == ["spawn", "claim", "reap"]
+        st.drain()
+        assert seen == [("insert", "primo"), ("patch", ["agent_id"]), ("patch", ["finished_at"])], seen
+        assert st._load(st.QUEUE_PATH, None) == [], "la coda si svuota"
+        assert supabase_client.TIMEOUT == st.NET_TIMEOUT, "nel drain il timeout è quello lungo"
+    finally:
+        (st.KICK, supabase_client.insert, supabase_client.patch_oldest, supabase_client.load_config,
+         st.SUBAGENTS_PATH) = old
+        supabase_client.TIMEOUT = 1
+
+
+def test_queue_is_bounded_and_survives_a_broken_job():
+    old = (st.KICK, st.QUEUE_MAX, st.REMOTE)
+    ran = []
+    st.KICK, st.QUEUE_MAX = (lambda: None), 3
+    st.REMOTE = {"ok": lambda n: ran.append(n), "boom": lambda n: 1 / 0}
+    try:
+        for n in range(5):
+            st.enqueue("ok", n=n)
+        assert [a["n"] for _, a in st._load(st.QUEUE_PATH, [])] == [2, 3, 4]
+        st.enqueue("boom", n=99)          # esce la 2, resta il limite
+        st.enqueue("ok", n=5)
+        st.drain()
+        assert ran == [4, 5], ran         # 3 e boom scartate dal limite o dall'errore
+    finally:
+        st.KICK, st.QUEUE_MAX, st.REMOTE = old
+        st._save(st.QUEUE_PATH, [])
+
+
+def test_parallel_hooks_do_not_lose_sessions():
+    """Hook dei tool in parallelo: ogni terminale scritto da un processo
+    diverso nello stesso istante deve restare nel file."""
+    import multiprocessing
+    tmp_dir = tempfile.mkdtemp()
+    old = st.SESSIONS_PATH
+    st.SESSIONS_PATH = os.path.join(tmp_dir, "sessions.json")
+    try:
+        ctx = multiprocessing.get_context("fork")
+        procs = [ctx.Process(target=lambda i=i: [st.update_session("/t%d" % i, status="thinking")
+                                                  for _ in range(20)]) for i in range(8)]
+        for p in procs:
+            p.start()
+        for p in procs:
+            p.join()
+        assert sorted(st._load(st.SESSIONS_PATH, {})) == sorted("/t%d" % i for i in range(8))
+    finally:
+        st.SESSIONS_PATH = old
 
 
 def test_spawn_subagent_calls_supabase_insert():
@@ -244,6 +315,9 @@ def main():
     test_reconcile_sets_missing_agent_id()
     test_reconcile_without_ids_or_row_does_nothing()
     test_update_session_writes_locally_and_returns_the_row()
+    test_hooks_only_enqueue_and_the_drain_keeps_the_order()
+    test_queue_is_bounded_and_survives_a_broken_job()
+    test_parallel_hooks_do_not_lose_sessions()
     test_last_room_reads_the_terminal_last_event()
     test_spawn_subagent_calls_supabase_insert()
     test_reap_subagent_closes_by_agent_id()

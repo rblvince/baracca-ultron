@@ -99,25 +99,7 @@ def write_state(**kw):
     return data
 
 
-def in_background(job):
-    """Esegue job() in un figlio staccato (nuova sessione, stdin/stdout/stderr
-    su /dev/null): il padre torna subito e Claude Code non aspetta la rete."""
-    try:
-        pid = os.fork()
-    except OSError:
-        return
-    if pid:
-        return
-    try:
-        os.setsid()
-        null = os.open(os.devnull, os.O_RDWR)
-        for fd in (0, 1, 2):
-            os.dup2(null, fd)
-        job()
-    except Exception:
-        pass
-    finally:
-        os._exit(0)
+in_background = session_track.in_background   # qui come nome, così i test lo sostituiscono
 
 
 def sync(state, session=None, tokens=None):
@@ -200,6 +182,11 @@ def accumulate_tokens(room, transcript_path):
     key, usage, model = last_assistant_usage(transcript_path)
     if not usage:
         return None, None
+    with session_track.locked(TOKENS_PATH):
+        return _add_tokens(room, key, usage, model)
+
+
+def _add_tokens(room, key, usage, model):
     tokens = load_tokens()
     seen = tokens.get("_seen") or []
     if key and key in seen:
