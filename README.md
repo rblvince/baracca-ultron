@@ -31,6 +31,14 @@ Gli specialisti in fila nel corridoio sono le skill installate davvero: `/api/sk
 
 I nomi nella scena si leggono passando il cursore su persone, stanze, casse e portellone.
 
+### Come si guarda
+
+- **A RIPOSO / DEMO**: se Ultron ha già lavorato qui ma non negli ultimi 15 minuti, la base riposa (luci basse, truppa alle postazioni, dopo 10 minuti si dorme). La demo parte solo cliccando la pillola, o se non c'è mai stata una sessione.
+- **Coda**: gli eventi passano in ordine; con la fila lunga Ultron cammina fino a 3 volte più svelto. Il ritratto dice quanti eventi sono in coda.
+- **F** segue Ultron di reparto in reparto; esc o trascinare smettono.
+- **AVVISI**: un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti (il browser chiede il permesso al primo clic).
+- **Ponte** in sala comando: gli otto hook, ognuno con l'ultima volta che si è fatto vivo con un evento vero. "Mai visto" vuol dire che quell'hook non è registrato.
+
 ## Avvio
 
 ```sh
