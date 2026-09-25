@@ -5,30 +5,27 @@ Legge l'evento dell'hook su stdin, deduce in che reparto sta lavorando
 Ultron in questo momento e scrive state/barracks.json. Non tocca
 state.json: la Fattoria continua a funzionare come prima.
 
-Registrato su UserPromptSubmit (thinking), PostToolUse (il dettaglio),
-SubagentStop e Stop (idle). Non solleva mai: un hook che esplode
-bloccherebbe la catena delle tool call.
+Registrato su PostToolUse (il dettaglio), PreToolUse di Task/Agent,
+SubagentStart e SubagentStop; thinking/waiting/idle li scrive set_state.py.
+Non solleva mai: un hook che esplode bloccherebbe la catena delle tool call.
+
+Claude Code aspetta che l'hook finisca: qui si fanno solo le scritture
+locali, Supabase lo aggiorna un processo figlio staccato (sync()), con una
+chiamata sola. Per questo supabase_client (e urllib, 0,3 s d'import) non si
+importa mai nel processo che Claude Code aspetta.
 """
 import json
 import os
-import re
 import sys
 import time
 
 import session_track
-import supabase_client
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(HERE, "..", "state", "state.json")
 TOKENS_PATH = os.path.join(HERE, "..", "state", "tokens.json")
 VAULT = os.path.expanduser("~/Ultron vault")
 AGENT_HOME = os.path.expanduser("~/my-agent")
-
-# le colonne che agent_state ha davvero (supabase/schema.sql): write_state()
-# accetta **kw aperti, ma a Supabase va solo quello che la tabella conosce —
-# una colonna inventata farebbe fallire in silenzio tutta la scrittura.
-AGENT_STATE_COLUMNS = ("user_id", "status", "room", "node", "agent", "task",
-                       "area", "tool", "tokens", "line", "ts")
 
 # --- i reparti della baracca -------------------------------------------
 # vault  ARCHIVIO      qualsiasi cosa dentro il vault
@@ -88,6 +85,7 @@ def area_for_path(path):
 
 
 def write_state(**kw):
+    """Istantanea fresca in state/state.json; ritorna la stessa per sync()."""
     data = {"ts": int(time.time() * 1000)}
     data.update({k: v for k, v in kw.items() if v is not None})
     tmp = STATE_PATH + ".tmp"
@@ -98,16 +96,57 @@ def write_state(**kw):
         os.replace(tmp, STATE_PATH)   # atomica: la pagina non legge mai un JSON a metà
     except OSError:
         pass
+    return data
+
+
+def in_background(job):
+    """Esegue job() in un figlio staccato (nuova sessione, stdin/stdout/stderr
+    su /dev/null): il padre torna subito e Claude Code non aspetta la rete."""
     try:
-        cfg = supabase_client.load_config()
-        user_id = cfg.get("SUPABASE_USER_ID")
-        if user_id:
-            row = dict(data)
-            row["user_id"] = user_id
-            row = {k: v for k, v in row.items() if k in AGENT_STATE_COLUMNS}
-            supabase_client.upsert("agent_state", row, on_conflict="user_id")
+        pid = os.fork()
+    except OSError:
+        return
+    if pid:
+        return
+    try:
+        os.setsid()
+        null = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+        job()
     except Exception:
         pass
+    finally:
+        os._exit(0)
+
+
+def sync(state, session=None, tokens=None):
+    """Stato, sessione e token a Supabase in una chiamata (record_event,
+    migrazione 008), fuori dal tempo che Claude Code aspetta."""
+    def job():
+        import supabase_client
+        user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
+        if user_id and supabase_client.record_event(user_id, state, session, tokens) == 404:
+            _legacy_send(supabase_client, user_id, state, session, tokens)
+    in_background(job)
+
+
+def _legacy_send(sc, user_id, state, session, tokens):
+    """TEMPORANEO (25/09): le tre chiamate di prima, finché la migrazione 008
+    non è applicata su Supabase. Da togliere appena record_event risponde."""
+    cfg = sc.load_config()
+    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
+    merge = {"Prefer": "resolution=merge-duplicates,return=minimal"}
+    sc._do_request("POST", url + "/rest/v1/agent_state?on_conflict=user_id", key,
+                   body=dict(state, user_id=user_id), extra_headers=merge)
+    if session:
+        sc._do_request("POST", url + "/rest/v1/sessions?on_conflict=user_id,transcript_path", key,
+                       body=dict(session, user_id=user_id), extra_headers=merge)
+    if tokens:
+        sc.rpc("increment_token_usage", {"p_user_id": user_id, "p_day": tokens["day"], "p_room": tokens["room"],
+                                         "p_input": tokens["input"], "p_output": tokens["output"],
+                                         "p_cache_read": tokens["cache_read"], "p_cache_write": tokens["cache_write"],
+                                         "p_model": tokens["model"], "p_cache_write_1h": tokens["cache_write_1h"]})
 
 
 def load_tokens():
@@ -129,48 +168,52 @@ def save_tokens(data):
         pass
 
 
-def last_assistant_usage(transcript_path):
+def last_assistant_usage(transcript_path, chunk=262144):
     """(uuid, usage, model) dell'ultimo messaggio assistant nel transcript, o (None, None, None).
-    ponytail: rilegge il file intero ad ogni hook — passare a lettura in coda
-    (offset salvato) se una sessione molto lunga lo rendesse misurabilmente lento."""
+    Legge dalla coda (256 KB, poi il doppio finché serve): su un transcript da
+    57 MB il file intero costava 0,2-2 s a ogni tool, la coda 4 ms."""
     if not transcript_path:
         return None, None, None
     try:
-        with open(transcript_path, encoding="utf-8") as f:
-            lines = f.readlines()
+        with open(transcript_path, "rb") as f:
+            size = f.seek(0, 2)
+            start = size
+            while start > 0:
+                start = max(0, start - chunk)
+                chunk *= 2
+                f.seek(start)
+                lines = f.read(size - start).split(b"\n")
+                if start > 0:
+                    lines = lines[1:]          # la prima riga può essere tagliata a metà
+                for line in reversed(lines):
+                    try:
+                        entry = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(entry, dict) or entry.get("type") != "assistant":
+                        continue
+                    message = entry.get("message") or {}
+                    if message.get("usage"):
+                        return entry.get("uuid"), message["usage"], message.get("model")
     except OSError:
-        return None, None, None
-    for line in reversed(lines):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if entry.get("type") != "assistant":
-            continue
-        message = entry.get("message") or {}
-        usage = message.get("usage")
-        if usage:
-            return entry.get("uuid"), usage, message.get("model")
+        pass
     return None, None, None
 
 
 def accumulate_tokens(room, transcript_path):
     """Somma i token dell'ultimo turno assistant nel reparto dato, deduplicando
     per uuid così un turno con più tool in parallelo non si conta più volte.
-    Ritorna il totale cumulativo per reparto, o None se non c'è nulla da sommare.
-    In più, manda il delta di QUESTO turno a Supabase come riga aggregata
-    per giorno/reparto (RPC increment_token_usage, mai una riga per evento)."""
+    Ritorna (totale cumulativo per reparto, delta di QUESTO turno per Supabase):
+    il delta finisce in una riga aggregata per giorno/reparto/modello, mai una
+    riga per evento. (None, None) se non c'è nulla da sommare."""
     if not room:
-        return None
+        return None, None
     uuid, usage, model = last_assistant_usage(transcript_path)
     if not usage:
-        return None
+        return None, None
     tokens = load_tokens()
     if uuid and tokens.get("_last") == uuid:
-        return tokens.get("rooms")
+        return tokens.get("rooms"), None
     bucket = tokens.setdefault("rooms", {})
     r = bucket.setdefault(room, {"in": 0, "out": 0, "cread": 0, "cwrite": 0})
     d_in = usage.get("input_tokens", 0) or 0
@@ -186,22 +229,9 @@ def accumulate_tokens(room, transcript_path):
     if uuid:
         tokens["_last"] = uuid
     save_tokens(tokens)
-
-    try:
-        cfg = supabase_client.load_config()
-        user_id = cfg.get("SUPABASE_USER_ID")
-        if user_id:
-            supabase_client.rpc("increment_token_usage", {
-                "p_user_id": user_id,
-                "p_day": time.strftime("%Y-%m-%d"),
-                "p_room": room,
-                "p_input": d_in, "p_output": d_out,
-                "p_cache_read": d_cread, "p_cache_write": d_cwrite,
-                "p_model": model or "unknown", "p_cache_write_1h": d_cwrite_1h,
-            })
-    except Exception:
-        pass
-    return bucket
+    return bucket, {"day": time.strftime("%Y-%m-%d"), "room": room,
+                    "input": d_in, "output": d_out, "cache_read": d_cread, "cache_write": d_cwrite,
+                    "model": model or "unknown", "cache_write_1h": d_cwrite_1h}
 
 
 def tool_input(payload):
@@ -279,11 +309,6 @@ def classify(payload):
 
 
 def main():
-    # modalità fissa: barracks.py thinking | idle
-    if len(sys.argv) > 1 and sys.argv[1] in ("thinking", "idle"):
-        write_state(status=sys.argv[1], room=None)
-        return
-
     raw = sys.stdin.read() if not sys.stdin.isatty() else ""
     try:
         payload = json.loads(raw) if raw.strip() else {}
@@ -296,9 +321,9 @@ def main():
         session_track.claim_subagent(payload.get("agent_id"))
         return
     if event == "SubagentStop":
-        write_state(status="thinking", room="prod", line="reparto rientrato")
+        state = write_state(status="thinking", room="prod", line="reparto rientrato")
         session_track.reap_subagent(payload.get("agent_id"))
-        session_track.update_session(transcript_path, status="thinking", room="prod")
+        sync(state, session_track.update_session(transcript_path, status="thinking", room="prod"))
         return
 
     # PreToolUse su Task/Agent (matcher in settings.json): il momento vero in cui un
@@ -307,9 +332,9 @@ def main():
     if event == "PreToolUse":
         if (payload.get("tool_name") or payload.get("toolName")) in SUBAGENT_TOOLS:
             room, agent, task = subagent_room_agent_task(tool_input(payload))
-            write_state(status="spawning", room=room, agent=agent, task=task)
+            state = write_state(status="spawning", room=room, agent=agent, task=task)
             session_track.spawn_subagent(room, agent, task, payload.get("tool_use_id"))
-            session_track.update_session(transcript_path, status="spawning", room=room)
+            sync(state, session_track.update_session(transcript_path, status="spawning", room=room))
         return
 
     status, room, node, agent, task = classify(payload)
@@ -321,13 +346,13 @@ def main():
     if isinstance(resp, dict) and (payload.get("tool_name") or payload.get("toolName")) in SUBAGENT_TOOLS:
         session_track.reconcile_subagent(payload.get("tool_use_id"), resp.get("agentId"))
 
-    tokens = accumulate_tokens(room, transcript_path)
+    tokens, delta = accumulate_tokens(room, transcript_path)
 
-    write_state(status=status, room=room, node=node, agent=agent, task=task,
-                area=area_for_path(file_of(payload)),
-                tool=payload.get("tool_name") or payload.get("toolName"),
-                tokens=tokens)
-    session_track.update_session(transcript_path, status=status, room=room, node=node)
+    state = write_state(status=status, room=room, node=node, agent=agent, task=task,
+                        area=area_for_path(file_of(payload)),
+                        tool=payload.get("tool_name") or payload.get("toolName"),
+                        tokens=tokens)
+    sync(state, session_track.update_session(transcript_path, status=status, room=room, node=node), delta)
 
 
 if __name__ == "__main__":

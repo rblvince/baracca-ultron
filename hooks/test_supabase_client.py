@@ -42,7 +42,7 @@ def test_load_config_missing_file_returns_empty_dict():
         sc.CONFIG_PATH = old
 
 
-def test_upsert_builds_correct_request(monkeypatch_urlopen):
+def test_insert_builds_correct_request():
     tmp = tempfile.mktemp()
     _fake_config(tmp)
     old = sc.CONFIG_PATH
@@ -66,12 +66,11 @@ def test_upsert_builds_correct_request(monkeypatch_urlopen):
     sc.urllib.request.urlopen = fake_urlopen
     try:
         sc.CONFIG_PATH = tmp
-        status = sc.upsert("agent_state", {"status": "idle"}, on_conflict="user_id")
+        status = sc.insert("subagents", {"room": "qa"})
         assert status == 201, status
         assert captured["method"] == "POST", captured["method"]
-        assert "agent_state" in captured["url"], captured["url"]
-        assert "on_conflict=user_id" in captured["url"], captured["url"]
-        assert json.loads(captured["body"]) == {"status": "idle"}, captured["body"]
+        assert captured["url"].endswith("/rest/v1/subagents"), captured["url"]
+        assert json.loads(captured["body"]) == {"room": "qa"}, captured["body"]
         assert captured["headers"]["Apikey"] == "fake-service-key", captured["headers"]
     finally:
         sc.urllib.request.urlopen = old_urlopen
@@ -79,7 +78,7 @@ def test_upsert_builds_correct_request(monkeypatch_urlopen):
         os.remove(tmp)
 
 
-def test_upsert_network_error_returns_none_never_raises():
+def test_insert_network_error_returns_none_never_raises():
     tmp = tempfile.mktemp()
     _fake_config(tmp)
     old = sc.CONFIG_PATH
@@ -91,7 +90,7 @@ def test_upsert_network_error_returns_none_never_raises():
     old_urlopen = sc.urllib.request.urlopen
     sc.urllib.request.urlopen = fake_urlopen
     try:
-        result = sc.upsert("agent_state", {"status": "idle"})
+        result = sc.insert("subagents", {"room": "qa"})
         assert result is None, result
     finally:
         sc.urllib.request.urlopen = old_urlopen
@@ -99,11 +98,11 @@ def test_upsert_network_error_returns_none_never_raises():
         os.remove(tmp)
 
 
-def test_upsert_missing_config_returns_none():
+def test_insert_missing_config_returns_none():
     old = sc.CONFIG_PATH
     sc.CONFIG_PATH = "/nonexistent/.env"
     try:
-        assert sc.upsert("agent_state", {"status": "idle"}) is None
+        assert sc.insert("subagents", {"room": "qa"}) is None
     finally:
         sc.CONFIG_PATH = old
 
@@ -137,7 +136,7 @@ def test_http_error_returns_status_not_none():
     old_urlopen = sc.urllib.request.urlopen
     sc.urllib.request.urlopen = fake_urlopen
     try:
-        assert sc.upsert("agent_state", {"status": "idle"}) == 409
+        assert sc.insert("subagents", {"room": "qa"}) == 409
     finally:
         sc.urllib.request.urlopen = old_urlopen
         sc.CONFIG_PATH = old
@@ -216,10 +215,6 @@ def test_patch_oldest_network_error_returns_none():
         os.remove(tmp)
 
 
-def test_delete_oldest_is_gone():
-    assert not hasattr(sc, "delete_oldest")
-
-
 def test_patch_oldest_extra_filter_in_select_url():
     """extra passa filtri PostgREST grezzi (già URL-encoded dal chiamante) che
     finiscono nella select ma non nel PATCH: serve a claim_subagent per
@@ -247,6 +242,40 @@ def test_patch_oldest_extra_filter_in_select_url():
     finally:
         sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
         os.remove(tmp)
+
+
+def test_record_event_is_one_rpc_call():
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old_cfg, old_open = sc.CONFIG_PATH, sc.urllib.request.urlopen
+    sc.CONFIG_PATH = tmp
+    seen = []
+    sc.urllib.request.urlopen = _fake_urlopen_sequence([(204, b"")], seen)
+    try:
+        assert sc.record_event("u1", {"status": "idle", "ts": 5}, {"transcript_path": "/t", "ts": 5}) == 204
+        assert len(seen) == 1, seen
+        method, url, body = seen[0]
+        assert method == "POST" and url.endswith("/rest/v1/rpc/record_event"), (method, url)
+        assert json.loads(body) == {"p_user_id": "u1", "p_state": {"status": "idle", "ts": 5},
+                                    "p_session": {"transcript_path": "/t", "ts": 5}, "p_tokens": None}, body
+    finally:
+        sc.CONFIG_PATH, sc.urllib.request.urlopen = old_cfg, old_open
+        os.remove(tmp)
+
+
+def test_load_config_reads_the_file_once_per_path():
+    tmp = tempfile.mktemp()
+    _fake_config(tmp)
+    old = sc.CONFIG_PATH
+    sc.CONFIG_PATH = tmp
+    try:
+        first = sc.load_config()
+        os.remove(tmp)                       # file sparito: la config resta quella letta
+        assert sc.load_config() == first
+        sc.load_config()["SUPABASE_URL"] = "sporcata"
+        assert sc.load_config()["SUPABASE_URL"] == "https://example.supabase.co", "copia, non la cache"
+    finally:
+        sc.CONFIG_PATH = old
 
 
 def test_select_returns_rows():
@@ -301,6 +330,8 @@ def test_patch_by_id():
 
 
 def main():
+    test_record_event_is_one_rpc_call()
+    test_load_config_reads_the_file_once_per_path()
     test_select_returns_rows()
     test_select_failure_returns_none()
     test_patch_by_id()
@@ -311,11 +342,10 @@ def main():
     test_patch_oldest_selects_then_patches()
     test_patch_oldest_no_row_returns_none()
     test_patch_oldest_network_error_returns_none()
-    test_delete_oldest_is_gone()
     test_patch_oldest_extra_filter_in_select_url()
-    test_upsert_builds_correct_request(None)
-    test_upsert_network_error_returns_none_never_raises()
-    test_upsert_missing_config_returns_none()
+    test_insert_builds_correct_request()
+    test_insert_network_error_returns_none_never_raises()
+    test_insert_missing_config_returns_none()
     print("supabase_client.py: tutti i controlli passati")
 
 
