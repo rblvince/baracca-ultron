@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* WORK-PURE-START \*\/([\s\S]*?)\/\* WORK-PURE-END \*\//);
 assert.ok(m, 'blocco WORK-PURE non trovato in baracca.html');
-const { workKind, workWords, isPromptEvent, outDelta, coinCount } =
-  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, coinCount };')();
+const { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount } =
+  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount };')();
 
 // ogni sottostanza con una voce ha la sua animazione; NUCLEO, ATTREZZI e CABINA no
 assert.equal(workKind('prod', 'bash'), 'type');
@@ -41,6 +41,12 @@ assert.equal(outDelta({ prod: { out: 100 } }, { prod: { out: 350 } }, 'prod'), 2
 assert.equal(outDelta({}, { qa: { out: 40 } }, 'qa'), 40);
 assert.equal(outDelta({ prod: { out: 100 } }, { prod: { out: 100 } }, 'prod'), null);
 assert.equal(outDelta({ prod: { out: 1 } }, { prod: { out: 2 } }, null), null);
+
+// cache scritta: stesso conto sulla colonna cwrite (l'ECONOMO si muove sopra soglia)
+assert.equal(tokDelta({ rs: { cwrite: 1000 } }, { rs: { cwrite: 49000 } }, 'rs', 'cwrite'), 48000);
+assert.equal(tokDelta(null, { rs: { cwrite: 49000 } }, 'rs', 'cwrite'), null);
+// dopo una compattazione il turno continua: niente prompt
+assert.equal(isPromptEvent({ status: 'thinking', line: 'contesto compattato' }), false);
 
 // monete: 0 senza token, poi log2 da 500, al massimo 12
 assert.equal(coinCount(0), 0);

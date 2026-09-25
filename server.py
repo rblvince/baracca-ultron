@@ -161,9 +161,9 @@ def read_state():
         data = {}
     now = int(time.time() * 1000)
     # a session that died mid-turn never writes "idle" — treat a stale
-    # "thinking"/"waiting"/"spawning" state as idle so the character doesn't
+    # "thinking"/"waiting"/"spawning"/"compacting" state as idle so the character doesn't
     # freeze forever.
-    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
+    if data.get("status") in ("thinking", "waiting", "spawning", "compacting") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
         data = {"status": "idle", "area": None, "ts": now}
     data.setdefault("status", "idle")
     data.setdefault("area", None)
