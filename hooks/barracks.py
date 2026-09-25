@@ -126,27 +126,9 @@ def sync(state, session=None, tokens=None):
     def job():
         import supabase_client
         user_id = supabase_client.load_config().get("SUPABASE_USER_ID")
-        if user_id and supabase_client.record_event(user_id, state, session, tokens) == 404:
-            _legacy_send(supabase_client, user_id, state, session, tokens)
+        if user_id:
+            supabase_client.record_event(user_id, state, session, tokens)
     in_background(job)
-
-
-def _legacy_send(sc, user_id, state, session, tokens):
-    """TEMPORANEO (25/09): le tre chiamate di prima, finché la migrazione 008
-    non è applicata su Supabase. Da togliere appena record_event risponde."""
-    cfg = sc.load_config()
-    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
-    merge = {"Prefer": "resolution=merge-duplicates,return=minimal"}
-    sc._do_request("POST", url + "/rest/v1/agent_state?on_conflict=user_id", key,
-                   body=dict(state, user_id=user_id), extra_headers=merge)
-    if session:
-        sc._do_request("POST", url + "/rest/v1/sessions?on_conflict=user_id,transcript_path", key,
-                       body=dict(session, user_id=user_id), extra_headers=merge)
-    if tokens:
-        sc.rpc("increment_token_usage", {"p_user_id": user_id, "p_day": tokens["day"], "p_room": tokens["room"],
-                                         "p_input": tokens["input"], "p_output": tokens["output"],
-                                         "p_cache_read": tokens["cache_read"], "p_cache_write": tokens["cache_write"],
-                                         "p_model": tokens["model"], "p_cache_write_1h": tokens["cache_write_1h"]})
 
 
 def load_tokens():
