@@ -91,11 +91,17 @@ begin
     where sessions.ts <= excluded.ts;
   end if;
 
+  -- migrazione 009: i token in un sottoblocco, se falliscono non trascinano
+  -- giù stato e sessione (né l'avviso Discord su waiting)
   if p_tokens is not null then
-    perform increment_token_usage(p_user_id, (p_tokens->>'day')::date, p_tokens->>'room',
-      (p_tokens->>'input')::bigint, (p_tokens->>'output')::bigint,
-      (p_tokens->>'cache_read')::bigint, (p_tokens->>'cache_write')::bigint,
-      coalesce(p_tokens->>'model', 'unknown'), coalesce((p_tokens->>'cache_write_1h')::bigint, 0));
+    begin
+      perform increment_token_usage(p_user_id, (p_tokens->>'day')::date, p_tokens->>'room',
+        (p_tokens->>'input')::bigint, (p_tokens->>'output')::bigint,
+        (p_tokens->>'cache_read')::bigint, (p_tokens->>'cache_write')::bigint,
+        coalesce(p_tokens->>'model', 'unknown'), coalesce((p_tokens->>'cache_write_1h')::bigint, 0));
+    exception when others then
+      raise warning 'record_event: token non registrati (%)', sqlerrm;
+    end;
   end if;
 end;
 $$;
