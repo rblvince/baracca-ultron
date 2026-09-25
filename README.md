@@ -25,6 +25,12 @@ Due personaggi nuovi vivono di hook che prima non erano registrati. In `settings
 - `Notification` (già registrato) ora distingue il permesso (GUARDIANO con la sbarra) dall'attesa semplice (MARCONI trasmette).
 - L'ECONOMO non ha bisogno di hook: legge la cache scritta dai token che già arrivano.
 
+### Specialisti = skill installate
+
+Gli specialisti in fila nel corridoio sono le skill installate davvero: `/api/skills` legge le cartelle con `SKILL.md` in `~/.claude/skills`, `~/.agents/skills` e nelle stesse cartelle di `~/my-agent` (al massimo 10 in scena, prima quelle con un disegno loro: taste, guidelines, marketing, regia). Si muovono solo quando Ultron usa la loro skill: lo raggiungono nel reparto e restano finché il reparto lavora. Bash, letture, vault e sub-agenti li fa la truppa.
+
+I nomi nella scena si leggono passando il cursore su persone, stanze, casse e portellone.
+
 ## Avvio
 
 ```sh

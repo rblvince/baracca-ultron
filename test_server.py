@@ -36,6 +36,21 @@ def test_config_payload_missing_config_returns_empty_strings():
         srv.supabase_client.load_config = old_load
 
 
+def test_read_skills_lists_installed_skills():
+    """Gli specialisti della Baracca: una cartella con SKILL.md, nome e descrizione dal frontmatter."""
+    import tempfile
+    base = tempfile.mkdtemp()
+    for d, body in (("taste-skill", "---\nname: taste\ndescription: \"anti-slop frontend\"\n---\n# x"),
+                    ("senza-frontmatter", "# solo testo"), ("vuota", None), (".nascosta", "---\nname: no\n---")):
+        os.makedirs(os.path.join(base, d))
+        if body is not None:
+            with open(os.path.join(base, d, "SKILL.md"), "w", encoding="utf-8") as f:
+                f.write(body)
+    got = server.read_skills([base, os.path.join(base, "non-esiste")])
+    assert got == [{"name": "senza-frontmatter", "description": ""},
+                   {"name": "taste", "description": "anti-slop frontend"}], got
+
+
 def test_page_defaults_match_the_thresholds():
     """I valori di partenza di SOGLIE nella pagina (usati se la config non
     arriva) devono essere quelli di hooks/soglie.py."""
@@ -231,6 +246,7 @@ def main():
     test_events_stream_pushes_what_the_hooks_write()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
+    test_read_skills_lists_installed_skills()
     test_panels_route_serves_only_the_bundle()
     test_foreign_host_and_origin_are_refused()
     print("server.py: tutti i controlli passati")
