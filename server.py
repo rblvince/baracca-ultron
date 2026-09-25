@@ -219,7 +219,14 @@ def config_payload():
     Con le soglie di tempo, così la pagina non ne tiene una copia sua."""
     cfg = supabase_client.load_config()
     return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", ""),
-            "soglie": soglie.per_la_pagina()}
+            "soglie": soglie.per_la_pagina(), "home": home_prefix()}
+
+
+def home_prefix(home=None):
+    """La home come la scrive Claude Code nei nomi delle cartelle dei transcript (ogni carattere
+    che non è lettera o cifra diventa "-"): /Users/rbl.vincent → -Users-rbl-vincent. La pagina
+    lo toglie per ricavare il nome del progetto di un terminale."""
+    return re.sub(r"[^A-Za-z0-9]", "-", home or os.path.expanduser("~"))
 
 
 # dove Claude Code e `npx skills` le installano (utente e progetto dell'agente); i doppioni per nome contano una volta

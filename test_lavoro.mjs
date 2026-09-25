@@ -85,4 +85,9 @@ assert.equal(projectName('/Users/vince/.claude/projects/-Users-vince-my-agent/a.
 assert.equal(projectName('/home/u/.claude/projects/-home-u-baracca-ultron/b.jsonl'), 'baracca-ultron');
 assert.equal(projectName('/Users/vince/.claude/projects/-Users-vince/c.jsonl'), 'home');
 assert.equal(projectName(''), '');
+// un nome utente col punto: il prefisso vero arriva dal server
+const H = '-Users-rbl-vincent';
+assert.equal(projectName('/Users/rbl.vincent/.claude/projects/-Users-rbl-vincent-my-agent/a.jsonl', H), 'my-agent');
+assert.equal(projectName('/Users/rbl.vincent/.claude/projects/-Users-rbl-vincent/a.jsonl', H), 'home');
+assert.equal(projectName('/Users/rbl.vincent/.claude/projects/-Users-rbl-vincent-Desktop-ultrarantino/a.jsonl', H), 'Desktop-ultrarantino');
 console.log('ok');
