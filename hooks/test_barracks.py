@@ -21,6 +21,33 @@ def test_classify_bash_qa():
     assert (status, room, agent) == ("thinking", "qa", "qualita-1"), (status, room, agent)
 
 
+def test_classify_bash_matches_whole_words_only():
+    room = lambda cmd: b.classify({"tool_name": "Bash", "tool_input": {"command": cmd}})[1]
+    # parole intere: niente collaudo per "latest", "rebuild", "checkout"
+    for cmd in ("cat latest.txt", "make rebuild", "git checkout main", "ls"):
+        assert room(cmd) == "prod", cmd
+    # ma i file e gli script di test sì, anche separati da _ . -
+    for cmd in ("python3 test_barracks.py", "npx vitest run", "npm run type-check", "git status", "npm test"):
+        assert room(cmd) == "qa", cmd
+    for cmd in ("git push -u origin x", "./deploy.sh", "scp a b:"):
+        assert room(cmd) == "pub", cmd
+    # il testo tra virgolette non è il comando
+    assert room('git commit -m "fix test flaky"') == "prod"
+    assert room("echo 'git push'") == "prod"
+
+
+def test_subagent_room_prefers_exact_and_whole_words():
+    room = lambda ti: b.subagent_room_agent_task(ti)[0]
+    assert room({"subagent_type": "ricerca-e-sviluppo"}) == "rs"      # non "ricerca"
+    assert room({"subagent_type": "Explore"}) == "ricerca"
+    assert room({"subagent_type": "code-researcher"}) == "ricerca"    # pezzo di parola lungo, nel tipo
+    assert room({"subagent_type": "users-helper"}) == "prod"          # "rs" dentro "users" non conta
+    assert room({"description": "Fix users table"}) == "prod"
+    assert room({"description": "aggiorna la memoria"}) == "vault"
+    assert room({"description": "R&S: prova"}) == "rs"
+    assert room({}) == "prod"
+
+
 def test_classify_lsp_and_review_skill_are_qa():
     for payload in ({"tool_name": "LSP", "tool_input": {"operation": "documentSymbol"}},
                     {"tool_name": "Skill", "tool_input": {"skill": "code-review"}}):
@@ -342,6 +369,9 @@ def test_main_posttooluse_syncs_state_session_and_tokens_once():
 def main():
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
+    test_classify_bash_matches_whole_words_only()
+    test_subagent_room_prefers_exact_and_whole_words()
+    test_main_posttooluse_agent_reconciles()
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
