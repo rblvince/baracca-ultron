@@ -1761,9 +1761,12 @@ function linkKeyFor(s){
 }
 /* il progetto di un terminale dal suo transcript: ~/.claude/projects/-Users-nome-my-agent/x.jsonl
    diventa "my-agent" (la cartella codifica il percorso con i trattini; la casa sola è "home") */
-function projectName(path){
+function projectName(path, home){
   var parts = String(path || "").split("/"), dir = parts.length > 1 ? parts[parts.length - 2] : "";
   if(!dir) return "";
+  /* home = il prefisso vero dal server (/api/config): un nome utente col punto (rbl.vincent)
+     diventa due pezzi (-Users-rbl-vincent) e la regola sotto ne toglierebbe uno solo */
+  if(home && (dir === home || dir.indexOf(home + "-") === 0)) return dir.slice(home.length + 1) || "home";
   var name = dir.replace(/^-(Users|home)-[^-]+-?/, "");
   return name || "home";
 }
@@ -2510,9 +2513,11 @@ function showOffline(){
    config. Questi sono solo i valori di partenza, uguali, se la config non c'è. */
 var SOGLIE = {live_ms: 15*60*1000, subagente_ms: 20*60*1000};
 
+var HOME_DIR = "";   /* la home nei nomi dei transcript, per projectName */
 fetch("/api/config", {cache:"no-store"})
   .then(function(r){ return r.ok ? r.json() : null; })
   .then(function(cfg){
+    if(cfg && typeof cfg.home === "string") HOME_DIR = cfg.home;
     if(cfg && cfg.soglie) for(var k in SOGLIE) if(typeof cfg.soglie[k] === "number") SOGLIE[k] = cfg.soglie[k];
     if(cfg) initSupabase(cfg);
     /* niente USE_SUPABASE qui: la config che esiste non vuol dire che i dati
@@ -3644,7 +3649,7 @@ function hoverAt(p){
   var best = null, bd = Math.max(26, 22/cam.s);
   function test(x, y, name, info){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y-70, n:name, t:info}; } }
   test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : "") +
-       (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : ""));
+       (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY, HOME_DIR) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : ""));
   CREW.forEach(function(a){
     var carry = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
     test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
@@ -3654,7 +3659,7 @@ function hoverAt(p){
     test(k.x, k.y, k.n, k.d + " · " + (k.escort ? (k.moving ? "va in " : "al lavoro in ") + R(k.escort).n.toLowerCase()
       : k.wander ? "a spasso nel corridoio" : k.moving ? "torna al posto" : here ? "al posto" : "in pausa nel corridoio"));
   });
-  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
+  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key, HOME_DIR) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
   MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
   if(best) return best;
   var things = [];

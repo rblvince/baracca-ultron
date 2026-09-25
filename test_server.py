@@ -19,7 +19,9 @@ def test_config_payload_never_leaks_service_key():
     try:
         payload = srv.config_payload()
         assert payload == {"url": "https://x.supabase.co", "anon_key": "anon-abc",
-                           "soglie": {"live_ms": 900000, "subagente_ms": 1200000}}, payload
+                           "soglie": {"live_ms": 900000, "subagente_ms": 1200000},
+                           "home": srv.home_prefix()}, payload
+        assert srv.home_prefix("/Users/rbl.vincent") == "-Users-rbl-vincent"
         assert "SEGRETA-non-deve-uscire" not in str(payload), payload
     finally:
         srv.supabase_client.load_config = old_load
