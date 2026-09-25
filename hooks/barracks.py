@@ -151,7 +151,9 @@ def save_tokens(data):
 
 
 def last_assistant_usage(transcript_path, chunk=262144):
-    """(uuid, usage, model) dell'ultimo messaggio assistant nel transcript, o (None, None, None).
+    """(chiave, usage, model) dell'ultimo messaggio assistant nel transcript, o
+    (None, None, None). La chiave è l'id del messaggio API (message.id), uguale
+    su tutte le righe in cui Claude Code spezza una risposta; uuid se manca.
     Legge dalla coda (256 KB, poi il doppio finché serve): su un transcript da
     57 MB il file intero costava 0,2-2 s a ogni tool, la coda 4 ms."""
     if not transcript_path:
@@ -176,25 +178,31 @@ def last_assistant_usage(transcript_path, chunk=262144):
                         continue
                     message = entry.get("message") or {}
                     if message.get("usage"):
-                        return entry.get("uuid"), message["usage"], message.get("model")
+                        return message.get("id") or entry.get("uuid"), message["usage"], message.get("model")
     except OSError:
         pass
     return None, None, None
 
 
+SEEN_MAX = 500  # chiavi di messaggio ricordate: bastano per molte sessioni in parallelo
+
+
 def accumulate_tokens(room, transcript_path):
     """Somma i token dell'ultimo turno assistant nel reparto dato, deduplicando
-    per uuid così un turno con più tool in parallelo non si conta più volte.
+    per messaggio così un turno con più tool in parallelo non si conta più volte.
+    Si ricordano le ultime SEEN_MAX chiavi, non solo l'ultima: con due terminali
+    gli eventi arrivano alternati (A, B, A) e il secondo A va riconosciuto.
     Ritorna (totale cumulativo per reparto, delta di QUESTO turno per Supabase):
     il delta finisce in una riga aggregata per giorno/reparto/modello, mai una
     riga per evento. (None, None) se non c'è nulla da sommare."""
     if not room:
         return None, None
-    uuid, usage, model = last_assistant_usage(transcript_path)
+    key, usage, model = last_assistant_usage(transcript_path)
     if not usage:
         return None, None
     tokens = load_tokens()
-    if uuid and tokens.get("_last") == uuid:
+    seen = tokens.get("_seen") or []
+    if key and key in seen:
         return tokens.get("rooms"), None
     bucket = tokens.setdefault("rooms", {})
     r = bucket.setdefault(room, {"in": 0, "out": 0, "cread": 0, "cwrite": 0})
@@ -208,8 +216,9 @@ def accumulate_tokens(room, transcript_path):
     r["out"] += d_out
     r["cread"] += d_cread
     r["cwrite"] += d_cwrite
-    if uuid:
-        tokens["_last"] = uuid
+    if key:
+        tokens["_seen"] = (seen + [key])[-SEEN_MAX:]
+    tokens.pop("_last", None)   # formato vecchio: una chiave sola
     save_tokens(tokens)
     return bucket, {"day": time.strftime("%Y-%m-%d"), "room": room,
                     "input": d_in, "output": d_out, "cache_read": d_cread, "cache_write": d_cwrite,

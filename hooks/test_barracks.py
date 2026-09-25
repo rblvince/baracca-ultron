@@ -57,6 +57,71 @@ def test_accumulate_tokens_dedup():
         b.TOKENS_PATH = old_tokens_path
 
 
+def _assistant(key_field, key, n):
+    msg = {"usage": {"input_tokens": n, "output_tokens": 0,
+                     "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}
+    entry = {"type": "assistant", "message": msg}
+    if key_field == "id":
+        msg["id"] = key
+        entry["uuid"] = key + "-riga-" + str(n)   # uuid diverso per ogni riga
+    else:
+        entry["uuid"] = key
+    return json.dumps(entry) + "\n"
+
+
+def test_accumulate_tokens_two_terminals_interleaved():
+    """A, B, A: il secondo A è lo stesso turno e non va ricontato."""
+    tmp_dir = tempfile.mkdtemp()
+    ta, tb = os.path.join(tmp_dir, "a.jsonl"), os.path.join(tmp_dir, "b.jsonl")
+    with open(ta, "w", encoding="utf-8") as f:
+        f.write(_assistant("uuid", "turno-a", 10))
+    with open(tb, "w", encoding="utf-8") as f:
+        f.write(_assistant("uuid", "turno-b", 100))
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        b.accumulate_tokens("prod", ta)
+        b.accumulate_tokens("prod", tb)
+        rooms, delta = b.accumulate_tokens("prod", ta)
+        assert rooms["prod"]["in"] == 110, rooms
+        assert delta is None, delta
+    finally:
+        b.TOKENS_PATH = old_tokens_path
+
+
+def test_accumulate_tokens_dedups_by_message_id():
+    """Una risposta API spezzata su più righe (uuid diversi, stesso message.id) si conta una volta."""
+    tmp_dir = tempfile.mkdtemp()
+    t = os.path.join(tmp_dir, "t.jsonl")
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        with open(t, "w", encoding="utf-8") as f:
+            f.write(_assistant("id", "msg_1", 7))
+        b.accumulate_tokens("prod", t)
+        with open(t, "a", encoding="utf-8") as f:
+            f.write(_assistant("id", "msg_1", 7))
+        rooms, delta = b.accumulate_tokens("prod", t)
+        assert rooms["prod"]["in"] == 7 and delta is None, (rooms, delta)
+    finally:
+        b.TOKENS_PATH = old_tokens_path
+
+
+def test_accumulate_tokens_remembers_a_bounded_list():
+    tmp_dir = tempfile.mkdtemp()
+    t = os.path.join(tmp_dir, "t.jsonl")
+    old = (b.TOKENS_PATH, b.SEEN_MAX)
+    b.TOKENS_PATH, b.SEEN_MAX = os.path.join(tmp_dir, "tokens.json"), 3
+    try:
+        for i in range(5):
+            with open(t, "w", encoding="utf-8") as f:
+                f.write(_assistant("uuid", "k%d" % i, 1))
+            b.accumulate_tokens("prod", t)
+        assert b.load_tokens()["_seen"] == ["k2", "k3", "k4"], b.load_tokens()
+    finally:
+        b.TOKENS_PATH, b.SEEN_MAX = old
+
+
 def test_write_state_is_local_and_returns_the_snapshot():
     tmp_dir = tempfile.mkdtemp()
     old_state_path = b.STATE_PATH
@@ -280,6 +345,9 @@ def main():
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
+    test_accumulate_tokens_two_terminals_interleaved()
+    test_accumulate_tokens_dedups_by_message_id()
+    test_accumulate_tokens_remembers_a_bounded_list()
     test_write_state_is_local_and_returns_the_snapshot()
     test_sync_sends_one_record_event()
     test_in_background_returns_before_the_job_ends()
