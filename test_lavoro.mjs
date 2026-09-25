@@ -53,4 +53,10 @@ assert.equal(coinCount(0), 0);
 assert.equal(coinCount(10), 1);
 assert.equal(coinCount(1500), 2);
 assert.equal(coinCount(1e9), 12);
+// il riassunto sotto il nome di uno specialista: prima frase, ~48 caratteri, taglio su una parola
+const shortDesc = new Function(html.match(/function shortDesc[\s\S]*?\n}/)[0] + '; return shortDesc;')();
+assert.equal(shortDesc('Review AI agent skills before installation using NVIDIA SkillSpector and source-aware semantic review. Use when'),
+  'Review AI agent skills before installation…');
+assert.equal(shortDesc('Audit UI.'), 'Audit UI');
+assert.equal(shortDesc(''), 'skill');
 console.log('ok');

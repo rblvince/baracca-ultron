@@ -1404,6 +1404,14 @@ function castFromName(nm){
           hairStyle:["short","long","bun","spiky","messy","bald"][(h >>> 5) % 6], glasses:!!((h >>> 8) & 1),
           shirt:SK_SHIRTS[(h >>> 9) % SK_SHIRTS.length], held:["book","clip","lens","ruler","case"][(h >>> 13) % 5], w:12 + (h >>> 16) % 4};
 }
+/* la descrizione del frontmatter è un paragrafo: sotto il nome basta la prima frase, ~48 caratteri */
+function shortDesc(t){
+  var first = String(t || "").split(/\.\s/)[0].replace(/\.$/, "").trim();
+  if(!first) return "skill";
+  if(first.length <= 48) return first;
+  var cut = first.slice(0, 48), sp = cut.lastIndexOf(" ");
+  return (sp > 20 ? cut.slice(0, sp) : cut).replace(/[,;:]$/, "") + "…";
+}
 function buildSkills(installed){
   var list = [];
   if(!installed || !installed.length) list = SKILL_CAST.slice();
@@ -1418,7 +1426,7 @@ function buildSkills(installed){
       var same = list.filter(function(x){ return x.id === id; })[0];
       if(same){ same.match.push(nm); return; }
       if(!Q_CAST[id]) Q_CAST[id] = castFromName(short);
-      list.push({id:id, n:short.replace(/[-_]+/g, " ").toUpperCase().slice(0, 14), d:it.description || "skill",
+      list.push({id:id, n:short.replace(/[-_]+/g, " ").toUpperCase().slice(0, 24).trim(), d:shortDesc(it.description),
                  c:Q_CAST[id].shirt, icon:"generic", match:[nm]});
     });
   }
