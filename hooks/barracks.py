@@ -304,6 +304,10 @@ def classify(payload):
             return "reading", "vault", node, "custode", None
         return "reading", "ricerca", None, "ricerca-1", str(ti.get("pattern") or ti.get("query") or "")[:50]
 
+    # una skill: il suo nome è il compito, così la Baracca chiama lo specialista giusto
+    if tool in ("Skill", "SlashCommand"):
+        return "thinking", "rs", None, None, (skill or str(ti.get("command") or ""))[:50] or None
+
     return "thinking", "rs", None, None, None
 
 

@@ -18,6 +18,7 @@ for t in hooks/test_*.py; do run python3 "$t"; done
 run python3 test_server.py
 run node test_dash.mjs
 run node test_aux.mjs
+run node test_lavoro.mjs
 if [ -d panels/node_modules ]; then
   run npm --prefix panels test
   run npm --prefix panels run typecheck

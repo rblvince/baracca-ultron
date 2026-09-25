@@ -37,7 +37,8 @@ def _run(argv, stdin, counted=None, room=None):
 
 def test_status_is_a_fresh_snapshot_sent_with_the_session():
     local, sent = _run(["set_state.py", "waiting"], '{"transcript_path": "/t"}')
-    assert set(local) == {"status", "ts"} and local["status"] == "waiting", local
+    assert set(local) == {"status", "line", "ts"} and local["status"] == "waiting", local
+    assert local["line"] == "attesa", local            # waiting arriva solo da Notification
     assert sent == [(local, {"status": "waiting", "transcript_path": "/t"}, None)], sent
 
 
@@ -65,8 +66,34 @@ def test_only_stop_counts_tokens():
     assert counted == [], counted
 
 
+def test_notification_says_permission_or_plain_wait():
+    local, _ = _run(["set_state.py", "waiting"], json.dumps({"hook_event_name": "Notification",
+                    "message": "Claude needs your permission to use Bash", "transcript_path": "/t"}))
+    assert local["status"] == "waiting" and local["line"] == "permesso · Bash", local
+    local, _ = _run(["set_state.py", "waiting"], json.dumps({"hook_event_name": "Notification",
+                    "notification_type": "permission_prompt", "message": "?"}))
+    assert local["line"] == "permesso", local
+    local, _ = _run(["set_state.py", "waiting"], json.dumps({"hook_event_name": "Notification",
+                    "message": "Claude is waiting for your input"}))
+    assert local["line"] == "attesa", local
+
+
+def test_precompact_and_session_start():
+    local, _ = _run(["set_state.py", "compacting"], json.dumps({"hook_event_name": "PreCompact", "trigger": "manual"}))
+    assert local["status"] == "compacting" and local["line"] == "compatta · manual", local
+    counted = []
+    local, _ = _run(["set_state.py", "idle"], json.dumps({"hook_event_name": "SessionStart", "source": "resume",
+                    "transcript_path": "/t"}), counted, room="qa")
+    assert local["status"] == "idle" and local["line"] == "sessione aperta · resume", local
+    assert counted == [], counted          # aprire un terminale non è una risposta da contare
+    local, _ = _run(["set_state.py", "idle"], json.dumps({"hook_event_name": "SessionStart", "source": "compact"}))
+    assert local["status"] == "thinking" and local["line"] == "contesto compattato", local
+
+
 def main():
     test_status_is_a_fresh_snapshot_sent_with_the_session()
+    test_notification_says_permission_or_plain_wait()
+    test_precompact_and_session_start()
     test_without_stdin_still_writes_and_syncs_the_state()
     test_stop_counts_the_final_reply_in_the_last_room()
     test_only_stop_counts_tokens()
