@@ -14,6 +14,9 @@ import urllib.parse
 import urllib.request
 
 CONFIG_PATH = os.path.expanduser("~/.config/baracca/.env")
+# secondi per chiamata; la coda dei sub-agenti (session_track.drain), che gira
+# staccata da Claude Code, lo alza
+TIMEOUT = 1
 
 
 def load_config():
@@ -49,7 +52,7 @@ def _headers(key):
     }
 
 
-def _do_request(method, url, key, body=None, extra_headers=None, timeout=1):
+def _do_request(method, url, key, body=None, extra_headers=None, timeout=None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     for k, v in _headers(key).items():
@@ -57,7 +60,7 @@ def _do_request(method, url, key, body=None, extra_headers=None, timeout=1):
     for k, v in (extra_headers or {}).items():
         req.add_header(k, v)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout or TIMEOUT) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as e:
         # un rifiuto del server (400/409/...) non è "non configurato" né

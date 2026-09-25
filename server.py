@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import sys as _sys
 _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hooks"))
 import supabase_client
+import soglie
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Ultron vault")
@@ -26,7 +27,17 @@ STATE_PATH = os.path.join(HERE, "state", "state.json")
 SESSIONS_PATH = os.path.join(HERE, "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "state", "subagents.json")
 PORT = 8795
+# 127.0.0.1 da solo non basta: un sito aperto nel browser può mandare POST qui
+# (niente preflight per un fetch semplice) e, con il DNS rebinding, leggere
+# /api/vault sotto un suo nome di dominio. Si risponde solo al proprio nome.
+LOCAL_NAMES = ("127.0.0.1", "localhost")
 MISSIONS_DIR = os.path.join(VAULT, "05 - Resources", "Missioni")
+# /api/events: ogni quanto guardare i file degli hook, ogni quanto rimandare
+# tutto anche senza modifiche (le sessioni e gli stati fermi scadono col tempo,
+# non con una scrittura) e ogni quanto un commento che tiene viva la connessione
+EVENTS_TICK_S = 0.15
+EVENTS_REFRESH_S = 30
+EVENTS_PING_S = 15
 
 
 def read_text(path):
@@ -150,9 +161,9 @@ def read_state():
         data = {}
     now = int(time.time() * 1000)
     # a session that died mid-turn never writes "idle" — treat a stale
-    # "thinking"/"waiting"/"spawning" state (older than 10 minutes) as idle
-    # so the character doesn't freeze forever.
-    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > 10 * 60 * 1000:
+    # "thinking"/"waiting"/"spawning" state as idle so the character doesn't
+    # freeze forever.
+    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
         data = {"status": "idle", "area": None, "ts": now}
     data.setdefault("status", "idle")
     data.setdefault("area", None)
@@ -160,8 +171,8 @@ def read_state():
 
 
 def read_sessions():
-    """Un Ultron per terminale attivo: scarta le sessioni ferme da più di 15
-    minuti, stessa soglia con cui la pagina passa da LIVE a DEMO."""
+    """Un Ultron per terminale attivo: scarta le sessioni ferme da più di
+    soglie.LIVE_MS, stessa soglia con cui la pagina passa da LIVE a DEMO."""
     data = {}
     try:
         with open(SESSIONS_PATH, "r", encoding="utf-8") as f:
@@ -169,13 +180,13 @@ def read_sessions():
     except (OSError, json.JSONDecodeError):
         pass
     now = int(time.time() * 1000)
-    return {k: v for k, v in data.items() if now - v.get("ts", 0) < 15 * 60 * 1000}
+    return {k: v for k, v in data.items() if now - v.get("ts", 0) < soglie.LIVE_MS}
 
 
 def read_subagents():
-    """La coda di sub-agenti in corso: scarta le voci ferme da più di 20
-    minuti (un SubagentStop mai arrivato non deve lasciare un mini-Ultron
-    fantasma per sempre)."""
+    """La coda di sub-agenti in corso: scarta le voci ferme da più di
+    soglie.SUBAGENTE_MS (un SubagentStop mai arrivato non deve lasciare un
+    mini-Ultron fantasma per sempre)."""
     data = {"next_id": 1, "list": []}
     try:
         with open(SUBAGENTS_PATH, "r", encoding="utf-8") as f:
@@ -183,16 +194,32 @@ def read_subagents():
     except (OSError, json.JSONDecodeError):
         pass
     now = int(time.time() * 1000)
-    fresh = [s for s in data.get("list", []) if now - s.get("ts", 0) < 20 * 60 * 1000]
+    fresh = [s for s in data.get("list", []) if now - s.get("ts", 0) < soglie.SUBAGENTE_MS]
     return {"list": fresh}
+
+
+def _mtime(path):
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
+
+
+def event_sources():
+    """(nome evento, file scritto dagli hook, lettura servita) per /api/events."""
+    return (("state", STATE_PATH, read_state),
+            ("sessions", SESSIONS_PATH, read_sessions),
+            ("subagents", SUBAGENTS_PATH, read_subagents))
 
 
 def config_payload():
     """Solo url + chiave anonima — MAI la service-role key, anche se presente
     nello stesso file di config. La chiave anonima non è un segreto nel
-    modello di Supabase: la sicurezza la fa la Row Level Security lato DB."""
+    modello di Supabase: la sicurezza la fa la Row Level Security lato DB.
+    Con le soglie di tempo, così la pagina non ne tiene una copia sua."""
     cfg = supabase_client.load_config()
-    return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", "")}
+    return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", ""),
+            "soglie": soglie.per_la_pagina()}
 
 
 def parse_missions():
@@ -252,7 +279,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _forbidden(self):
+        self.send_response(403)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _trusted(self, need_origin=False):
+        """Host nostro sempre; per le scritture anche l'Origin, se il browser lo
+        manda (lo manda sempre su una POST; curl no, e curl non è un sito)."""
+        hosts = {"%s:%d" % (n, self.server.server_address[1]) for n in LOCAL_NAMES}
+        if self.headers.get("Host") not in hosts:
+            return False
+        origin = self.headers.get("Origin")
+        return not (need_origin and origin is not None and origin not in {"http://" + h for h in hosts})
+
     def do_GET(self):
+        if not self._trusted():
+            return self._forbidden()
         path = self.path.split("?", 1)[0]   # "/baracca.html?v=2" è la stessa pagina
         if path == "/api/vault":
             self._send_json(build_vault_snapshot())
@@ -262,6 +305,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(read_sessions())
         elif path == "/api/subagents":
             self._send_json(read_subagents())
+        elif path == "/api/events":
+            self._stream_events()
         elif path == "/api/config":
             self._send_json(config_payload())
         elif path in ("/", "/baracca.html"):
@@ -282,6 +327,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        if not self._trusted(need_origin=True):
+            return self._forbidden()
         if self.path == "/api/talk":
             # riavvia l'unico ascoltatore Discord invece di aprirne un altro
             r = subprocess.run(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{DISCORD_SERVICE}"],
@@ -290,6 +337,41 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def _stream_events(self):
+        """Server-Sent Events: stato, sessioni e sub-agenti appena gli hook
+        riscrivono i loro file, invece di una pagina che chiede /api/state
+        due volte e mezzo al secondo anche quando non succede niente. Si
+        guarda solo la data di modifica dei file; la connessione resta aperta
+        finché la pagina non la chiude (il ping trova la pipe rotta)."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        seen = {}
+        last_full = None
+        last_write = time.monotonic()
+        try:
+            self.wfile.write(b"retry: 2000\n\n")
+            while True:
+                now = time.monotonic()
+                full = last_full is None or now - last_full >= EVENTS_REFRESH_S
+                for name, path, read in event_sources():
+                    m = _mtime(path)
+                    if full or m != seen.get(name):
+                        seen[name] = m
+                        data = json.dumps(read())
+                        self.wfile.write(("event: %s\ndata: %s\n\n" % (name, data)).encode("utf-8"))
+                        last_write = now
+                if full:
+                    last_full = now
+                if now - last_write >= EVENTS_PING_S:
+                    self.wfile.write(b": ping\n\n")
+                    last_write = now
+                self.wfile.flush()
+                time.sleep(EVENTS_TICK_S)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return
 
     def _send_file(self, name, content_type):
         path = os.path.join(HERE, name)

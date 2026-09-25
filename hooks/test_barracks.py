@@ -21,6 +21,33 @@ def test_classify_bash_qa():
     assert (status, room, agent) == ("thinking", "qa", "qualita-1"), (status, room, agent)
 
 
+def test_classify_bash_matches_whole_words_only():
+    room = lambda cmd: b.classify({"tool_name": "Bash", "tool_input": {"command": cmd}})[1]
+    # parole intere: niente collaudo per "latest", "rebuild", "checkout"
+    for cmd in ("cat latest.txt", "make rebuild", "git checkout main", "ls"):
+        assert room(cmd) == "prod", cmd
+    # ma i file e gli script di test sì, anche separati da _ . -
+    for cmd in ("python3 test_barracks.py", "npx vitest run", "npm run type-check", "git status", "npm test"):
+        assert room(cmd) == "qa", cmd
+    for cmd in ("git push -u origin x", "./deploy.sh", "scp a b:"):
+        assert room(cmd) == "pub", cmd
+    # il testo tra virgolette non è il comando
+    assert room('git commit -m "fix test flaky"') == "prod"
+    assert room("echo 'git push'") == "prod"
+
+
+def test_subagent_room_prefers_exact_and_whole_words():
+    room = lambda ti: b.subagent_room_agent_task(ti)[0]
+    assert room({"subagent_type": "ricerca-e-sviluppo"}) == "rs"      # non "ricerca"
+    assert room({"subagent_type": "Explore"}) == "ricerca"
+    assert room({"subagent_type": "code-researcher"}) == "ricerca"    # pezzo di parola lungo, nel tipo
+    assert room({"subagent_type": "users-helper"}) == "prod"          # "rs" dentro "users" non conta
+    assert room({"description": "Fix users table"}) == "prod"
+    assert room({"description": "aggiorna la memoria"}) == "vault"
+    assert room({"description": "R&S: prova"}) == "rs"
+    assert room({}) == "prod"
+
+
 def test_classify_lsp_and_review_skill_are_qa():
     for payload in ({"tool_name": "LSP", "tool_input": {"operation": "documentSymbol"}},
                     {"tool_name": "Skill", "tool_input": {"skill": "code-review"}}):
@@ -55,6 +82,71 @@ def test_accumulate_tokens_dedup():
         assert delta2 is None, "turno già contato: niente da mandare a Supabase"
     finally:
         b.TOKENS_PATH = old_tokens_path
+
+
+def _assistant(key_field, key, n):
+    msg = {"usage": {"input_tokens": n, "output_tokens": 0,
+                     "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}
+    entry = {"type": "assistant", "message": msg}
+    if key_field == "id":
+        msg["id"] = key
+        entry["uuid"] = key + "-riga-" + str(n)   # uuid diverso per ogni riga
+    else:
+        entry["uuid"] = key
+    return json.dumps(entry) + "\n"
+
+
+def test_accumulate_tokens_two_terminals_interleaved():
+    """A, B, A: il secondo A è lo stesso turno e non va ricontato."""
+    tmp_dir = tempfile.mkdtemp()
+    ta, tb = os.path.join(tmp_dir, "a.jsonl"), os.path.join(tmp_dir, "b.jsonl")
+    with open(ta, "w", encoding="utf-8") as f:
+        f.write(_assistant("uuid", "turno-a", 10))
+    with open(tb, "w", encoding="utf-8") as f:
+        f.write(_assistant("uuid", "turno-b", 100))
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        b.accumulate_tokens("prod", ta)
+        b.accumulate_tokens("prod", tb)
+        rooms, delta = b.accumulate_tokens("prod", ta)
+        assert rooms["prod"]["in"] == 110, rooms
+        assert delta is None, delta
+    finally:
+        b.TOKENS_PATH = old_tokens_path
+
+
+def test_accumulate_tokens_dedups_by_message_id():
+    """Una risposta API spezzata su più righe (uuid diversi, stesso message.id) si conta una volta."""
+    tmp_dir = tempfile.mkdtemp()
+    t = os.path.join(tmp_dir, "t.jsonl")
+    old_tokens_path = b.TOKENS_PATH
+    b.TOKENS_PATH = os.path.join(tmp_dir, "tokens.json")
+    try:
+        with open(t, "w", encoding="utf-8") as f:
+            f.write(_assistant("id", "msg_1", 7))
+        b.accumulate_tokens("prod", t)
+        with open(t, "a", encoding="utf-8") as f:
+            f.write(_assistant("id", "msg_1", 7))
+        rooms, delta = b.accumulate_tokens("prod", t)
+        assert rooms["prod"]["in"] == 7 and delta is None, (rooms, delta)
+    finally:
+        b.TOKENS_PATH = old_tokens_path
+
+
+def test_accumulate_tokens_remembers_a_bounded_list():
+    tmp_dir = tempfile.mkdtemp()
+    t = os.path.join(tmp_dir, "t.jsonl")
+    old = (b.TOKENS_PATH, b.SEEN_MAX)
+    b.TOKENS_PATH, b.SEEN_MAX = os.path.join(tmp_dir, "tokens.json"), 3
+    try:
+        for i in range(5):
+            with open(t, "w", encoding="utf-8") as f:
+                f.write(_assistant("uuid", "k%d" % i, 1))
+            b.accumulate_tokens("prod", t)
+        assert b.load_tokens()["_seen"] == ["k2", "k3", "k4"], b.load_tokens()
+    finally:
+        b.TOKENS_PATH, b.SEEN_MAX = old
 
 
 def test_write_state_is_local_and_returns_the_snapshot():
@@ -277,9 +369,15 @@ def test_main_posttooluse_syncs_state_session_and_tokens_once():
 def main():
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
+    test_classify_bash_matches_whole_words_only()
+    test_subagent_room_prefers_exact_and_whole_words()
+    test_main_posttooluse_agent_reconciles()
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()
+    test_accumulate_tokens_two_terminals_interleaved()
+    test_accumulate_tokens_dedups_by_message_id()
+    test_accumulate_tokens_remembers_a_bounded_list()
     test_write_state_is_local_and_returns_the_snapshot()
     test_sync_sends_one_record_event()
     test_in_background_returns_before_the_job_ends()

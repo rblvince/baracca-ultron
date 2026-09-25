@@ -1833,9 +1833,14 @@ function showOffline(){
   }catch(e){}
 }
 
+/* le soglie di tempo stanno in hooks/soglie.py: il server le manda con la
+   config. Questi sono solo i valori di partenza, uguali, se la config non c'è. */
+var SOGLIE = {live_ms: 15*60*1000, subagente_ms: 20*60*1000};
+
 fetch("/api/config", {cache:"no-store"})
   .then(function(r){ return r.ok ? r.json() : null; })
   .then(function(cfg){
+    if(cfg && cfg.soglie) for(var k in SOGLIE) if(typeof cfg.soglie[k] === "number") SOGLIE[k] = cfg.soglie[k];
     if(cfg) initSupabase(cfg);
     /* niente USE_SUPABASE qui: la config che esiste non vuol dire che i dati
        arrivino. Lo alza solo il callback SUBSCRIBED di subscribeRealtime(). */
@@ -1853,7 +1858,7 @@ var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
    che il simulatore rianimi la scena. Gira sempre, con o senza Supabase:
    una sicurezza che vale solo in una delle due modalità non è una sicurezza. */
 function checkStaleWatchdog(){
-  if(LIVE && lastTs && Date.now()-lastTs > 900000){
+  if(LIVE && lastTs && Date.now()-lastTs > SOGLIE.live_ms){
     /* USE_SUPABASE resta com'è: con Realtime sano la prossima riga di
        agent_state riaccende il LIVE da sola (acceptLiveRow); spegnerlo
        rimandava cloni e mini-Ultron ai file locali fino al ricaricamento.
@@ -1862,30 +1867,51 @@ function checkStaleWatchdog(){
     var p = document.getElementById("mode");
     p.className = "pill demo"; p.textContent = "DEMO";
     renderTasks();
-    logEvent("deleg","sessione silenziosa da 15 min · torno alla demo");
+    logEvent("deleg","sessione silenziosa da "+Math.round(SOGLIE.live_ms/60000)+" min · torno alla demo");
   }
 }
 setInterval(checkStaleWatchdog, 60000);
 
+/* uno stato letto dai file locali, arrivato da /api/events o dal polling */
+function onLocalState(s){
+  if(!s || USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
+  /* live solo quando un evento vero è arrivato negli ultimi SOGLIE.live_ms:
+     se apri la pagina e Ultron non sta lavorando, resta la demo */
+  if(!LIVE && (!s.ts || Date.now()-s.ts > SOGLIE.live_ms)) return;
+  if(!LIVE){
+    LIVE = true;
+    var pill = document.getElementById("mode");
+    pill.className = "pill live"; pill.textContent = "LIVE";
+    renderTasks();
+    logEvent("deleg","collegato a <b>Claude Code</b>");
+  }
+  lastSeen = Date.now(); LAST_STATE = s;
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+}
+
+/* Server-Sent Events: il server manda stato, sessioni e sub-agenti appena gli
+   hook li riscrivono (e comunque ogni 30 s). Finché lo stream è aperto il
+   polling non parte; se cade, il browser lo riapre da solo e nel frattempo
+   si torna a chiedere come prima. */
+var STREAM_OK = false;
+(function openStream(){
+  if(!window.EventSource) return;
+  var es = new EventSource("/api/events");
+  es.onopen = function(){ STREAM_OK = true; };
+  es.onerror = function(){ STREAM_OK = false; };
+  function on(name, fn){
+    es.addEventListener(name, function(e){ var d; try{ d = JSON.parse(e.data); }catch(_){ return; } fn(d); });
+  }
+  on("state", onLocalState);
+  on("sessions", function(d){ if(auxSourceOk(false, USE_SUPABASE)) renderSessions(d); });
+  on("subagents", function(d){ if(auxSourceOk(false, USE_SUPABASE)) renderSubagents(d); });
+})();
+
 function poll(){
-  if(USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
+  if(USE_SUPABASE || STREAM_OK) return;
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(s){
-      if(!s) return;
-      /* live solo quando un evento vero è arrivato negli ultimi 15 minuti:
-         se apri la pagina e Ultron non sta lavorando, resta la demo */
-      if(!LIVE && (!s.ts || Date.now()-s.ts > 900000)) return;
-      if(!LIVE){
-        LIVE = true;
-        var pill = document.getElementById("mode");
-        pill.className = "pill live"; pill.textContent = "LIVE";
-        renderTasks();
-        logEvent("deleg","collegato a <b>Claude Code</b>");
-      }
-      lastSeen = Date.now(); LAST_STATE = s;
-      if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
-    })
+    .then(onLocalState)
     .catch(function(){});
 }
 setInterval(poll, 400);
@@ -1945,10 +1971,11 @@ function applyLive(s){
     else light();
   }
 
-  if(s.line) logEvent(s.status==="failing"?"fail":"write", s.line);
+  /* task è l'inizio di un comando Bash o di un pattern di grep: testo, mai HTML */
+  if(s.line) logEvent(s.status==="failing"?"fail":"write", esc(s.line));
   else if(s.tool) logEvent(
     s.status==="writing" ? "write" : s.status==="delegating" ? "deleg" : s.status==="failing" ? "fail" : "read",
-    "<b>"+s.tool+"</b> "+(s.node || s.task || (s.room ? R(s.room).n : "")));
+    "<b>"+esc(s.tool)+"</b> "+esc(s.node || s.task || (s.room ? R(s.room).n : "")));
   renderTasks();
 }
 
@@ -2151,7 +2178,7 @@ function renderSubagents(data){
 
 /* ripiego locale: gira solo finché Realtime non ha preso il comando */
 function pollAux(){
-  if(USE_SUPABASE) return; // Realtime + reloadAux() se ne occupano
+  if(USE_SUPABASE || STREAM_OK) return; // Realtime + reloadAux(), o /api/events
   fetch("/api/sessions", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
     .then(function(s){ if(s && auxSourceOk(false, USE_SUPABASE)) renderSessions(s); }).catch(function(){});
   fetch("/api/subagents", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
@@ -2180,12 +2207,12 @@ function reloadAux(){
     var uid = session.user.id, now = Date.now();
     var ks = SEQ_SESSIONS.next(), ka = SEQ_SUBAGENTS.next();
     supaClient.from("sessions").select("transcript_path,status,room,node,ts")
-      .eq("user_id", uid).gte("ts", now - 15*60*1000)
+      .eq("user_id", uid).gte("ts", now - SOGLIE.live_ms)
       .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE) && SEQ_SESSIONS.isLatest(ks)) renderSessions(sessionsFromRows(r.data)); })
       .catch(function(){});
     supaClient.from("subagents").select("id,room,agent,task,created_at")
       .eq("user_id", uid).is("finished_at", null)
-      .gte("created_at", new Date(now - 20*60*1000).toISOString())
+      .gte("created_at", new Date(now - SOGLIE.subagente_ms).toISOString())
       .then(function(r){ if(r && !r.error && r.data && auxSourceOk(true, USE_SUPABASE) && SEQ_SUBAGENTS.isLatest(ka)) renderSubagents(subagentsFromRows(r.data)); })
       .catch(function(){});
   }).catch(function(){});

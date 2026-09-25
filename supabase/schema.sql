@@ -50,6 +50,12 @@ create table token_usage (
   primary key (user_id, day, room, model)
 );
 
+-- migrazione 009: indici per claim/reap/reconcile degli hook e per le riletture della pagina
+create index subagents_user_created on subagents (user_id, created_at);
+create index subagents_user_agent on subagents (user_id, agent_id);
+create index subagents_user_tool_use on subagents (user_id, tool_use_id);
+create index sessions_user_ts on sessions (user_id, ts);
+
 -- upsert incrementale: PostgREST non sa fare "upsert che somma", serve una funzione.
 -- p_model e p_cache_write_1h dalla migrazione 007, con default per gli hook vecchi.
 create or replace function increment_token_usage(
@@ -130,7 +136,8 @@ alter publication supabase_realtime add table sessions, subagents;
 alter table sessions replica identity full;
 alter table subagents replica identity full;
 
--- avviso Discord su waiting (migrazione 004): segreto discord_webhook_baracca nel Vault
+-- avviso Discord su waiting (migrazione 004): segreti discord_webhook_baracca
+-- e (migrazione 010) discord_user_id nel Vault
 create extension if not exists pg_net;
 
 -- tetto: al massimo un messaggio ogni 5 minuti per utente. RLS attiva e
@@ -141,11 +148,15 @@ create table alert_throttle (
 );
 alter table alert_throttle enable row level security;
 
+-- corpo dalla migrazione 010: webhook e id da menzionare nel Vault
 create or replace function notify_waiting() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   hook text;
+  mention text;
   allowed boolean;
+  content text;
+  body jsonb;
 begin
   select decrypted_secret into hook from vault.decrypted_secrets
    where name = 'discord_webhook_baracca' limit 1;
@@ -162,14 +173,23 @@ begin
     return new;
   end if;
 
-  perform net.http_post(
-    url := hook,
-    body := jsonb_build_object(
-      'content', '<@727203879971979357> Ultron ti aspetta nella Baracca — '
-                 || to_char(now() at time zone 'Europe/Rome', 'HH24:MI'),
-      'allowed_mentions', jsonb_build_object('users', jsonb_build_array('727203879971979357'))),
-    headers := '{"Content-Type": "application/json"}'::jsonb
-  );
+  select decrypted_secret into mention from vault.decrypted_secrets
+   where name = 'discord_user_id' limit 1;
+  if mention !~ '^[0-9]+$' then
+    mention := null;   -- solo un id numerico: nient'altro finisce nel messaggio
+  end if;
+
+  content := 'Ultron ti aspetta nella Baracca — ' || to_char(now() at time zone 'Europe/Rome', 'HH24:MI');
+  if mention is null then
+    body := jsonb_build_object('content', content,
+                               'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb));
+  else
+    body := jsonb_build_object('content', '<@' || mention || '> ' || content,
+                               'allowed_mentions', jsonb_build_object('users', jsonb_build_array(mention)));
+  end if;
+
+  perform net.http_post(url := hook, body := body,
+                        headers := '{"Content-Type": "application/json"}'::jsonb);
   return new;
 end;
 $$;
