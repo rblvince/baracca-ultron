@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import sys as _sys
 _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hooks"))
 import supabase_client
+import soglie
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Ultron vault")
@@ -154,9 +155,9 @@ def read_state():
         data = {}
     now = int(time.time() * 1000)
     # a session that died mid-turn never writes "idle" — treat a stale
-    # "thinking"/"waiting"/"spawning" state (older than 10 minutes) as idle
-    # so the character doesn't freeze forever.
-    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > 10 * 60 * 1000:
+    # "thinking"/"waiting"/"spawning" state as idle so the character doesn't
+    # freeze forever.
+    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
         data = {"status": "idle", "area": None, "ts": now}
     data.setdefault("status", "idle")
     data.setdefault("area", None)
@@ -164,8 +165,8 @@ def read_state():
 
 
 def read_sessions():
-    """Un Ultron per terminale attivo: scarta le sessioni ferme da più di 15
-    minuti, stessa soglia con cui la pagina passa da LIVE a DEMO."""
+    """Un Ultron per terminale attivo: scarta le sessioni ferme da più di
+    soglie.LIVE_MS, stessa soglia con cui la pagina passa da LIVE a DEMO."""
     data = {}
     try:
         with open(SESSIONS_PATH, "r", encoding="utf-8") as f:
@@ -173,13 +174,13 @@ def read_sessions():
     except (OSError, json.JSONDecodeError):
         pass
     now = int(time.time() * 1000)
-    return {k: v for k, v in data.items() if now - v.get("ts", 0) < 15 * 60 * 1000}
+    return {k: v for k, v in data.items() if now - v.get("ts", 0) < soglie.LIVE_MS}
 
 
 def read_subagents():
-    """La coda di sub-agenti in corso: scarta le voci ferme da più di 20
-    minuti (un SubagentStop mai arrivato non deve lasciare un mini-Ultron
-    fantasma per sempre)."""
+    """La coda di sub-agenti in corso: scarta le voci ferme da più di
+    soglie.SUBAGENTE_MS (un SubagentStop mai arrivato non deve lasciare un
+    mini-Ultron fantasma per sempre)."""
     data = {"next_id": 1, "list": []}
     try:
         with open(SUBAGENTS_PATH, "r", encoding="utf-8") as f:
@@ -187,16 +188,18 @@ def read_subagents():
     except (OSError, json.JSONDecodeError):
         pass
     now = int(time.time() * 1000)
-    fresh = [s for s in data.get("list", []) if now - s.get("ts", 0) < 20 * 60 * 1000]
+    fresh = [s for s in data.get("list", []) if now - s.get("ts", 0) < soglie.SUBAGENTE_MS]
     return {"list": fresh}
 
 
 def config_payload():
     """Solo url + chiave anonima — MAI la service-role key, anche se presente
     nello stesso file di config. La chiave anonima non è un segreto nel
-    modello di Supabase: la sicurezza la fa la Row Level Security lato DB."""
+    modello di Supabase: la sicurezza la fa la Row Level Security lato DB.
+    Con le soglie di tempo, così la pagina non ne tiene una copia sua."""
     cfg = supabase_client.load_config()
-    return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", "")}
+    return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", ""),
+            "soglie": soglie.per_la_pagina()}
 
 
 def parse_missions():

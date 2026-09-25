@@ -18,7 +18,8 @@ def test_config_payload_never_leaks_service_key():
     }
     try:
         payload = srv.config_payload()
-        assert payload == {"url": "https://x.supabase.co", "anon_key": "anon-abc"}, payload
+        assert payload == {"url": "https://x.supabase.co", "anon_key": "anon-abc",
+                           "soglie": {"live_ms": 900000, "subagente_ms": 1200000}}, payload
         assert "SEGRETA-non-deve-uscire" not in str(payload), payload
     finally:
         srv.supabase_client.load_config = old_load
@@ -30,9 +31,21 @@ def test_config_payload_missing_config_returns_empty_strings():
     srv.supabase_client.load_config = lambda: {}
     try:
         payload = srv.config_payload()
-        assert payload == {"url": "", "anon_key": ""}, payload
+        assert payload["url"] == "" and payload["anon_key"] == "", payload
     finally:
         srv.supabase_client.load_config = old_load
+
+
+def test_page_defaults_match_the_thresholds():
+    """I valori di partenza di SOGLIE nella pagina (usati se la config non
+    arriva) devono essere quelli di hooks/soglie.py."""
+    import re
+    import soglie
+    html = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "baracca.html"), encoding="utf-8").read()
+    m = re.search(r"var SOGLIE = \{([^}]*)\}", html)
+    assert m, "var SOGLIE non trovata in baracca.html"
+    page = {k: eval(v, {}) for k, v in re.findall(r"(\w+):\s*([\d*]+)", m.group(1))}
+    assert page == soglie.per_la_pagina(), (page, soglie.per_la_pagina())
 
 
 def test_parse_missions_reads_only_mission_steps():
@@ -159,6 +172,7 @@ def test_foreign_host_and_origin_are_refused():
 def main():
     test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
+    test_page_defaults_match_the_thresholds()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
     test_panels_route_serves_only_the_bundle()

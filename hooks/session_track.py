@@ -26,13 +26,14 @@ import json
 import os
 import time
 
-CLAIM_WINDOW_S = 60  # una riga PreToolUse più vecchia di questo non è più reclamabile
+import soglie
+from soglie import CLAIM_WINDOW_S
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_PATH = os.path.join(HERE, "..", "state", "sessions.json")
 SUBAGENTS_PATH = os.path.join(HERE, "..", "state", "subagents.json")
 QUEUE_PATH = os.path.join(HERE, "..", "state", "supabase_queue.json")
-MAX_AGE_MS = 60 * 60 * 1000  # un'ora: oltre, la sessione/coda è morta per davvero
+MAX_AGE_MS = soglie.CONSERVA_MS
 QUEUE_MAX = 200              # senza rete la coda non cresce all'infinito
 NET_TIMEOUT = 10             # nel figlio staccato conviene aspettare, non perdere la riga
 
