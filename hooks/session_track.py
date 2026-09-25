@@ -63,6 +63,13 @@ def update_session(session_key, **fields):
     return dict(entry, transcript_path=session_key)
 
 
+def last_room(session_key):
+    """Il reparto dell'ultimo evento di questo terminale, o None."""
+    if not session_key:
+        return None
+    return (_load(SESSIONS_PATH, {}).get(session_key) or {}).get("room")
+
+
 def spawn_subagent(room, agent, task, tool_use_id=None):
     """Un Task è appena partito (PreToolUse): entra in coda. tool_use_id
     serve a reconcile_subagent() per accoppiare la riga al sub-agente vero."""

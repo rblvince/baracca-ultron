@@ -30,6 +30,22 @@ def test_update_session_writes_locally_and_returns_the_row():
         st.SESSIONS_PATH = old_sessions_path
 
 
+def test_last_room_reads_the_terminal_last_event():
+    tmp_dir = tempfile.mkdtemp()
+    old_sessions_path = st.SESSIONS_PATH
+    st.SESSIONS_PATH = os.path.join(tmp_dir, "sessions.json")
+    try:
+        assert st.last_room("/a") is None
+        st.update_session("/a", status="thinking", room="qa")
+        st.update_session("/b", status="writing", room="prod")
+        assert st.last_room("/a") == "qa" and st.last_room("/b") == "prod"
+        st.update_session("/a", status="thinking")   # istantanea senza reparto
+        assert st.last_room("/a") is None
+        assert st.last_room(None) is None
+    finally:
+        st.SESSIONS_PATH = old_sessions_path
+
+
 def test_spawn_subagent_calls_supabase_insert():
     import supabase_client
     calls = []
@@ -228,6 +244,7 @@ def main():
     test_reconcile_sets_missing_agent_id()
     test_reconcile_without_ids_or_row_does_nothing()
     test_update_session_writes_locally_and_returns_the_row()
+    test_last_room_reads_the_terminal_last_event()
     test_spawn_subagent_calls_supabase_insert()
     test_reap_subagent_closes_by_agent_id()
     test_reap_subagent_falls_back_to_fifo()
