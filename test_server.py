@@ -46,9 +46,16 @@ def test_read_skills_lists_installed_skills():
         if body is not None:
             with open(os.path.join(base, d, "SKILL.md"), "w", encoding="utf-8") as f:
                 f.write(body)
-    got = server.read_skills([base, os.path.join(base, "non-esiste")])
-    assert got == [{"name": "senza-frontmatter", "description": ""},
-                   {"name": "taste", "description": "anti-slop frontend"}], got
+    got = server.read_skills([base, os.path.join(base, "non-esiste")], os.path.join(base, "nessun-conteggio.json"))
+    assert got == [{"name": "senza-frontmatter", "description": "", "uses": 0},
+                   {"name": "taste", "description": "anti-slop frontend", "uses": 0}], got
+    # con i conteggi: prima le più usate, anche quelle dei plugin senza cartella
+    used = os.path.join(base, "skills_used.json")
+    with open(used, "w", encoding="utf-8") as f:
+        f.write('{"superpowers:brainstorming": 15, "taste": 3}')
+    got = server.read_skills([base], used)
+    assert [(s["name"], s["uses"]) for s in got] == [("superpowers:brainstorming", 15), ("taste", 3),
+                                                     ("senza-frontmatter", 0)], got
 
 
 def test_page_defaults_match_the_thresholds():

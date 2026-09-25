@@ -1381,11 +1381,11 @@ function sceneTasks(){ return LIVE ? [] : TASKS; }
 
 /* ================================================== GLI SPECIALISTI ==
    Le skill di Ultron non sono attrezzi in una cassa: sono persone, in piedi al loro posto lungo il
-   corridoio. Dal 26/09 sono SOLO le skill installate davvero (/api/skills legge le cartelle con
-   SKILL.md): i quattro "di serie" (OFFICINA, RICOGNIZIONE, ARCHIVIO, REPARTI) doppiavano la truppa,
+   corridoio. Dal 25/09 sono SOLO le skill vere (/api/skills: le cartelle con SKILL.md più quelle
+   usate, anche dei plugin): i quattro "di serie" (OFFICINA, RICOGNIZIONE, ARCHIVIO, REPARTI) doppiavano la truppa,
    che già risponde a Bash, letture, vault e sub-agenti, e sono stati tolti. Le skill che hanno un
    disegno loro (SKILL_CAST) lo tengono; le altre hanno un aspetto ricavato dal nome, sempre lo
-   stesso. Senza server (demo) resta il cast noto. Al massimo SK_MAX, i noti per primi. */
+   stesso. Senza server (demo) resta il cast noto. Al massimo SK_MAX, i più usati (state/skills_used.json). */
 var POST_Y = CORR.y + 30;                 /* la fila dei posti, contro il muro alto */
 var SKILL_CAST = [
   {id:"taste",   n:"TASTE",       d:"anti-slop frontend",   c:P.violet, icon:"palette", match:["taste"]},
@@ -1408,17 +1408,19 @@ function buildSkills(installed){
   var list = [];
   if(!installed || !installed.length) list = SKILL_CAST.slice();
   else {
-    var known = [], other = [];
+    /* l'ordine è quello del server: le più usate prima. "plugin:skill" si mostra senza il plugin,
+       e due nomi con la stessa skill ("impeccable", "impeccable:impeccable") sono una persona sola */
     installed.forEach(function(it){
       var nm = String(it.name || "").toLowerCase(); if(!nm) return;
       var k = SKILL_CAST.filter(function(c){ return c.match.some(function(w){ return nm.indexOf(w) >= 0; }); })[0];
-      if(k){ if(known.indexOf(k) < 0) known.push(k); return; }
-      var id = "sk:" + nm;
-      if(!Q_CAST[id]) Q_CAST[id] = castFromName(nm);
-      other.push({id:id, n:nm.replace(/[-_:]+/g, " ").toUpperCase().slice(0, 14), d:it.description || "skill",
-                  c:Q_CAST[id].shirt, icon:"generic", match:[nm]});
+      if(k){ if(list.indexOf(k) < 0) list.push(k); return; }
+      var short = nm.split(":").pop(), id = "sk:" + short;
+      var same = list.filter(function(x){ return x.id === id; })[0];
+      if(same){ same.match.push(nm); return; }
+      if(!Q_CAST[id]) Q_CAST[id] = castFromName(short);
+      list.push({id:id, n:short.replace(/[-_]+/g, " ").toUpperCase().slice(0, 14), d:it.description || "skill",
+                 c:Q_CAST[id].shirt, icon:"generic", match:[nm]});
     });
-    list = known.concat(other);
   }
   list = list.slice(0, SK_MAX);
   var old = {}; SKILLS.forEach(function(sk){ old[sk.id] = sk; });

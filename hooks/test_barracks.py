@@ -368,7 +368,23 @@ def test_main_posttooluse_syncs_state_session_and_tokens_once():
         b.sync, b.write_state, b.accumulate_tokens, session_track.update_session = old
 
 
+def test_skill_uses_are_counted():
+    old = b.SKILLS_USED_PATH
+    b.SKILLS_USED_PATH = os.path.join(tempfile.mkdtemp(), "skills_used.json")
+    try:
+        assert b.skill_name({"tool_name": "Skill", "tool_input": {"skill": "impeccable:impeccable"}}) == "impeccable:impeccable"
+        assert b.skill_name({"tool_name": "SlashCommand", "tool_input": {"command": "/gsap fai qualcosa"}}) == "gsap"
+        assert b.skill_name({"tool_name": "Bash", "tool_input": {"command": "ls"}}) is None
+        for n in ("gsap", "gsap", "taste", None):
+            b.count_skill(n)
+        with open(b.SKILLS_USED_PATH, encoding="utf-8") as f:
+            assert json.load(f) == {"gsap": 2, "taste": 1}
+    finally:
+        b.SKILLS_USED_PATH = old
+
+
 def main():
+    test_skill_uses_are_counted()
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
     test_classify_bash_matches_whole_words_only()

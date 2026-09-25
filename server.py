@@ -227,10 +227,22 @@ SKILL_DIRS = [os.path.expanduser("~/.claude/skills"), os.path.join(AGENT_HOME, "
               os.path.expanduser("~/.agents/skills"), os.path.join(AGENT_HOME, ".agents", "skills")]
 
 
-def read_skills(dirs=None):
-    """Le skill installate davvero: una cartella con SKILL.md in ~/.claude/skills o nel
-    progetto dell'agente. Nome e descrizione dal frontmatter (la cartella se manca).
-    La Baracca ne fa gli specialisti del corridoio. Sola lettura, niente altro del file."""
+SKILLS_USED_PATH = os.path.join(HERE, "state", "skills_used.json")
+
+
+def read_skills(dirs=None, used_path=None):
+    """Le skill installate davvero (una cartella con SKILL.md in ~/.claude/skills o nel
+    progetto dell'agente) più quelle usate (state/skills_used.json, scritto dagli hook:
+    ci sono anche le skill dei plugin, che non hanno una cartella qui). Nome e descrizione
+    dal frontmatter (la cartella se manca). Ordinate per usi, poi per nome: la Baracca
+    mette nel corridoio le prime. Sola lettura, niente altro del file."""
+    try:
+        with open(used_path or SKILLS_USED_PATH, encoding="utf-8") as f:
+            used = json.load(f)
+    except (OSError, ValueError):
+        used = {}
+    if not isinstance(used, dict):
+        used = {}
     out, seen = [], set()
     for base in dirs or SKILL_DIRS:
         try:
@@ -252,6 +264,10 @@ def read_skills(dirs=None):
                 continue
             seen.add(name)
             out.append({"name": name, "description": (meta.get("description") or "")[:140]})
+    out += [{"name": n, "description": ""} for n in used if n not in seen]
+    for it in out:
+        it["uses"] = used.get(it["name"], 0) if isinstance(used.get(it["name"]), int) else 0
+    out.sort(key=lambda it: (-it["uses"], it["name"]))
     return out
 
 
