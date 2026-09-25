@@ -55,6 +55,8 @@ def test_classify_lsp_and_review_skill_are_qa():
         assert (room, agent) == ("qa", "qualita-1"), (payload, room, agent)
     # una skill qualunque resta nel laboratorio
     assert b.classify({"tool_name": "Skill", "tool_input": {"skill": "gsap"}})[1] == "rs"
+    # e porta il suo nome: la Baracca ci trova lo specialista
+    assert b.classify({"tool_name": "Skill", "tool_input": {"skill": "gsap"}})[4] == "gsap"
 
 
 def test_classify_task_matches_spawn_helper():

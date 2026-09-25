@@ -370,6 +370,7 @@
   /* F1.3 nome al passaggio del mouse */
   .tip{position:absolute;z-index:4;pointer-events:none;padding:4px 8px;font-size:12px;color:var(--ink);background:var(--panel-lo);
     border:2px solid var(--bg);border-radius:6px;white-space:nowrap;transform:translate(-50%,-130%);}
+  .tip b{font-family:var(--arc);font-weight:400;color:var(--gold);}
   /* F2.2 tasti rapidi in un pannello, non una riga di testo minuscolo */
   .keysbtn{appearance:none;width:26px;height:26px;border:2px solid var(--bg);border-radius:6px;background:var(--surface);
     color:var(--ink);font:inherit;font-size:14px;cursor:pointer;box-shadow:inset 0 1px 0 var(--surface-hi);}
@@ -1055,10 +1056,6 @@ var Q_CAST = {
   "taste":    {skin:0, hair:"brown",  hairStyle:"long",  hat:"beret",  hatCol:"#6b3fa0", shirt:"#9b6fd6", held:"palette", w:12},
   "guide":    {skin:1, hair:"black",  hairStyle:"short", glasses:true, shirt:"#3f8fc9", held:"ruler", w:14, tall:1},
   "mkt":      {skin:3, hair:"black",  hairStyle:"bald",  beard:"stubble", shirt:"#d68a3c", held:"horn", w:16},
-  "vault":    {skin:0, hair:"brown",  hairStyle:"bun",   glasses:true, shirt:"#2f9aa3", held:"book", w:12},
-  "officina": {skin:2, hair:"dark",   hairStyle:"short", beard:"stubble", hat:"helmet", hatCol:"#e8b84a", shirt:"#2fb37f", held:"wrench", w:16},
-  "recon":    {skin:1, hair:"brown",  hairStyle:"short", hat:"cap", hatCol:"#8a7d68", shirt:"#8a7d68", held:"lens", w:14},
-  "reparti":  {skin:3, hair:"black",  hairStyle:"short", hat:"headset", shirt:"#e0574a", back:"radio", w:14},
   "regia":    {skin:0, hair:"grey",   hairStyle:"short", beard:"full", hat:"beret", hatCol:"#2a2018", shirt:"#c97a3c", held:"viewfinder", w:14}
 };
 
@@ -1383,36 +1380,58 @@ var delivered = 0, nextId = 5, DELIVERED_LOG = [];
 function sceneTasks(){ return LIVE ? [] : TASKS; }
 
 /* ================================================== GLI SPECIALISTI ==
-   Le skill di Ultron non sono attrezzi in una cassa: sono persone. Sette
-   specialisti in piedi al loro posto lungo il corridoio, ognuno con il
-   suo mestiere addosso. Quando Ultron ha bisogno di uno di loro ci va,
-   si parlano, quello gli passa il suo attrezzo e poi lo segue nel
-   reparto finché serve, prima di tornare al posto.
-   I primi tre sono le skill installate davvero nella cartella
-   (skills-lock.json + ai-marketing-skills); gli altri quattro sono
-   l'equipaggiamento di serie, che è poi quello che gli hook riportano. */
+   Le skill di Ultron non sono attrezzi in una cassa: sono persone, in piedi al loro posto lungo il
+   corridoio. Dal 26/09 sono SOLO le skill installate davvero (/api/skills legge le cartelle con
+   SKILL.md): i quattro "di serie" (OFFICINA, RICOGNIZIONE, ARCHIVIO, REPARTI) doppiavano la truppa,
+   che già risponde a Bash, letture, vault e sub-agenti, e sono stati tolti. Le skill che hanno un
+   disegno loro (SKILL_CAST) lo tengono; le altre hanno un aspetto ricavato dal nome, sempre lo
+   stesso. Senza server (demo) resta il cast noto. Al massimo SK_MAX, i noti per primi. */
 var POST_Y = CORR.y + 30;                 /* la fila dei posti, contro il muro alto */
-var SKILLS = [
-  {id:"taste",   n:"TASTE",       d:"anti-slop frontend",   c:P.violet, icon:"palette", match:"taste",     x:150},
-  {id:"guide",   n:"GUIDELINES",  d:"audit UI",             c:P.blue,   icon:"ruler",   match:"guideline", x:560},
-  {id:"mkt",     n:"MARKETING",   d:"copy e funnel",        c:P.gold,   icon:"horn",    match:"marketing", x:700},
-  {id:"vault",   n:"ARCHIVIO",    d:"Read/Write nel vault", c:P.cyan,   icon:"book",    match:"vault",     x:840},
-  {id:"officina",n:"OFFICINA",    d:"Bash, codice, build",  c:P.green,  icon:"wrench",  match:"bash",      x:1230},
-  {id:"recon",   n:"RICOGNIZIONE",d:"Grep, Glob, Web",      c:P.ink,    icon:"lens",    match:"search",    x:1370},
-  {id:"reparti", n:"REPARTI",     d:"Task · sottoagenti",   c:P.red,    icon:"radio",   match:"task",      x:1510},
+var SKILL_CAST = [
+  {id:"taste",   n:"TASTE",       d:"anti-slop frontend",   c:P.violet, icon:"palette", match:["taste"]},
+  {id:"guide",   n:"GUIDELINES",  d:"audit UI",             c:P.blue,   icon:"ruler",   match:["guideline"]},
+  {id:"mkt",     n:"MARKETING",   d:"copy e funnel",        c:P.gold,   icon:"horn",    match:["marketing"]},
   {id:"regia",   n:"REGIA",       d:"video, render, sceneggiatura", c:P.amber, icon:"reel",
-   match:["resolve","davinci","blender","sceneggiat","screenwriter","render","shot","hailuo","animatic"], x:1650}
+   match:["resolve","davinci","blender","sceneggiat","screenwriter","render","shot","hailuo","animatic","video"]}
 ];
-SKILLS.forEach(function(sk){
-  sk.homeX = sk.x; sk.y = POST_Y; sk.face = 1; sk.v = 240; sk.phase = 0;
-  sk.path = []; sk.moving = false; sk.uses = 0; sk.escort = null;
-  sk.idleSeed = Math.random()*6.283;
-  sk.wandering = false; sk.wanderAt = -1; sk.wTX = sk.x; sk.wTY = sk.y;
-});
-/* specialisti in fila lungo il tratto alto dell'anello (CORR) */
-SKILLS.forEach(function(sk, i){
-  sk.x = sk.homeX = sk.wTX = Math.round(CORR.x + 40 + i*(CORR.w-80)/(SKILLS.length-1));
-});
+var SKILLS = [], SK_MAX = 10;
+var SK_SHIRTS = [P.violet, P.blue, P.gold, P.amber, P.cyan, P.green, "#c96f9a", "#8fa6d6", "#b0c04a", "#d9483a"];
+function hashName(t){ var h = 7; for(var i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0; return h; }
+/* l'aspetto di uno specialista senza scheda: tutto dal nome, così non cambia da un giorno all'altro */
+function castFromName(nm){
+  var h = hashName(nm);
+  return {skin:h % 4, hair:["dark","brown","ginger","grey","black","blond","white"][(h >>> 2) % 7],
+          hairStyle:["short","long","bun","spiky","messy","bald"][(h >>> 5) % 6], glasses:!!((h >>> 8) & 1),
+          shirt:SK_SHIRTS[(h >>> 9) % SK_SHIRTS.length], held:["book","clip","lens","ruler","case"][(h >>> 13) % 5], w:12 + (h >>> 16) % 4};
+}
+function buildSkills(installed){
+  var list = [];
+  if(!installed || !installed.length) list = SKILL_CAST.slice();
+  else {
+    var known = [], other = [];
+    installed.forEach(function(it){
+      var nm = String(it.name || "").toLowerCase(); if(!nm) return;
+      var k = SKILL_CAST.filter(function(c){ return c.match.some(function(w){ return nm.indexOf(w) >= 0; }); })[0];
+      if(k){ if(known.indexOf(k) < 0) known.push(k); return; }
+      var id = "sk:" + nm;
+      if(!Q_CAST[id]) Q_CAST[id] = castFromName(nm);
+      other.push({id:id, n:nm.replace(/[-_:]+/g, " ").toUpperCase().slice(0, 14), d:it.description || "skill",
+                  c:Q_CAST[id].shirt, icon:"generic", match:[nm]});
+    });
+    list = known.concat(other);
+  }
+  list = list.slice(0, SK_MAX);
+  var old = {}; SKILLS.forEach(function(sk){ old[sk.id] = sk; });
+  SKILLS.length = 0;
+  list.forEach(function(base, i){
+    var sk = old[base.id] || Object.assign({}, base, {y:POST_Y, face:1, v:240, phase:0, path:[], moving:false, uses:0, escort:null});
+    sk.homeX = Math.round(CORR.x + 40 + (list.length > 1 ? i*(CORR.w-80)/(list.length-1) : (CORR.w-80)/2));
+    if(!old[base.id]) sk.x = sk.homeX;
+    else if(!sk.escort) goToPoint(sk, sk.homeX, POST_Y, function(a){ a.face = 1; });
+    SKILLS.push(sk);
+  });
+}
+buildSkills(null);
 
 function skillBy(id){ return SKILLS.filter(function(s){ return s.id===id; })[0]; }
 var SK_AT = 0;
@@ -1462,15 +1481,6 @@ function skIcon(g, kind, col, ox, oy){
   } else if(kind==="horn"){
     r(2,3,3,5,P.out); r(5,1,4,9,P.out); r(6,2,2,7,col); r(3,4,2,3,col);
     r(9,2,1,2,P.ink); r(9,6,1,2,P.ink);
-  } else if(kind==="book"){
-    r(1,1,10,9,P.out); r(2,2,4,7,col); r(7,2,4,7,P.paper);
-    r(8,4,2,1,P.metalDk); r(8,6,2,1,P.metalDk); r(6,1,1,9,P.woodDk);
-  } else if(kind==="wrench"){
-    r(2,7,7,2,P.out); r(3,7,5,1,col);
-    r(1,5,4,4,P.out); r(2,6,2,2,col); r(8,2,3,4,P.out); r(9,3,1,2,col);
-  } else if(kind==="lens"){
-    r(2,1,7,7,P.out); r(3,2,5,5,"#123028"); r(4,3,3,1,col); r(4,5,2,1,col);
-    r(8,7,3,3,P.out); r(9,8,1,1,P.metalLt);
   } else if(kind==="reel"){
     r(1,0,8,8,P.out); r(2,1,6,6,col);
     r(4,3,2,2,P.out);
@@ -1533,22 +1543,13 @@ function stepSpecs(){
   SKILLS.forEach(function(sk){ if(sk.escort && sk.hotUntil && now > sk.hotUntil) sendHome(sk); });
 }
 /* chi serve per l'evento che è appena arrivato dagli hook */
+/* solo le skill chiamano uno specialista: Bash, letture, vault e sub-agenti li fa la truppa */
 function skillForEvent(s){
   var tool = s.tool || "";
-  if(tool === "Skill" || tool === "SlashCommand"){
-    var raw = ((s.task||"")+" "+(s.node||"")).toLowerCase();
-    var m = SKILLS.filter(function(k){
-      var words = Array.isArray(k.match) ? k.match : [k.match];
-      return words.some(function(w){ return raw.indexOf(w) >= 0; });
-    })[0];
-    return m ? m.id : "taste";
-  }
-  if(tool === "Task" || tool === "Agent") return "reparti";
-  if(/^(Bash|BashOutput|KillShell)$/.test(tool)) return "officina";
-  if(/^(WebSearch|WebFetch|Grep|Glob)$/.test(tool)) return "recon";
-  if(/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(tool)) return s.node ? "vault" : "officina";
-  if(/^(Read|NotebookRead)$/.test(tool)) return s.node ? "vault" : "recon";
-  return null;
+  if(tool !== "Skill" && tool !== "SlashCommand") return null;
+  var raw = ((s.task||"")+" "+(s.node||"")).toLowerCase();
+  var m = SKILLS.filter(function(k){ return k.match.some(function(w){ return raw.indexOf(w) >= 0; }); })[0];
+  return m ? m.id : null;
 }
 /* gli specialisti si disegnano con la truppa, prima di Ultron */
 function drawSpecs(t, det){
@@ -1565,9 +1566,6 @@ function drawSpecs(t, det){
     drawSprite(img, sk.x, sk.y, 2.2, sk.face<0);
     if(give) drawSprite(BUBBLE, sk.x+14, sk.y-72, 2, false);
     if(give) drawSprite(skItem(sk), sk.x+14, sk.y-78, 1.4, false);
-    if(det > .3) label(sk.n, sk.x, sk.y-76, hot ? sk.c : P.ink);
-    if(det > .55) label(sk.moving ? (sk.escort ? "VA IN " + R(sk.escort).n : "TORNA AL POSTO") : sk.escort ? "AL LAVORO" : "AL POSTO",
-                        sk.x, sk.y+16, P.gold);
   });
 }
 /* il passaggio di consegne: dopo Ultron, così vola sopra tutti */
@@ -1749,7 +1747,6 @@ function drawWork(t){
       ctx.beginPath(); ctx.ellipse(ux, uy-18, 12 + a*120, (12 + a*120)*.55, 0, 0, 6.2832); ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    if(w.text) label("« " + w.text + " »", ux, uy + 30, col);
   } else if(w.kind === "wave"){
     var ang = Math.atan2(uy - WORLD.h/2, ux - WORLD.w/2), ax = ux, ay = uy - 92;
     ctx.lineWidth = 3; ctx.strokeStyle = col;
@@ -1805,7 +1802,6 @@ function drawPiles(det){
     var n = coinCount(TOKOUT[r.id] || 0); if(!n) return;
     var p = cassaAt(r);
     for(var i=0;i<n;i++) ctx.drawImage(COIN, p.x - 12, p.y - 12 - i*7, 24, 12);
-    if(det > .3) label(fmtTok(TOKOUT[r.id]) + " out", p.x, p.y + 20, P.khaki);
   });
 }
 /* i token spesi da un evento: "+1,2k" che sale da Ultron e una moneta che vola alla cassa del reparto */
@@ -1903,7 +1899,7 @@ function drawCompact(t){
       drawSprite(SHEET, lerp(f.x, sp.x + 18, k), lerp(f.y, sp.y - 30, k) - Math.sin(k*Math.PI)*36, 1.6 - k*.8, false);
     }
     if(near){ fillPx(sp.x + 8, sp.y - 30 - size/2, size, size, P.out); fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, size - 4, P.paper);
-              fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, 2, "#b9a47c"); label("COMPATTA", sp.x, sp.y + 22, "#9fb04a"); }
+              fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, 2, "#b9a47c"); }
     return;
   }
   var k2 = (now - C.done)/800;
@@ -1931,7 +1927,6 @@ function drawGate(t){
   for(var i=0;i<3;i++){ if(w > 8 + i*12){ ctx.fillRect(gx - 46 + 4 + i*12, gy - 10, 5, 20); ctx.fillRect(gx + 46 - 9 - i*12, gy - 10, 5, 20); } }
   if(o > .05){ ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(143,166,214," + (o*.35) + ")"; ctx.fillRect(gx - 46 + w, gy - 10, 92 - 2*w, 20); }
   ctx.restore();
-  if(cam.s > .3) label("PORTELLONE", gx, gy + 34, P.ink);
 }
 
 /* GUARDIANO · Notification di permesso. Claude chiede di usare uno strumento: il Guardiano si mette
@@ -1961,7 +1956,7 @@ function drawBarrier(t){
   for(var i=0;i*12 < L-2;i++){ ctx.fillStyle = i%2 ? "#f4f1e6" : (B.up ? "#2aa883" : "#d9483a"); ctx.fillRect(-L + 2 + i*12, -3, Math.min(12, L - 2 - i*12), 6); }
   ctx.restore();
   fillPx(px0 - 4, py0 - 26, 8, 34, P.out); fillPx(px0 - 2, py0 - 24, 4, 30, "#8d949a"); fillPx(px0 - 3, py0 - 28, 6, 4, B.up ? "#3fdc7a" : "#e0483a");
-  if(!B.up) label("PERMESSO · " + B.what, (g.x + ULTRON.x)/2, ULTRON.y - 124, "#e0483a", "alert");
+  if(!B.up) label("PERMESSO · " + B.what, (g.x + ULTRON.x)/2, ULTRON.y - 124, "#e0483a");
 }
 
 /* ECONOMO · cache riscritta. Ogni evento porta i token del turno; quando la cache si riscrive per
@@ -2065,14 +2060,14 @@ function fitAll(){
   cam.tx = WORLD.w/2; cam.ty = WORLD.h/2 - 45/cam.ts;
 }
 function focusRoom(r){
-  focus = r;
+  focus = r; if(tipEl) tipEl.hidden = true;           /* la camera si sposta: il nome resterebbe nel posto sbagliato */
   cam.ts = Math.min(VW/(r.w+120), VH/(r.h+120));
   cam.tx = r.x+r.w/2; cam.ty = r.y+r.h/2;
   if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>"+r.n+"</b>";
   document.getElementById("hint").textContent = "esc per tornare alla base";
 }
 function unfocus(){
-  focus = null; fitAll();
+  focus = null; fitAll(); if(tipEl) tipEl.hidden = true;
   if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>vista generale</b>";
   document.getElementById("hint").textContent = "clicca un settore per entrarci";
 }
@@ -2094,7 +2089,7 @@ window.addEventListener("pointermove", function(e){
   lastX=e.clientX; lastY=e.clientY;
 });
 cv.addEventListener("wheel", function(e){
-  e.preventDefault(); cam.ts = clamp(cam.ts*Math.exp(-e.deltaY*.0015),.22,2.4);
+  e.preventDefault(); cam.ts = clamp(cam.ts*Math.exp(-e.deltaY*.0015),.22,2.4); if(tipEl) tipEl.hidden = true;
 }, {passive:false});
 window.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName === "INPUT")) return;   /* si scrive nel login, non si comandano scorciatoie */
@@ -2166,7 +2161,8 @@ function demoTurn(){
     {status:"reading", room:"ricerca", tool:"Read", tok:900, cw: n % 3 === 0 ? 48000 : 2000},
     {status:"reading", room:"ricerca", tool:"Grep", task:"function goTo", tok:400},
     {status:"spawning", room:"ricerca", agent:"ricerca-1", task:"trova dove nascono i cloni", sub:"add"},
-    {status:"writing", room:"prod", tool:"Edit", tok:2600});
+    {status:"writing", room:"prod", tool:"Edit", tok:2600},
+    {status:"thinking", room:"rs", tool:"Skill", task:SKILLS.length ? SKILLS[n % SKILLS.length].match[0] : "taste", tok:600});
   if(fail) st.push({status:"failing", room:"prod", tool:"Bash", task:"npm test -- --run", tok:500},
                    {status:"writing", room:"prod", tool:"Edit", tok:1800});
   st.push({status:"waiting", line:"permesso · Bash"}, test,
@@ -2412,6 +2408,12 @@ fetch("/api/config", {cache:"no-store"})
   })
   .catch(function(){});
 
+/* gli specialisti sono le skill installate davvero; senza server resta il cast noto */
+fetch("/api/skills", {cache:"no-store"})
+  .then(function(r){ return r.ok ? r.json() : null; })
+  .then(function(list){ if(Array.isArray(list) && list.length) buildSkills(list); })
+  .catch(function(){});
+
 var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
 /* Il ponte con Claude Code: gli hook scrivono un file, il server lo serve,
    la pagina lo chiede quattro volte al secondo. Se non risponde nessuno,
@@ -2528,7 +2530,11 @@ function applyLive(s){
   if(s.agent){
     var a = crewBy(s.agent) || crewBy(({ricerca:"ricerca-1", prod:"produzione-1",
       qa:"qualita-1", pub:"orchestratore", vault:"custode", rs:"orchestratore"})[s.room] || "");
-    if(a && s.room && R(s.room)) goTo(a, s.room);
+    /* già lì a lavorare: resta al suo posto, l'evento lo trattiene; altrimenti ci va */
+    if(a && s.room && R(s.room)){
+      if(a.room === s.room && !(a.path && a.path.length)){ a.calledAt = Date.now(); a.resting = false; }
+      else goTo(a, s.room);
+    }
     /* Volt e Doc abitano spedizioni e laboratorio: se il reparto lavora, si muovono anche loro */
     var res = ({pub:"volt", rs:"doc"})[s.room];
     if(res && crewBy(res) && crewBy(res).room !== s.room) goTo(crewBy(res), s.room);
@@ -3180,33 +3186,21 @@ function drawEmotes(now){
   }
 }
 
-/* etichette: raccolte durante il disegno del mondo, poi scritte sopra tutto IN PIXEL DI SCHERMO
-   (26/09): prima erano 10 unità mondo, cioè 4 px nella vista generale e mai più di ~12 nemmeno
-   da vicino, e i nomi delle sottostanze (POSTA, CABINA...) non si leggevano. Ora hanno una
-   misura fissa che cresce appena con lo zoom, su una targhetta scura. Quelle che si toccano si
-   saltano per priorità: prima ULTRON, poi i nomi, poi le stanze, per ultime le scritte di stato. */
-var LABELS = [], LABEL_STATUS = {"AL POSTO":1, "IN CAMMINO":1, "AL LAVORO":1, "TORNA AL POSTO":1};
-function label(txt, x, y, col, kind){ if(txt) LABELS.push({txt:txt, x:x, y:y, col:col, kind:kind}); }
-function labelRank(l){
-  return l.kind === "room" || l.kind === "alert" ? 0 : l.txt === "ULTRON" ? 0 : (LABEL_STATUS[l.txt] || l.txt.indexOf("VA IN ") === 0) ? 4 : l.kind === "cell" ? 3 : l.col === P.ink ? 2 : 1;
-}
+/* etichette: nella scena restano solo le scritte degli eventi, che durano pochi secondi
+   (i token spesi, il permesso chiesto); i nomi si leggono passandoci sopra (hoverAt).
+   Si scrivono in pixel di schermo su una targhetta, leggibili a ogni zoom. */
+var LABELS = [];
+function label(txt, x, y, col){ if(txt) LABELS.push({txt:txt, x:x, y:y, col:col}); }
 function drawLabels(){
   ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  var big = Math.round(clamp(10 + cam.s*3, 11, 15)), kept = [];
-  LABELS.map(function(l, i){ l.i = i; return l; })
-    .sort(function(a, b){ return labelRank(a) - labelRank(b) || a.i - b.i; })
-    .forEach(function(l){
-      var sz = l.kind === "room" ? big + 4 : labelRank(l) >= 3 ? big - 1 : big;
-      var sx = Math.round((l.x - cam.x)*cam.s + VW/2), sy = Math.round((l.y - cam.y)*cam.s + VH/2);
-      if(sx < -80 || sx > VW + 80 || sy < -20 || sy > VH + 20) return;
-      ctx.font = sz + "px 'Silkscreen', monospace";
-      var w = ctx.measureText(l.txt).width, bx = {x0:sx-w/2-5, x1:sx+w/2+5, y0:sy-sz/2-4, y1:sy+sz/2+3};
-      for(var j=0;j<kept.length;j++){ var o = kept[j]; if(bx.x0 < o.x1 && bx.x1 > o.x0 && bx.y0 < o.y1 && bx.y1 > o.y0) return; }
-      kept.push(bx);
-      ctx.fillStyle = "rgba(3,13,20,.82)"; ctx.fillRect(bx.x0, bx.y0, bx.x1-bx.x0, bx.y1-bx.y0);
-      if(l.kind === "cell" || l.kind === "room"){ var bh = l.kind === "room" ? 3 : 2; ctx.fillStyle = l.col; ctx.fillRect(bx.x0, bx.y1-bh, bx.x1-bx.x0, bh); }
-      ctx.fillStyle = l.kind === "cell" || l.kind === "room" ? P.ink : l.col; ctx.fillText(l.txt, sx, sy);
-    });
+  var sz = Math.round(clamp(10 + cam.s*3, 11, 15));
+  ctx.font = sz + "px 'Silkscreen', monospace";
+  LABELS.forEach(function(l){
+    var sx = Math.round((l.x - cam.x)*cam.s + VW/2), sy = Math.round((l.y - cam.y)*cam.s + VH/2);
+    var w = ctx.measureText(l.txt).width;
+    ctx.fillStyle = "rgba(3,13,20,.82)"; ctx.fillRect(sx-w/2-5, sy-sz/2-4, w+10, sz+7);
+    ctx.fillStyle = l.col; ctx.fillText(l.txt, sx, sy);
+  });
   ctx.restore();
   LABELS.length = 0;
 }
@@ -3229,7 +3223,6 @@ function drawRoomLive(r, det, t){
       ctx.strokeStyle = h>.05 ? "rgba(242,193,78,"+(0.2+h*.7)+")" : "rgba(0,0,0,.45)";
       ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
     });
-    FOLDERS.forEach(function(f){ label(f.n, f.cx, f.cy-f.r-10, f.c); });
     NODES.forEach(function(n){
       n.heat *= .99;
       if(n.heat > .05){
@@ -3238,7 +3231,6 @@ function drawRoomLive(r, det, t){
         ctx.globalAlpha = .35+det*.65;
       }
       drawSprite(OBJ.node, n.x, n.y, 2.2, false);
-      if(n.heat > .3) label(n.n, n.x, n.y-24, P.gold);
     });
     for(var i=pulses.length-1;i>=0;i--){
       var p = pulses[i], a = NODES[p.a], b = NODES[p.b];
@@ -3417,28 +3409,65 @@ function renderHud(){
 }
 buildHud();
 
-/* F1.3 nome di chi c'è sotto il mouse */
-var tipEl = document.getElementById("tip");
-function actorAt(p){
-  var best = null, bd = 44;
-  function test(x, y, txt){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y, t:txt}; } }
-  test(ULTRON.x, ULTRON.y, "ULTRON · " + nowDoing());
-  CREW.forEach(function(a){ test(a.x, a.y, a.n + " · " + a.id.replace("-", " ") + " · " + (a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "portellone")); });
-  SKILLS.forEach(function(k){ test(k.x, k.y, k.n + " · " + k.d); });
-  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · altra sessione"); });
-  return best;
+/* F1.3 i nomi si leggono solo passandoci sopra (26/09: le scritte fisse coprivano la scena).
+   Prima chi è in scena (persone, cloni, sub-agenti), poi le cose (portellone, casse, pile),
+   poi la sottostanza col suo mestiere, poi il reparto. */
+var tipEl = document.getElementById("tip"), HOVER_CELL = null;
+var CREW_ROLE = {"orchestratore":"coordina, sub-agenti e spedizioni", "ricerca-1":"letture, ricerche nel codice e sul web",
+  "produzione-1":"comandi, modifiche e file nuovi", "qualita-1":"test, lint e collaudo", "custode":"il vault: note lette e scritte",
+  "volt":"carica le spedizioni", "doc":"il laboratorio", "marconi":"il filo con te: prompt, attese, fine turno",
+  "spazzino":"compatta il contesto", "portinaio":"apre il portellone ai terminali", "guardiano":"ferma Ultron quando serve un permesso",
+  "economo":"annota le riscritture della cache"};
+var CELL_DESC = {
+  "ricerca:read":"file letti", "ricerca:grep":"ricerca nel codice (Grep)", "ricerca:glob":"cerca file (Glob)",
+  "ricerca:search":"ricerca web", "ricerca:fetch":"pagine web scaricate",
+  "prod:edit":"modifiche ai file", "prod:write":"file nuovi", "prod:bash":"comandi nel terminale", "prod:forge":"tutto il resto dell'officina",
+  "qa:test":"test", "qa:lint":"lint, build, typecheck", "qa:diff":"git diff e status", "qa:review":"review e language server",
+  "vault:read":"note lette", "vault:write":"note scritte", "vault:index":"ricerche nel vault", "vault:core":"il grafo delle note",
+  "pub:dock":"git push", "pub:ramp":"deploy e pubblicazioni",
+  "rs:browser":"il browser", "rs:skill":"le skill", "rs:plan":"piani e liste di compiti", "rs:mcp":"strumenti MCP", "rs:booth":"strumenti caricati al volo"
+};
+function hoverAt(p){
+  var best = null, bd = Math.max(26, 22/cam.s);
+  function test(x, y, name, info){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y-70, n:name, t:info}; } }
+  test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : ""));
+  CREW.forEach(function(a){
+    var carry = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
+    test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
+  });
+  SKILLS.forEach(function(k){
+    test(k.x, k.y, k.n, k.d + " · " + (k.moving ? (k.escort ? "va in " + R(k.escort).n.toLowerCase() : "torna al posto") : k.escort ? "al lavoro in " + R(k.escort).n.toLowerCase() : "al posto"));
+  });
+  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON", c.leaving ? "un altro terminale · esce" : "un altro terminale"); });
+  MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro"); });
+  if(best) return best;
+  var things = [];
+  things.push({x:GATE.x, y:GATE.y, n:"PORTELLONE", t:"da qui entrano ed escono i terminali"});
+  ROOMS.forEach(function(r){ if(TOKOUT[r.id]){ var q = cassaAt(r); things.push({x:q.x, y:q.y - 20, n:"CASSA · " + r.n, t:fmtTok(TOKOUT[r.id]) + " token d'uscita da quando è aperta la pagina"}); } });
+  Object.keys(SHEETS).forEach(function(k){
+    var c = RING.cells.filter(function(q){ return q.room + ":" + q.id === k; })[0];
+    if(c){ var q = pileAt(c); things.push({x:q.x, y:q.y - 10, n:"PILA · " + c.n, t:SHEETS[k] + " file scritti da quando è aperta la pagina"}); }
+  });
+  sceneTasks().forEach(function(k){ if(!k.carrier) things.push({x:k.x, y:k.y - 20, n:"CASSA", t:k.t + " · " + Math.round(k.p*100) + "%"}); });
+  things.forEach(function(o){ var d = Math.hypot(p.x-o.x, p.y-o.y); if(d < bd){ bd = d; best = {x:o.x, y:o.y - 40, n:o.n, t:o.t}; } });
+  if(best) return best;
+  var c = cellAt(p.x, p.y);
+  if(c) return {x:p.x, y:p.y - 20, n:c.n, t:R(c.room).n.toLowerCase() + " · " + (CELL_DESC[c.room + ":" + c.id] || ""), cell:c};
+  var r = roomAt(p.x, p.y);
+  if(r) return {x:p.x, y:p.y - 20, n:r.n, t:"clicca per entrare"};
+  return null;
 }
 cv.addEventListener("pointermove", function(e){
-  if(down){ tipEl.hidden = true; return; }
-  var b = cv.getBoundingClientRect(), hit = actorAt(s2w(e.clientX-b.left, e.clientY-b.top));
-  tipEl.hidden = !hit;
+  if(down){ tipEl.hidden = true; HOVER_CELL = null; return; }
+  var b = cv.getBoundingClientRect(), hit = hoverAt(s2w(e.clientX-b.left, e.clientY-b.top));
+  tipEl.hidden = !hit; HOVER_CELL = hit && hit.cell || null;
   if(hit){
-    tipEl.textContent = hit.t;
+    tipEl.innerHTML = "<b>" + esc(hit.n) + "</b>" + (hit.t ? " · " + esc(hit.t) : "");
     tipEl.style.left = ((hit.x-cam.x)*cam.s + VW/2) + "px";
-    tipEl.style.top = ((hit.y-70-cam.y)*cam.s + VH/2) + "px";
+    tipEl.style.top = ((hit.y-cam.y)*cam.s + VH/2) + "px";
   }
 });
-cv.addEventListener("pointerleave", function(){ tipEl.hidden = true; });
+cv.addEventListener("pointerleave", function(){ tipEl.hidden = true; HOVER_CELL = null; });
 
 /* F3.1 strato a comando (tasto O): token di output e tempo per cupola */
 var OVERLAY = false;
@@ -3712,14 +3741,16 @@ var THEME = {
     stadium(ctx, r, 0, 0, 16); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(95,243,255,.5)"; ctx.stroke();
     /* la sottostanza dove lavora Ultron si accende del colore del reparto; i nomi da vicino */
     var mine = cellAt(ULTRON.x, ULTRON.y);
-    label(r.n, r.x + r.w/2, DEMO.cells[r.id].hall, r.c, "room");
     RING.cells.forEach(function(c){
       if(c.room !== r.id) return;
+      if(c === HOVER_CELL && c !== mine){
+        ctx.save(); ctx.strokeStyle = "rgba(251,238,220,.55)"; ctx.lineWidth = 2/cam.s;
+        ctx.beginPath(); ctx.roundRect(c.x+5, c.y+5, c.w-10, c.h-10, 14); ctx.stroke(); ctx.restore();
+      }
       if(c === mine){
         ctx.save(); ctx.strokeStyle = r.c; ctx.lineWidth = 4/cam.s; ctx.shadowColor = r.c; ctx.shadowBlur = 14;
         ctx.beginPath(); ctx.roundRect(c.x+5, c.y+5, c.w-10, c.h-10, 14); ctx.stroke(); ctx.restore();
       }
-      label(c.n, c.x + c.w/2, (c.side === "t" ? c.y + c.h - 16 : c.y + 20), c === mine ? r.c : "rgba(" + hexRgb(r.c) + ",.7)", "cell");
     });
     ctx.restore();
   },
@@ -3982,7 +4013,6 @@ function drawWorld(t){
     drawSprite(OBJ.crate, k.x, k.y, 2, false);
     ctx.fillStyle = P.out; ctx.fillRect(k.x-20,k.y-46,40,7);
     ctx.fillStyle = k.st==="qa" ? P.red : P.gold; ctx.fillRect(k.x-19,k.y-45,38*k.p,5);
-    if(det > .45) label(k.t.slice(0,13), k.x, k.y-52, P.ink);
   });
   drawPiles(det);
   drawSpecs(t, det);
@@ -3994,16 +4024,13 @@ function drawWorld(t){
     if(carrying){
       var cy = a.y - 62 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0);
       drawSprite(OBJ.crate, a.x, cy, 2, false);
-      if(det > .45) label(carrying.t.slice(0,13), a.x, cy-42, P.ink);
     }
-    if(det > .3) label(a.n, a.x, a.y-70, a.col);
   });
   var uf = ULTRON.moving ? 2 + (Math.floor(ULTRON.phase)%4) : (Math.floor(t*.003)%2);
   ctx.globalAlpha = .2; ctx.fillStyle = stColor();
   ctx.beginPath(); ctx.ellipse(ULTRON.x, ULTRON.y-2, 26+Math.sin(t*.004)*3, 9, 0, 0, 6.2832); ctx.fill();
   ctx.globalAlpha = 1;
   drawSprite(ultronSprite(uf, actionOf(), STATE.status), ULTRON.x, ULTRON.y, 2.6, ULTRON.face<0);
-  if(det > .2) label("ULTRON", ULTRON.x, ULTRON.y-96, P.gold);
   if(STATE.status === "waiting"){
     drawSprite(BUBBLE, ULTRON.x+16, ULTRON.y-102, 1.8, false);
   } else if(STATE.status === "thinking" && !reduce){
@@ -4016,7 +4043,6 @@ function drawWorld(t){
     ctx.globalAlpha = .5;
     drawSprite(ultronSprite(cf, actionFor(c.status), c.status), c.x, c.y, c.scale, c.face<0);
     ctx.globalAlpha = 1;
-    if(det > .3) label("ULTRON", c.x, c.y-96, P.ink);
   });
   MINIS.forEach(function(m){
     var mf = m.moving ? 2 + (Math.floor(m.phase)%4) : 0;
