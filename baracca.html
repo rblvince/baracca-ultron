@@ -1872,25 +1872,46 @@ function checkStaleWatchdog(){
 }
 setInterval(checkStaleWatchdog, 60000);
 
+/* uno stato letto dai file locali, arrivato da /api/events o dal polling */
+function onLocalState(s){
+  if(!s || USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
+  /* live solo quando un evento vero è arrivato negli ultimi SOGLIE.live_ms:
+     se apri la pagina e Ultron non sta lavorando, resta la demo */
+  if(!LIVE && (!s.ts || Date.now()-s.ts > SOGLIE.live_ms)) return;
+  if(!LIVE){
+    LIVE = true;
+    var pill = document.getElementById("mode");
+    pill.className = "pill live"; pill.textContent = "LIVE";
+    renderTasks();
+    logEvent("deleg","collegato a <b>Claude Code</b>");
+  }
+  lastSeen = Date.now(); LAST_STATE = s;
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+}
+
+/* Server-Sent Events: il server manda stato, sessioni e sub-agenti appena gli
+   hook li riscrivono (e comunque ogni 30 s). Finché lo stream è aperto il
+   polling non parte; se cade, il browser lo riapre da solo e nel frattempo
+   si torna a chiedere come prima. */
+var STREAM_OK = false;
+(function openStream(){
+  if(!window.EventSource) return;
+  var es = new EventSource("/api/events");
+  es.onopen = function(){ STREAM_OK = true; };
+  es.onerror = function(){ STREAM_OK = false; };
+  function on(name, fn){
+    es.addEventListener(name, function(e){ var d; try{ d = JSON.parse(e.data); }catch(_){ return; } fn(d); });
+  }
+  on("state", onLocalState);
+  on("sessions", function(d){ if(auxSourceOk(false, USE_SUPABASE)) renderSessions(d); });
+  on("subagents", function(d){ if(auxSourceOk(false, USE_SUPABASE)) renderSubagents(d); });
+})();
+
 function poll(){
-  if(USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
+  if(USE_SUPABASE || STREAM_OK) return;
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(s){
-      if(!s) return;
-      /* live solo quando un evento vero è arrivato negli ultimi SOGLIE.live_ms:
-         se apri la pagina e Ultron non sta lavorando, resta la demo */
-      if(!LIVE && (!s.ts || Date.now()-s.ts > SOGLIE.live_ms)) return;
-      if(!LIVE){
-        LIVE = true;
-        var pill = document.getElementById("mode");
-        pill.className = "pill live"; pill.textContent = "LIVE";
-        renderTasks();
-        logEvent("deleg","collegato a <b>Claude Code</b>");
-      }
-      lastSeen = Date.now(); LAST_STATE = s;
-      if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
-    })
+    .then(onLocalState)
     .catch(function(){});
 }
 setInterval(poll, 400);
@@ -2157,7 +2178,7 @@ function renderSubagents(data){
 
 /* ripiego locale: gira solo finché Realtime non ha preso il comando */
 function pollAux(){
-  if(USE_SUPABASE) return; // Realtime + reloadAux() se ne occupano
+  if(USE_SUPABASE || STREAM_OK) return; // Realtime + reloadAux(), o /api/events
   fetch("/api/sessions", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
     .then(function(s){ if(s && auxSourceOk(false, USE_SUPABASE)) renderSessions(s); }).catch(function(){});
   fetch("/api/subagents", {cache:"no-store"}).then(function(r){ return r.ok?r.json():null; })
