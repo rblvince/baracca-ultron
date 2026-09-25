@@ -27,13 +27,22 @@ def test_classify_bash_matches_whole_words_only():
     for cmd in ("cat latest.txt", "make rebuild", "git checkout main", "ls"):
         assert room(cmd) == "prod", cmd
     # ma i file e gli script di test sì, anche separati da _ . -
-    for cmd in ("python3 test_barracks.py", "npx vitest run", "npm run type-check", "git status", "npm test"):
+    for cmd in ("python3 test_barracks.py", "npx vitest run", "npm run type-check", "git status", "npm test",
+                "./run_tests.sh", "npm run tests"):
         assert room(cmd) == "qa", cmd
     for cmd in ("git push -u origin x", "./deploy.sh", "scp a b:"):
         assert room(cmd) == "pub", cmd
     # il testo tra virgolette non è il comando
     assert room('git commit -m "fix test flaky"') == "prod"
     assert room("echo 'git push'") == "prod"
+
+
+def test_classify_bash_qa_task_starts_with_the_word():
+    # con un percorso lungo davanti la parola cadeva oltre i 50 caratteri e
+    # la Baracca metteva Ultron in REVISIONE invece che in VERIFICHE
+    cmd = "cd /Users/rbl.vincent/Documents/Boolean/react-binding && npm run build"
+    task = b.classify({"tool_name": "Bash", "tool_input": {"command": cmd}})[4]
+    assert task.startswith("build: "), task
 
 
 def test_subagent_room_prefers_exact_and_whole_words():
@@ -388,6 +397,7 @@ def main():
     test_main_posttooluse_agent_reconciles()
     test_classify_bash_qa()
     test_classify_bash_matches_whole_words_only()
+    test_classify_bash_qa_task_starts_with_the_word()
     test_subagent_room_prefers_exact_and_whole_words()
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
