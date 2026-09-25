@@ -53,8 +53,8 @@
   #world{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;image-rendering:pixelated;}
   #world.drag{cursor:grabbing;}
 
-  .portrait{position:absolute;left:12px;bottom:12px;width:172px;padding:4px;}
-  .portrait canvas{display:block;width:160px;height:112px;image-rendering:pixelated;background:var(--canvasbg);border:2px solid var(--bg);border-radius:6px;}
+  .portrait{position:absolute;right:12px;bottom:12px;width:150px;padding:4px;}
+  .portrait canvas{display:block;width:138px;height:96px;image-rendering:pixelated;background:var(--canvasbg);border:2px solid var(--bg);border-radius:6px;}
   .pbar{margin-top:5px;display:flex;align-items:center;gap:5px;}
   .pbar .nm{font-family:var(--arc);font-size:11px;color:var(--gold);}
   .pbar .cl{margin-left:auto;font-size:12px;color:var(--ink-soft);}
@@ -364,8 +364,8 @@
     .top{gap:8px;padding:0 8px;overflow-x:auto;} .crumb{display:none;}
     .brand{white-space:nowrap;} .feedmode{gap:6px;} .pill{white-space:nowrap;font-size:10px;padding:4px 6px;}
     #talkBtn{display:none;}
-    .portrait{width:104px;left:8px;bottom:8px;} .portrait canvas{width:92px;height:64px;} .pstate{font-size:10px;}
-    .zoomhint{left:auto;right:8px;transform:none;font-size:11px;}
+    .portrait{width:104px;right:8px;bottom:8px;} .portrait canvas{width:92px;height:64px;} .pstate{font-size:10px;}
+    .zoomhint{left:8px;transform:none;font-size:11px;}
   }
 
   /* ---- la colonna di destra, meno foglio di calcolo e più HUD ---- */
@@ -561,7 +561,11 @@
    collaudo 12%, ricerca 7%, archivio 5% (ma lo toccano tutti), spedizioni 0,7%.
    Taglie delle sottostanze dalle chiamate vere (10.987 chiamate nelle trascrizioni di
    ~/.claude/projects, smistate con classify di farm/hooks/barracks.py; minimo 8% del reparto
-   perché una stanza da 2 chiamate resti visibile). Numeri accanto a ogni sottostanza. */
+   perché una stanza da 2 chiamate resti visibile). Numeri accanto a ogni sottostanza.
+   26/09: nessuna sottostanza è più stretta di 175 px (SETACCIO, MAPPE, ATTREZZI, PIANI e REVISIONE
+   erano strisce da 130-160 che nella vista generale non si vedevano): lo spazio viene dalle più
+   grandi (TERMINALE, SONAR, PROVE, CABINA). L'ARCHIVIO è cresciuto del 20% nel vuoto dentro l'anello.
+   test_pianta.mjs controlla che tutto stia nei reparti e fuori dal corridoio. */
 var DEMO = {
   WORLD: {w:3600, h:1800},
   /* il tratto alto dell'anello: la fila dei posti degli specialisti e la nascita dei cloni */
@@ -570,16 +574,16 @@ var DEMO = {
     {id:"ricerca",n:"RICERCA",    x:30,  y:1040,w:835, h:730, kind:"scout", floor:"dirt",     c:P.cyan},
     {id:"prod",   n:"OFFICINA",   x:1040,y:30,  w:1520,h:665, kind:"belt",  floor:"concrete", c:P.green},
     {id:"qa",     n:"COLLAUDO",   x:2735,y:30,  w:835, h:1000,kind:"check", floor:"concrete", c:P.gold},
-    {id:"vault",  n:"ARCHIVIO",   x:1250,y:960, w:1100,h:560, kind:"graph", floor:"metal",    c:P.violet},
+    {id:"vault",  n:"ARCHIVIO",   x:1140,y:904, w:1320,h:672, kind:"graph", floor:"metal",    c:P.violet},
     {id:"pub",    n:"SPEDIZIONI", x:2735,y:1180,w:500, h:560, kind:"ship",  floor:"dirt",     c:P.blue},
     {id:"rs",     n:"LABORATORIO",x:30,  y:30,  w:835, h:930, kind:"lab",   floor:"metal",    c:P.cyan}
   ]; },
   graph: {
     ring: {x:950, y:780, w:1700, h:920, r:80},          /* linea di mezzo del corridoio ad anello */
     nodes: {
-      NW:[973,803], P1:[1400,780], N:[1480,780], P2:[2200,780], NE:[2627,803],
-      QS:[2650,860], E:[2650,1270], PB:[2650,1460], SE:[2627,1677], S:[1944,1700],
-      SW:[973,1677], RC:[950,1405], W:[950,1270], WS:[950,860],
+      NW:[973,803], P1:[1400,780], N:[1416,780], P2:[2200,780], NE:[2627,803],
+      QS:[2650,860], E:[2650,1276], PB:[2650,1460], SE:[2627,1677], S:[1973,1700],
+      SW:[973,1677], RC:[950,1405], W:[950,1276], WS:[950,860],
       RSu:[950,495], QAu:[2650,550]
     },
     ringOrder: ["NW","P1","N","P2","NE","QS","E","PB","SE","S","SW","RC","W","WS"],
@@ -590,7 +594,7 @@ var DEMO = {
       ricerca: [[865,1405,"RC",76]],
       prod:    [[1400,695,"P1",76], [2200,695,"P2",76]],
       qa:      [[2735,550,"QAu",76]],
-      vault:   [[1480,960,"N",90], [1944,1520,"S",90], [1250,1270,"W",90], [2350,1270,"E",90]],
+      vault:   [[1416,904,"N",90], [1973,1576,"S",90], [1140,1276,"W",90], [2460,1276,"E",90]],
       pub:     [[2735,1460,"PB",76]],
       rs:      [[865,495,"RSu",76]]
     }
@@ -602,34 +606,34 @@ var DEMO = {
   cells: {
     ricerca: {hall:1405, cells:[
       ["read",   "LETTURA",   50, 1060, 795, 295, "b", /^(Read|NotebookRead)\b/],   /* 880 */
-      ["grep",   "SETACCIO", 716, 1455, 129, 295, "t", /^Grep\b/],                 /* 2 */
-      ["glob",   "MAPPE",    586, 1455, 130, 295, "t", /^Glob\b/],                 /* 6 */
-      ["search", "SONAR",     50, 1455, 341, 295, "t", /^WebSearch\b/],            /* 361 */
-      ["fetch",  "ANTENNA",  391, 1455, 195, 295, "t", /^WebFetch\b/]]},           /* 204 */
-    prod: {hall:645, hub:[[2060,645]], cells:[
-      ["edit",   "BANCO",    2110,  50, 430, 254, "l", /^(Edit|MultiEdit|NotebookEdit)\b/], /* 588 */
-      ["write",  "SCRITTOIO",2110, 304, 430, 146, "l", /^Write\b/],                /* 305 */
-      ["bash",   "TERMINALE",1060,  50, 900, 545, "b", /^Bash\b/],                 /* 2937 */
-      ["forge",  "FORGIA",   2110, 450, 430, 145, "l", null]]},                    /* ripiego */
+      ["grep",   "SETACCIO", 665, 1455, 180, 295, "t", /^Grep\b/],                 /* 2 */
+      ["glob",   "MAPPE",    485, 1455, 180, 295, "t", /^Glob\b/],                 /* 6 */
+      ["search", "SONAR",     50, 1455, 250, 295, "t", /^WebSearch\b/],            /* 361 */
+      ["fetch",  "ANTENNA",  300, 1455, 185, 295, "t", /^WebFetch\b/]]},           /* 204 */
+    prod: {hall:645, hub:[[1980,645]], cells:[
+      ["edit",   "BANCO",    2030,  50, 510, 190, "l", /^(Edit|MultiEdit|NotebookEdit)\b/], /* 588 */
+      ["write",  "SCRITTOIO",2030, 240, 510, 180, "l", /^Write\b/],                /* 305 */
+      ["bash",   "TERMINALE",1060,  50, 820, 545, "b", /^Bash\b/],                 /* 2937 */
+      ["forge",  "FORGIA",   2030, 420, 510, 175, "l", null]]},                    /* ripiego */
     qa: {hall:550, cells:[
-      ["test",   "PROVE",     2755, 600, 658, 410, "t", /test|jest/],              /* 359 */
+      ["test",   "PROVE",     2755, 600, 555, 410, "t", /test|jest/],              /* 359 */
       ["lint",   "VERIFICHE", 2755,  50, 482, 450, "b", /lint|ruff|mypy|tsc|build|check/], /* 296 */
       ["diff",   "CONFRONTO", 3237,  50, 313, 450, "b", /git (diff|status)/],      /* 192 */
-      ["review", "REVISIONE", 3413, 600, 137, 410, "t", null]]},                   /* ~22 LSP e review */
-    vault: {hall:1270, hub:[[1480,1270],[1944,1270]], cells:[
-      ["read",   "SCAFFALI", 1270, 1320, 624, 180, "t", /^Read\b/],                /* 341 */
-      ["write",  "SCRIVANIA",1530,  980, 800, 240, "b", /^(Write|Edit|MultiEdit)\b/], /* 643 */
-      ["index",  "SCHEDARIO",1270,  980, 160, 240, "b", /^(Grep|Glob)\b/],         /* 0 */
-      ["core",   "NUCLEO",   1994, 1320, 336, 180, "t", null]]},                   /* ripiego, il grafo delle note */
+      ["review", "REVISIONE", 3310, 600, 240, 410, "t", null]]},                   /* ~22 LSP e review */
+    vault: {hall:1276, hub:[[1416,1276],[1973,1276]], cells:[
+      ["read",   "SCAFFALI", 1164, 1326, 749, 226, "t", /^Read\b/],                /* 341 */
+      ["write",  "SCRIVANIA",1476,  928, 960, 298, "b", /^(Write|Edit|MultiEdit)\b/], /* 643 */
+      ["index",  "SCHEDARIO",1164,  928, 192, 298, "b", /^(Grep|Glob)\b/],         /* 0 */
+      ["core",   "NUCLEO",   2033, 1326, 403, 226, "t", null]]},                   /* ripiego, il grafo delle note */
     pub: {hall:1460, cells:[
       ["dock",   "MOLO",     2755, 1200, 460, 210, "b", null],                     /* 24, git push */
       ["ramp",   "RAMPA",    2755, 1510, 460, 210, "t", /deploy|vercel|netlify|rsync|scp|publish/]]}, /* 25 */
     rs: {hall:495, cells:[
       ["browser","OBLÒ",      50,  50, 795, 395, "b", /^mcp__.*(playwright|chrome)/], /* 2800 */
-      ["skill",  "ATTREZZI", 525, 545, 160, 395, "t", /^Skill\b/],                 /* 105 */
-      ["plan",   "PIANI",    685, 545, 160, 395, "t", /^(TodoWrite|Task\w*|EnterPlanMode|ExitPlanMode|AskUserQuestion)\b/], /* 101 */
-      ["mcp",    "POSTA",    320, 545, 205, 395, "t", /^mcp__/],                   /* 236 */
-      ["booth",  "CABINA",    50, 545, 270, 395, "t", null]]}                      /* 560, ToolSearch & co. */
+      ["skill",  "ATTREZZI", 455, 545, 195, 395, "t", /^Skill\b/],                 /* 105 */
+      ["plan",   "PIANI",    650, 545, 195, 395, "t", /^(TodoWrite|Task\w*|EnterPlanMode|ExitPlanMode|AskUserQuestion)\b/], /* 101 */
+      ["mcp",    "POSTA",    260, 545, 195, 395, "t", /^mcp__/],                   /* 236 */
+      ["booth",  "CABINA",    50, 545, 210, 395, "t", null]]}                      /* 560, ToolSearch & co. */
   },
   assets: ["ring_bg","ring_corr"]
 };
@@ -2197,15 +2201,20 @@ function resize(){
 /* inquadratura: i reparti arrivano a filo del mondo, quindi niente margine tagliato: tutto dentro, tra la barra in alto e l'avviso in basso */
 /* la vista generale sta nello spazio libero: a destra del ritratto (in basso a sinistra), sotto la
    barra dei numeri, sopra l'avviso. Prima il ritratto copriva mezzo reparto RICERCA. */
-function fitAll(){
-  var L = VW > 700 ? 196 : 16, R0 = VW - 16, T = 124, B = VH - 58;
-  cam.ts = Math.min((R0-L)/WORLD.w, (B-T)/WORLD.h);
-  cam.tx = WORLD.w/2 - ((L+R0)/2 - VW/2)/cam.ts; cam.ty = WORLD.h/2 - ((T+B)/2 - VH/2)/cam.ts;
+/* lo spazio libero dello schermo: sotto la barra dei numeri, sopra l'avviso, tutta la larghezza.
+   Il ritratto sta in basso a destra, nell'angolo vuoto della pianta (sotto COLLAUDO, a destra di
+   SPEDIZIONI): prima stava a sinistra e la mappa si stringeva di 196 px per non coprirlo. */
+function freeBox(){ return {L:16, R:VW - 16, T:124, B:VH - 58}; }
+/* porta il rettangolo (x, y, w, h) del mondo al centro dello spazio libero, il più grande possibile */
+function frame(x, y, w, h){
+  var f = freeBox();
+  cam.ts = Math.min((f.R-f.L)/w, (f.B-f.T)/h);
+  cam.tx = x + w/2 - ((f.L+f.R)/2 - VW/2)/cam.ts; cam.ty = y + h/2 - ((f.T+f.B)/2 - VH/2)/cam.ts;
 }
+function fitAll(){ frame(0, 0, WORLD.w, WORLD.h); }
 function focusRoom(r){
   focus = r; if(tipEl) tipEl.hidden = true;           /* la camera si sposta: il nome resterebbe nel posto sbagliato */
-  cam.ts = Math.min(VW/(r.w+120), VH/(r.h+120));
-  cam.tx = r.x+r.w/2; cam.ty = r.y+r.h/2;
+  frame(r.x - 40, r.y - 40, r.w + 80, r.h + 80);      /* il reparto intero, non più sotto la barra dei numeri */
   if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>"+r.n+"</b>";
   document.getElementById("hint").textContent = "esc per tornare alla base";
 }
