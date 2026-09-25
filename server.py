@@ -32,6 +32,12 @@ PORT = 8795
 # /api/vault sotto un suo nome di dominio. Si risponde solo al proprio nome.
 LOCAL_NAMES = ("127.0.0.1", "localhost")
 MISSIONS_DIR = os.path.join(VAULT, "05 - Resources", "Missioni")
+# /api/events: ogni quanto guardare i file degli hook, ogni quanto rimandare
+# tutto anche senza modifiche (le sessioni e gli stati fermi scadono col tempo,
+# non con una scrittura) e ogni quanto un commento che tiene viva la connessione
+EVENTS_TICK_S = 0.15
+EVENTS_REFRESH_S = 30
+EVENTS_PING_S = 15
 
 
 def read_text(path):
@@ -192,6 +198,20 @@ def read_subagents():
     return {"list": fresh}
 
 
+def _mtime(path):
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
+
+
+def event_sources():
+    """(nome evento, file scritto dagli hook, lettura servita) per /api/events."""
+    return (("state", STATE_PATH, read_state),
+            ("sessions", SESSIONS_PATH, read_sessions),
+            ("subagents", SUBAGENTS_PATH, read_subagents))
+
+
 def config_payload():
     """Solo url + chiave anonima — MAI la service-role key, anche se presente
     nello stesso file di config. La chiave anonima non è un segreto nel
@@ -285,6 +305,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(read_sessions())
         elif path == "/api/subagents":
             self._send_json(read_subagents())
+        elif path == "/api/events":
+            self._stream_events()
         elif path == "/api/config":
             self._send_json(config_payload())
         elif path in ("/", "/baracca.html"):
@@ -315,6 +337,41 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def _stream_events(self):
+        """Server-Sent Events: stato, sessioni e sub-agenti appena gli hook
+        riscrivono i loro file, invece di una pagina che chiede /api/state
+        due volte e mezzo al secondo anche quando non succede niente. Si
+        guarda solo la data di modifica dei file; la connessione resta aperta
+        finché la pagina non la chiude (il ping trova la pipe rotta)."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        seen = {}
+        last_full = None
+        last_write = time.monotonic()
+        try:
+            self.wfile.write(b"retry: 2000\n\n")
+            while True:
+                now = time.monotonic()
+                full = last_full is None or now - last_full >= EVENTS_REFRESH_S
+                for name, path, read in event_sources():
+                    m = _mtime(path)
+                    if full or m != seen.get(name):
+                        seen[name] = m
+                        data = json.dumps(read())
+                        self.wfile.write(("event: %s\ndata: %s\n\n" % (name, data)).encode("utf-8"))
+                        last_write = now
+                if full:
+                    last_full = now
+                if now - last_write >= EVENTS_PING_S:
+                    self.wfile.write(b": ping\n\n")
+                    last_write = now
+                self.wfile.flush()
+                time.sleep(EVENTS_TICK_S)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return
 
     def _send_file(self, name, content_type):
         path = os.path.join(HERE, name)

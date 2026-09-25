@@ -169,10 +169,66 @@ def test_foreign_host_and_origin_are_refused():
         srv.subprocess.run = old_run
 
 
+def test_events_stream_pushes_what_the_hooks_write():
+    """/api/events manda subito stato, sessioni e sub-agenti, poi di nuovo lo
+    stato appena un hook riscrive state.json, senza che la pagina chieda."""
+    import http.client
+    import json
+    import tempfile
+    import threading
+    import time
+    from http.server import ThreadingHTTPServer
+    import server as srv
+    tmp = tempfile.mkdtemp()
+    old = (srv.STATE_PATH, srv.SESSIONS_PATH, srv.SUBAGENTS_PATH)
+    srv.STATE_PATH, srv.SESSIONS_PATH, srv.SUBAGENTS_PATH = (
+        os.path.join(tmp, "state.json"), os.path.join(tmp, "sessions.json"), os.path.join(tmp, "subagents.json"))
+
+    def write_state(status):
+        with open(srv.STATE_PATH + ".tmp", "w") as f:
+            json.dump({"status": status, "ts": int(time.time() * 1000)}, f)
+        os.replace(srv.STATE_PATH + ".tmp", srv.STATE_PATH)
+
+    write_state("thinking")
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    conn = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=5)
+    try:
+        conn.request("GET", "/api/events")
+        resp = conn.getresponse()
+        assert resp.status == 200 and resp.getheader("Content-Type") == "text/event-stream"
+
+        def next_event():
+            name = data = None
+            while True:
+                line = resp.fp.readline().decode("utf-8").rstrip("\n")
+                if line.startswith("event: "):
+                    name = line[7:]
+                elif line.startswith("data: "):
+                    data = json.loads(line[6:])
+                elif line == "" and name:
+                    return name, data
+
+        first = [next_event() for _ in range(3)]
+        assert [n for n, _ in first] == ["state", "sessions", "subagents"], first
+        assert first[0][1]["status"] == "thinking", first[0]
+        assert first[2][1] == {"list": []}, first[2]
+        time.sleep(0.05)
+        write_state("writing")
+        name, data = next_event()
+        assert (name, data["status"]) == ("state", "writing"), (name, data)
+    finally:
+        conn.close()
+        httpd.shutdown()
+        httpd.server_close()
+        srv.STATE_PATH, srv.SESSIONS_PATH, srv.SUBAGENTS_PATH = old
+
+
 def main():
     test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
     test_page_defaults_match_the_thresholds()
+    test_events_stream_pushes_what_the_hooks_write()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
     test_panels_route_serves_only_the_bundle()
