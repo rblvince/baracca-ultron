@@ -18,6 +18,10 @@ describe('costo a listino API', () => {
     expect(tutta1h).toBeCloseTo(8 / EUR_USD);
     expect(tutta5m).toBeCloseTo(5 / EUR_USD);
   });
+  it('un id con la data in fondo prende il prezzo del modello', () => {
+    expect(rowCostEur(row({ model: 'claude-haiku-4-5-20251001', input: M }))).toBeCloseTo(1 / EUR_USD); // Haiku 4.5 input $1
+    expect(rowCostEur(row({ model: 'claude-mistero-20251001', input: M }))).toBeNull();
+  });
   it('modello sconosciuto: null, mai un prezzo inventato', () => {
     expect(rowCostEur(row({ model: 'unknown', input: M }))).toBeNull();
     expect(rowCostEur(row({ model: 'gpt-5', input: M }))).toBeNull();
