@@ -22,7 +22,7 @@ export function Storico({ client, rooms, active, now = () => new Date() }:
   const sess = useTable(() => fetchSessions(client, since7), active, 60_000, onSess);
   return (
     <>
-      <div className="dgroup">STORICO</div>
+      <div className="dgroup" id="sez-storico">STORICO</div>
       <TokenHistory state={tokens} rooms={rooms} days={days30} />
       <SubagentLog state={subs} rooms={rooms} />
       <SessionTimeline state={sess} rooms={rooms} days={days7} />

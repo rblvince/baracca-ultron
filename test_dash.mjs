@@ -10,7 +10,7 @@ const { dashSnapshot } = new Function(m[1] + '; return { dashSnapshot };')();
 
 const ROOMS = [{ id: 'ricerca', n: 'RICERCA', c: '#111' }, { id: 'prod', n: 'OFFICINA', c: '#222' }];
 const R = (id) => ROOMS.find((r) => r.id === id) || ROOMS[0];
-const P = { gold: '#g', cyan: '#c', violet: '#v', green: '#gr', red: '#r', blue: '#b' };
+const P = { gold: '#g', cyan: '#c', violet: '#v', green: '#gr', red: '#r', blue: '#b', ink: '#i' };
 const mission = { title: 'Supabase', steps: [{ done: true, text: 'a' }, { done: false, text: 'Passo 2 — fare: perché' }] };
 
 function base(over = {}) {
@@ -21,6 +21,7 @@ function base(over = {}) {
     moving: false, skfxName: null,
     events: 6, lastTool: 'Edit', lastToolLabel: 'modifica', lastNode: 'Active Priorities.md', lastState: null,
     crew: [{ id: 'ricerca-1', n: 'RIC-1', col: '#a', room: 'ricerca', home: 'ricerca', moving: false }],
+    crewRole: { 'ricerca-1': 'letture' }, activity: [], tokout: {}, queue: 0, terminals: 0, subagents: 0, rest: false, waitLine: null,
     tasks: [{ id: 7, t: 'vetrina · revisione', p: 0.5, stage: 1, st: 'work', carrier: 'ricerca-1' }],
     skills: [{ id: 'taste', n: 'TASTE', c: '#s', d: 'gusto', uses: 2, last: 119000, escort: null, moving: false }],
     rooms: ROOMS, roomTime: { ricerca: 1000, prod: 5000 }, stages: ['ricerca', 'prod'],
@@ -42,19 +43,21 @@ function base(over = {}) {
   assert.equal(s.header.identity, 'Ultron');
   assert.equal(s.header.lastSeenS, null);
   assert.equal(s.vault, null);
-  assert.equal(s.signal.perMin, '3.0');                 // 6 eventi in 2 minuti
-  assert.equal(s.signal.node, 'Active Priorit');         // 14 caratteri
+  assert.equal(s.header.perMin, '3.0');                 // 6 eventi in 2 minuti
   // otto stazioni, una per hook; "visto" in secondi dall'ultimo evento vero, null = mai visto
   assert.deepEqual(s.link, {
     hit: { session: false, prompt: false, pre: false, tool: true, notify: false, sub: false, compact: false, stop: false },
     last: 'tool', hot: true,
     seen: { session: null, prompt: null, pre: null, tool: 60, notify: null, sub: null, compact: null, stop: null } });
-  assert.deepEqual(s.crew[0], { id: 'ricerca-1', name: 'RIC-1', color: '#a', role: 'PORTA CASSA', busy: true, tokens: null });
+  assert.deepEqual(s.crew[0], { id: 'ricerca-1', name: 'RIC-1', color: '#a', desc: 'letture', role: 'PORTA CASSA', state: 'porta vetrina · revisione', busy: true });
+  assert.equal(s.header.mode, 'demo');
+  assert.equal(s.header.waiting, null);
   assert.deepEqual(s.board.scene, [{ id: 7, text: 'vetrina · revisione', p: 0.5, stage: 'OFFICINA', qa: false }]);
   assert.deepEqual(s.board.delivered, ['recapito · script']);
   assert.equal(s.board.sub, '1 IN CORSO · 1 CONSEGNATE');
-  assert.deepEqual(s.skills[0], { id: 'taste', name: 'TASTE', color: '#s', desc: 'gusto', uses: 2, hot: true, where: 'al posto' });
-  assert.deepEqual(s.roomTime.map((r) => r.id), ['prod', 'ricerca']);   // dalla più alta
+  assert.deepEqual(s.skills[0], { id: 'taste', name: 'TASTE', color: '#s', desc: 'gusto', uses: 2, hot: true, where: 'al posto', busy: false });
+  // reparti nell'ordine della pianta (il colore segue il reparto, non la classifica), quota del tempo, QUI
+  assert.deepEqual(s.rooms.map((r) => [r.id, r.ms, Math.round(r.share * 100), r.here]), [['ricerca', 1000, 17, false], ['prod', 5000, 83, true]]);
   assert.equal(s.shelf.length, 6);
   assert.ok(s.shelf.every((r) => r.count === 0));
   assert.equal(s.debugRaw, null);
@@ -82,7 +85,6 @@ function base(over = {}) {
   assert.deepEqual(s.vault.priorities, { open: ['uno', 'due'], completed: 4 });
   assert.deepEqual(s.vault.vinland, { status: 'planning', jobs: [{ name: 'trend', steps: 2 }] });
   assert.deepEqual(s.shelf.map((r) => r.count), [1, 18, 1, 0, 2, 0]);
-  assert.deepEqual(s.crew[0].tokens, [1, 2, 3, 4]);
   assert.deepEqual(s.board.real, [{ index: 0, title: 'Supabase', done: 1, total: 2, nextTag: 'Passo 2' }]);
   assert.deepEqual(s.board.scene, []);
   assert.deepEqual(s.board.delivered, []);
@@ -99,12 +101,32 @@ function base(over = {}) {
   assert.ok(s.shelf.every((r) => r.count === 0));
 }
 
-// in cammino verso l'arsenale, pochi secondi dall'avvio (perMin "—"), compito in grassetto
+// in cammino verso un reparto, pochi secondi dall'avvio (perMin "—"), compito in grassetto
 {
-  const s = dashSnapshot(base({ now: 5000, moving: true, skfxName: 'TASTE', taskText: 'Bash', state: { status: 'thinking', room: null, node: null, task: 't', target: null, tokens: null } }));
-  assert.equal(s.header.where, "verso l'arsenale · TASTE");
+  const s = dashSnapshot(base({ now: 5000, moving: true, taskText: 'Bash', state: { status: 'thinking', room: null, node: null, task: 't', target: 'prod', tokens: null } }));
+  assert.equal(s.header.where, 'in cammino verso OFFICINA');
   assert.equal(s.header.whereBold, 'Bash');
-  assert.equal(s.signal.perMin, null);
+  assert.equal(s.header.perMin, null);
+}
+
+// l'attività: solo le ultime 2 ore, gli eventi senza reparto vanno nella riga TURNO; token e attesa
+{
+  const s = dashSnapshot(base({
+    now: 4_000_000, live: true, lastSeen: 4_000_000, queue: 3, terminals: 2, subagents: 1,
+    state: { status: 'waiting', room: 'prod', node: null, task: null, target: null, tokens: null }, waitLine: 'permesso · Bash',
+    tokout: { prod: 2400 },
+    activity: [{ ts: -4_000_000, room: 'prod', label: 'vecchio', fail: false },
+               { ts: 3_990_000, room: 'prod', label: 'Modifica', fail: false },
+               { ts: 3_999_000, room: null, label: 'ti aspetta', fail: false }],
+  }));
+  assert.deepEqual(s.activity.rows.map((r) => r.id), ['ricerca', 'prod', 'turno']);
+  assert.deepEqual(s.activity.events, [{ ts: 3_990_000, row: 'prod', label: 'Modifica', fail: false },
+                                       { ts: 3_999_000, row: 'turno', label: 'ti aspetta', fail: false }]);
+  assert.deepEqual(s.rooms.find((r) => r.id === 'prod').out, 2400);
+  assert.deepEqual(s.rooms.find((r) => r.id === 'prod').events, 1);
+  assert.equal(s.header.waiting, 'permesso · Bash');
+  assert.deepEqual([s.header.mode, s.header.queue, s.header.terminals, s.header.subagents], ['live', 3, 2, 1]);
+  assert.equal(dashSnapshot(base({ rest: true })).header.mode, 'rest');
 }
 
 console.log('test_dash: tutti i controlli passati');
