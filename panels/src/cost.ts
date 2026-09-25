@@ -18,9 +18,15 @@ export const PRICES_USD: Record<string, Price> = {
 export const EUR_USD = 1.1411;
 export const EUR_USD_DATE = '23/09/2026';
 
+/** Il prezzo di un modello. Nei transcript alcuni id hanno la data in fondo
+ *  (claude-haiku-4-5-20251001): il listino li tiene senza. */
+export function priceFor(model: string): Price | undefined {
+  return PRICES_USD[model] ?? PRICES_USD[model.replace(/-\d{8}$/, '')];
+}
+
 /** Costo in euro di una riga, o null se il modello non è in listino (righe vecchie: 'unknown'). */
 export function rowCostEur(r: TokenUsageRow): number | null {
-  const p = PRICES_USD[r.model];
+  const p = priceFor(r.model);
   if (!p) return null;
   const write5m = r.cache_write - r.cache_write_1h;
   const usd = r.input * p.input + r.output * p.output + r.cache_read * p.cacheRead
