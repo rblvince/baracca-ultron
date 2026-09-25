@@ -49,7 +49,7 @@ def _headers(key):
     }
 
 
-def _do_request(method, url, key, body=None, extra_headers=None):
+def _do_request(method, url, key, body=None, extra_headers=None, timeout=1):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     for k, v in _headers(key).items():
@@ -57,7 +57,7 @@ def _do_request(method, url, key, body=None, extra_headers=None):
     for k, v in (extra_headers or {}).items():
         req.add_header(k, v)
     try:
-        with urllib.request.urlopen(req, timeout=1) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as e:
         # un rifiuto del server (400/409/...) non è "non configurato" né
@@ -77,22 +77,20 @@ def insert(table, row):
     return status
 
 
-def rpc(fn_name, params):
-    cfg = load_config()
-    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
-    if not url or not key:
-        return None
-    status, _ = _do_request("POST", url + "/rest/v1/rpc/" + fn_name, key, body=params)
-    return status
-
-
 def record_event(user_id, state, session=None, tokens=None):
     """Un evento degli hook in UNA chiamata (migrazione 008): stato del titolare,
     sessione e token insieme, invece di tre giri HTTPS in fila. Il database
     scarta uno stato più vecchio di quello che ha già (guardia su ts), così
     due eventi mandati in parallelo non si scavalcano."""
-    return rpc("record_event", {"p_user_id": user_id, "p_state": state,
-                                "p_session": session, "p_tokens": tokens})
+    cfg = load_config()
+    url, key = cfg.get("SUPABASE_URL"), cfg.get("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        return None
+    # gira nel figlio staccato, fuori dal tempo che Claude Code aspetta: con la
+    # rete lenta conviene aspettare invece di perdere l'evento
+    status, _ = _do_request("POST", url + "/rest/v1/rpc/record_event", key, timeout=10,
+                            body={"p_user_id": user_id, "p_state": state, "p_session": session, "p_tokens": tokens})
+    return status
 
 
 def select(table, filters, columns):
