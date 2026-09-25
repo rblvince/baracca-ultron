@@ -16,6 +16,7 @@ importa mai nel processo che Claude Code aspetta.
 """
 import json
 import os
+import re
 import sys
 import time
 
@@ -41,7 +42,7 @@ WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 QA_WORDS = ("test", "pytest", "jest", "lint", "eslint", "ruff", "mypy",
             "build", "tsc", "vitest", "git diff", "git status", "check")
 PUB_WORDS = ("git push", "deploy", "publish", "npm publish", "rsync",
-             "scp ", "gh release", "vercel", "netlify")
+             "scp", "gh release", "vercel", "netlify")
 # skill di verifica (code-review, security-review, verification-before-completion):
 # sono collaudo, non "tutto il resto"
 QA_SKILL_WORDS = ("review", "verification")
@@ -234,16 +235,35 @@ def note_name(path):
     return None
 
 
+def words(text):
+    """Il testo come parole separate da spazi (e uno spazio ai bordi), per
+    cercare parole intere: "latest.txt" non contiene "test", "test_x.py" sì.
+    Via le stringhe tra virgolette: il messaggio di un git commit o un echo
+    non dicono cosa fa il comando."""
+    text = re.sub(r'"[^"]*"|\'[^\']*\'', " ", str(text).lower())
+    return " " + " ".join(re.findall(r"[a-z0-9&àèéìòù]+", text)) + " "
+
+
+def has_phrase(ws, phrases):
+    return any(words(p) in ws for p in phrases)
+
+
 def subagent_room_agent_task(ti):
     """A quale reparto/operativo appartiene un Task, dedotto da subagent_type/description.
     Condivisa fra la classificazione a fine Task (PostToolUse) e l'annuncio
-    di partenza (PreToolUse, vedi 'spawning' in main()): stesso identico reparto."""
-    raw = str(ti.get("subagent_type") or ti.get("description") or "").lower()
-    room = "prod"
-    for key, value in SUBAGENT_ROOM.items():
-        if key in raw:
-            room = value
-            break
+    di partenza (PreToolUse, vedi 'spawning' in main()): stesso identico reparto.
+    Chiavi più lunghe prima ("ricerca-e-sviluppo" non è "ricerca"); il tipo
+    accetta anche un pezzo di parola lungo almeno 4 lettere ("code-researcher"),
+    la descrizione, testo libero, solo parole intere ("users" non è "rs")."""
+    kind = str(ti.get("subagent_type") or "").lower()
+    keys = sorted(SUBAGENT_ROOM, key=len, reverse=True)
+    room = SUBAGENT_ROOM.get(kind)
+    if room is None:
+        ws = words(kind or ti.get("description") or "")
+        room = next((SUBAGENT_ROOM[k] for k in keys if words(k) in ws), None)
+    if room is None and kind:
+        room = next((SUBAGENT_ROOM[k] for k in keys if len(k) >= 4 and k in kind), None)
+    room = room or "prod"
     task = ti.get("description") or ti.get("prompt", "")[:60]
     return room, SUBAGENT_CREW.get(room), task
 
@@ -263,9 +283,10 @@ def classify(payload):
 
     if tool == "Bash":
         cmd = str(ti.get("command", "")).lower()
-        if any(w in cmd for w in PUB_WORDS):
+        ws = words(cmd)
+        if has_phrase(ws, PUB_WORDS):
             return "delegating", "pub", None, "orchestratore", cmd[:50]
-        if any(w in cmd for w in QA_WORDS):
+        if has_phrase(ws, QA_WORDS):
             return "thinking", "qa", None, "qualita-1", cmd[:50]
         return "writing", "prod", None, "produzione-1", cmd[:50]
 
