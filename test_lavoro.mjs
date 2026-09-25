@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* WORK-PURE-START \*\/([\s\S]*?)\/\* WORK-PURE-END \*\//);
 assert.ok(m, 'blocco WORK-PURE non trovato in baracca.html');
-const { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount } =
-  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount };')();
+const { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount, qSpeed, qDwell, linkKeyFor, projectName } =
+  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount, qSpeed, qDwell, linkKeyFor, projectName };')();
 
 // ogni sottostanza con una voce ha la sua animazione; NUCLEO, ATTREZZI e CABINA no
 assert.equal(workKind('prod', 'bash'), 'type');
@@ -59,4 +59,30 @@ assert.equal(shortDesc('Review AI agent skills before installation using NVIDIA 
   'Review AI agent skills before installation…');
 assert.equal(shortDesc('Audit UI.'), 'Audit UI');
 assert.equal(shortDesc(''), 'skill');
+// la coda: senza fila passo normale e sosta piena; con la fila più svelto, mai oltre 3x e mai sotto 250 ms
+assert.equal(qSpeed(0), 1);
+assert.ok(qSpeed(2) > qSpeed(1));
+assert.equal(qSpeed(50), 3);
+assert.equal(qDwell(0), 900);
+assert.ok(qDwell(3) < qDwell(1));
+assert.equal(qDwell(100), 250);
+assert.equal(qSpeed(-1), 1);
+// il ponte: ogni stato dice quale hook l'ha scritto
+assert.equal(linkKeyFor({ status: 'thinking' }), 'prompt');
+assert.equal(linkKeyFor({ status: 'writing', room: 'prod', tool: 'Edit' }), 'tool');
+assert.equal(linkKeyFor({ status: 'failing', room: 'prod', tool: 'Bash' }), 'tool');
+assert.equal(linkKeyFor({ status: 'spawning', room: 'ricerca', agent: 'ricerca-1' }), 'pre');
+assert.equal(linkKeyFor({ status: 'thinking', room: 'prod', line: 'reparto rientrato' }), 'sub');
+assert.equal(linkKeyFor({ status: 'waiting', line: 'permesso · Bash' }), 'notify');
+assert.equal(linkKeyFor({ status: 'compacting', line: 'compatta · auto' }), 'compact');
+assert.equal(linkKeyFor({ status: 'thinking', line: 'contesto compattato' }), 'session');
+assert.equal(linkKeyFor({ status: 'idle', line: 'sessione aperta · startup' }), 'session');
+assert.equal(linkKeyFor({ status: 'idle' }), 'stop');
+assert.equal(linkKeyFor(null), null);
+
+// il progetto di un terminale dal percorso del transcript
+assert.equal(projectName('/Users/vince/.claude/projects/-Users-vince-my-agent/a.jsonl'), 'my-agent');
+assert.equal(projectName('/home/u/.claude/projects/-home-u-baracca-ultron/b.jsonl'), 'baracca-ultron');
+assert.equal(projectName('/Users/vince/.claude/projects/-Users-vince/c.jsonl'), 'home');
+assert.equal(projectName(''), '');
 console.log('ok');

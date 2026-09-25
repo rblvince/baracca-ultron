@@ -71,12 +71,26 @@ function Segnale() {
   );
 }
 
+// tutti gli hook che scrivono lo stato, nell'ordine di un turno; sotto, quando si è fatto vivo l'ultima volta
 const STATIONS: { k: LinkKey; hook: string; text: string }[] = [
-  { k: 'prompt', hook: 'UserPromptSubmit', text: 'thinking' },
-  { k: 'tool', hook: 'PostToolUse', text: 'barracks.py' },
-  { k: 'sub', hook: 'SubagentStop', text: 'reparto rientrato' },
-  { k: 'stop', hook: 'Stop', text: 'idle' },
+  { k: 'session', hook: 'SessionStart', text: 'portinaio' },
+  { k: 'prompt', hook: 'UserPromptSubmit', text: 'marconi' },
+  { k: 'pre', hook: 'PreToolUse', text: 'sub-agente parte' },
+  { k: 'tool', hook: 'PostToolUse', text: 'il lavoro' },
+  { k: 'notify', hook: 'Notification', text: 'ti aspetta' },
+  { k: 'sub', hook: 'SubagentStop', text: 'rientra' },
+  { k: 'compact', hook: 'PreCompact', text: 'spazzino' },
+  { k: 'stop', hook: 'Stop', text: 'fine turno' },
 ];
+
+/** "ora", "5 min fa", "2 h fa", "3 g fa"; null = mai visto in questo browser */
+export function seenLabel(s: number | null | undefined): string {
+  if (s == null) return 'mai visto';
+  if (s < 60) return 'ora';
+  if (s < 3600) return `${Math.floor(s / 60)} min fa`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h fa`;
+  return `${Math.floor(s / 86400)} g fa`;
+}
 
 function PonteHook() {
   const l = useSection('link');
@@ -86,10 +100,11 @@ function PonteHook() {
     <div className="dp c8"><h4>PONTE CON CLAUDE CODE <DTag id="tagLink" /><em id="dLinkSub">hook · Supabase Realtime</em></h4>
       <div className="link" id="dLink">
         {STATIONS.map((s) => (
-          <div key={s.k} className={`stn${l?.hit[s.k] ? ' on' : ''}${l?.last === s.k && l.hot ? ' hot' : ''}`} data-k={s.k}>
-            <i /><b>{s.hook}</b>{s.text}</div>
+          <div key={s.k} className={`stn${l?.hit[s.k] ? ' on' : ''}${l?.last === s.k && l.hot ? ' hot' : ''}${l && l.seen[s.k] == null ? ' never' : ''}`}
+            data-k={s.k} title={l && l.seen[s.k] == null ? `${s.hook}: nessun evento vero visto qui. È registrato in settings.json?` : undefined}>
+            <i /><b>{s.hook}</b>{s.text}<em>{seenLabel(l?.seen[s.k])}</em></div>
         ))}
-        <div className={`sig${l?.hot ? ' go' : ''}`} id="dSig" style={{ left: `${12.5 + idx * 25}%` }} />
+        <div className={`sig${l?.hot ? ' go' : ''}`} id="dSig" style={{ left: `${6.25 + idx * 12.5}%` }} />
       </div>
       <div className="raw" id="dRaw" style={{ display: raw ? '' : 'none' }}>
         {raw && <><b>{`${raw.label} ·`}</b> {raw.json}</>}</div></div>

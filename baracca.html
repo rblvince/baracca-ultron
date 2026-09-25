@@ -39,7 +39,9 @@
   .crumb b{color:var(--gold);font-weight:400;}
   .feedmode{margin-left:auto;display:flex;align-items:center;gap:10px;}
   .pill{font-family:var(--arc);font-size:11px;padding:5px 7px;border:2px solid var(--bg);border-radius:6px;}
-  .pill.demo{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);}
+  .pill.demo{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);cursor:pointer;}
+  .pill.rest{background:#1b3346;color:var(--ink-soft);box-shadow:inset 0 2px 0 #2c4d63;cursor:pointer;}
+  #mode:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
   .pill.live{background:var(--green-dk);color:#eafff5;box-shadow:inset 0 2px 0 var(--green);}
   .pill.offline{ background:#b83a2e; color:#fff; }
   .pill.talk{background:#1f5a7a;color:#eaf6ff;box-shadow:inset 0 2px 0 var(--blue);cursor:pointer;appearance:none;-webkit-appearance:none;}
@@ -101,7 +103,8 @@
   .ev time{color:var(--ink-dim);}
   .ev .w{color:var(--ink-soft);}
   .ev .w b{font-weight:400;color:var(--gold);}
-  .ev.fail .w b{color:var(--red);} .ev.deleg .w b{color:var(--green);} .ev.pub .w b{color:var(--blue);}
+  .ev.fail .w b{color:var(--red);}
+  .ev .w i.rep{font-style:normal;color:var(--gold);} .ev.deleg .w b{color:var(--green);} .ev.pub .w b{color:var(--blue);}
 
   .mc{position:absolute;inset:0;background:rgba(6,14,22,.85);display:none;align-items:center;justify-content:center;z-index:5;}
   .mc.on{display:flex;}
@@ -226,11 +229,12 @@
   .dp.scr .stats b{display:block;font-family:var(--arc);font-size:10px;color:var(--green);font-variant-numeric:tabular-nums;margin-top:2px;}
 
   /* la truppa: ritratti */
-  .crewrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;}
+  .crewrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;}
   .cc{background:var(--surface);border:2px solid var(--bg);border-radius:8px;padding:6px 4px 5px;text-align:center;box-shadow:inset 0 1px 0 var(--surface-hi);}
   .cc canvas{width:48px;height:60px;margin:0 auto;background:var(--canvasbg);border:2px solid var(--bg);border-radius:4px;}
   .cc .n{font-family:var(--arc);font-size:10px;margin-top:5px;}
-  .cc .r{font-size:11px;color:var(--ink-dim);text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* il reparto intero: schede un po' più larghe e testo più piccolo invece di "LABORATO…" */
+  .cc .r{font-size:9px;color:var(--ink-dim);text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:clip;}
   .cc.busy{box-shadow:inset 0 1px 0 var(--surface-hi), inset 0 0 0 2px var(--gold);}
   .cc.busy .r{color:var(--gold);}
   .cc .tok{height:6px;margin-top:4px;display:flex;overflow:hidden;border:1px solid var(--panel-lo);border-radius:3px;background:var(--bg);}
@@ -299,8 +303,11 @@
   .bars small{font-family:var(--arc);font-size:10px;color:var(--ink-dim);text-align:right;font-variant-numeric:tabular-nums;}
 
   /* il ponte: quattro stazioni e il segnale che corre */
-  .link{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;}
-  .link::before{content:"";position:absolute;left:12%;right:12%;top:20px;height:4px;background:var(--bg);}
+  .link{display:grid;grid-template-columns:repeat(8,1fr);gap:0;position:relative;}
+  .link::before{content:"";position:absolute;left:6%;right:6%;top:20px;height:4px;background:var(--bg);}
+  .stn em{display:block;font-style:normal;font-size:10.5px;color:var(--ink-dim);margin-top:3px;}
+  .stn.never em{color:var(--red-hi);}
+  @media (max-width:900px){ .link{grid-template-columns:repeat(4,1fr);row-gap:10px;} .link::before,.link .sig{display:none;} }
   .stn{position:relative;text-align:center;padding-top:34px;font-size:11.5px;color:var(--ink-soft);}
   .stn i{position:absolute;left:50%;top:10px;width:20px;height:20px;margin-left:-10px;background:var(--surface);border:2px solid var(--bg);border-radius:50%;
       box-shadow:inset 0 1px 0 var(--surface-hi);}
@@ -317,7 +324,7 @@
   #app.side-off{grid-template-columns:1fr 0;}
   #app.side-off .side{display:none;}
   .pill.sidebtn{white-space:nowrap;background:#1f5a7a;color:#eaf6ff;box-shadow:inset 0 2px 0 var(--blue);cursor:pointer;appearance:none;-webkit-appearance:none;}
-  .pill.sidebtn[aria-expanded="true"]{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);}
+  .pill.sidebtn[aria-expanded="true"],.pill.sidebtn[aria-pressed="true"]{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);}
   @media (max-width:860px){
     #app.side-off{grid-template-rows:46px 1fr 0;}
     #app{grid-template-columns:1fr;grid-template-rows:46px 1fr 190px;}
@@ -325,6 +332,14 @@
     .dashv{grid-template-columns:repeat(2,1fr);}
     .c12,.c8,.c6,.c5,.c4,.c3,.c2{grid-column:span 2;}
     .dp.hdr{grid-template-columns:100px 1fr;} .dp.hdr .meta{grid-column:span 2;text-align:left;}
+  }
+  /* telefono: la barra in alto su una riga (niente briciole, marchio corto), ritratto piccolo */
+  @media (max-width:600px){
+    .top{gap:8px;padding:0 8px;overflow-x:auto;} .crumb{display:none;}
+    .brand{white-space:nowrap;} .feedmode{gap:6px;} .pill{white-space:nowrap;font-size:10px;padding:4px 6px;}
+    #talkBtn{display:none;}
+    .portrait{width:104px;left:8px;bottom:8px;} .portrait canvas{width:92px;height:64px;} .pstate{font-size:10px;}
+    .zoomhint{left:auto;right:8px;transform:none;font-size:11px;}
   }
 
   /* ---- la colonna di destra, meno foglio di calcolo e più HUD ---- */
@@ -432,9 +447,10 @@
     </div>
     <div class="crumb" id="crumb">BASE / <b>vista generale</b></div>
     <div class="feedmode">
-      <span class="pill demo" id="mode">DEMO</span>
+      <span class="pill demo" id="mode" role="button" tabindex="0" title="A riposo o in demo: clic per avviare o fermare la demo">DEMO</span>
       <button class="pill talk" id="talkBtn" type="button" title="Riavvia l'unico Ultron in ascolto su Discord (servizio launchd)">PARLA SU DISCORD</button>
       <button class="pill sidebtn" id="sideBtn" type="button" aria-controls="sidePanel" aria-expanded="false" title="Mostra o nascondi missioni e rapporto">PANNELLO ▸</button>
+      <button class="pill sidebtn" id="bellBtn" type="button" aria-pressed="false" title="Un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti">AVVISI NO</button>
       <button class="keysbtn" id="keysBtn" type="button" aria-controls="keys" aria-expanded="false" title="Tasti rapidi (?)">?</button>
     </div>
   </div>
@@ -444,6 +460,7 @@
     <kbd>D</kbd><span>sala comando</span>
     <kbd>T</kbd><span>status</span>
     <kbd>O</kbd><span>strato token e tempo per reparto</span>
+    <kbd>F</kbd><span>segui Ultron</span>
     <kbd>spazio</kbd><span>pausa</span>
     <kbd>?</kbd><span>questo pannello</span>
   </div>
@@ -1290,7 +1307,7 @@ function stepEntity(e, dt){
       e.x = w.x; e.y = w.y; e.path.shift();
       if(!e.path.length){
         e.moving = false; e.room = e.dest;
-        if(e.isUltron && !e.noBeat) beat(e);
+        if(e.isUltron){ e.arrivedAt = performance.now(); if(!e.noBeat) beat(e); }
         e.noBeat = false;
         if(e.onArrive){ var cb = e.onArrive; e.onArrive = null; cb(e); }
       }
@@ -1377,7 +1394,7 @@ TASKS.forEach(function(t){
 var delivered = 0, nextId = 5, DELIVERED_LOG = [];
 /* le missioni qui sopra sono scena: in LIVE il simulatore è fermo e resterebbero
    congelate sotto l'etichetta REALE. In LIVE contano solo quelle del vault. */
-function sceneTasks(){ return LIVE ? [] : TASKS; }
+function sceneTasks(){ return LIVE || REST ? [] : TASKS; }
 
 /* ================================================== GLI SPECIALISTI ==
    Le skill di Ultron non sono attrezzi in una cassa: sono persone, in piedi al loro posto lungo il
@@ -1426,7 +1443,7 @@ function buildSkills(installed){
       var same = list.filter(function(x){ return x.id === id; })[0];
       if(same){ same.match.push(nm); return; }
       if(!Q_CAST[id]) Q_CAST[id] = castFromName(short);
-      list.push({id:id, n:short.replace(/[-_]+/g, " ").toUpperCase().slice(0, 24).trim(), d:shortDesc(it.description),
+      list.push({id:id, n:short.replace(/[-_]+/g, " ").toUpperCase(), d:shortDesc(it.description),
                  c:Q_CAST[id].shirt, icon:"generic", match:[nm]});
     });
   }
@@ -1444,7 +1461,6 @@ function buildSkills(installed){
 buildSkills(null);
 
 function skillBy(id){ return SKILLS.filter(function(s){ return s.id===id; })[0]; }
-var SK_AT = 0;
 
 /* A RIPOSO OGNUNO STA AL SUO POSTO (25/09, prima giravano l'anello a caso). Un operativo si
    muove solo perché è successo qualcosa: una chiamata (goTo), una cassa, un sub-agente, un errore.
@@ -1525,7 +1541,7 @@ var BUBBLE = spr(20,16,function(g){
    quali mestieri ci servono in questo momento. */
 var SKFX = null, SK_STAY = 20000;
 function sendHome(sk){
-  sk.escort = null; sk.hotUntil = 0;
+  sk.escort = null; sk.hotUntil = 0; sk.v = 240; sk.wander = false;
   goToPoint(sk, sk.homeX, POST_Y, function(){ sk.face = 1; });
 }
 function handoff(sk){
@@ -1538,7 +1554,8 @@ function handoff(sk){
 function useSkill(id, then, room, isSkill){
   if(then) then();                                   /* Ultron va dritto al lavoro */
   var sk = skillBy(id); if(!sk) return;
-  sk.uses++; sk.last = Date.now(); SK_AT = Date.now();
+  sk.v = 240; sk.wander = false; sk.wanderAt = 0;           /* lascia la passeggiata */
+  sk.uses++; sk.last = Date.now();
   if(isSkill) banner("SKILL", sk.n, sk.c);          /* la fascia solo per le skill vere, non per ogni Bash */
   if(!room || !R(room)){ handoff(sk); return; }
   sk.hotUntil = Date.now() + SK_STAY;
@@ -1548,9 +1565,26 @@ function useSkill(id, then, room, isSkill){
   goTo(sk, room, .55 + Math.random()*.25, .62, function(a){ handoff(a); });
 }
 /* il reparto tace: gli specialisti tornano al loro posto nel corridoio */
+/* A RIPOSO GLI SPECIALISTI PASSEGGIANO (scelta di Vincent, 25/09): chi non è al lavoro fa due passi
+   lungo il corridoio verso un punto a caso, piano, si ferma qualche secondo e riparte. Una skill
+   usata lo richiama subito (useSkill); di notte (sleeping) tornano al loro posto e restano lì. */
+var RING_WALK = RING.segs.filter(function(q){ return DEMO.graph.nodes[q[0]] && DEMO.graph.nodes[q[1]]; });
+function corridorSpot(){
+  var q = RING_WALK[Math.floor(Math.random()*RING_WALK.length)], a = RING.pts[q[0]], b = RING.pts[q[1]], k = .1 + Math.random()*.8;
+  return {x:a.x + (b.x-a.x)*k + (Math.random()-.5)*30, y:a.y + (b.y-a.y)*k + (Math.random()-.5)*30};
+}
 function stepSpecs(){
-  var now = Date.now();
-  SKILLS.forEach(function(sk){ if(sk.escort && sk.hotUntil && now > sk.hotUntil) sendHome(sk); });
+  var now = Date.now(), night = sleeping();
+  SKILLS.forEach(function(sk){
+    if(sk.escort){ if(sk.hotUntil && now > sk.hotUntil) sendHome(sk); return; }
+    if(sk.path && sk.path.length) return;                      /* sta già camminando */
+    if(night){ if(Math.hypot(sk.x - sk.homeX, sk.y - POST_Y) > 20) sendHome(sk); sk.wanderAt = 0; return; }
+    if(!sk.wanderAt){ sk.wanderAt = now + 1500 + Math.random()*6000; return; }
+    if(now < sk.wanderAt) return;
+    var p = corridorSpot();
+    sk.v = 80; sk.wander = true;
+    goToPoint(sk, p.x, p.y, function(a){ a.wander = false; a.v = 240; a.wanderAt = Date.now() + 3000 + Math.random()*7000; });
+  });
 }
 /* chi serve per l'evento che è appena arrivato dagli hook */
 /* solo le skill chiamano uno specialista: Bash, letture, vault e sub-agenti li fa la truppa */
@@ -1562,10 +1596,23 @@ function skillForEvent(s){
   return m ? m.id : null;
 }
 /* gli specialisti si disegnano con la truppa, prima di Ultron */
+/* il posto di ogni specialista nel corridoio: un tondo del suo colore con l'attrezzo. Quando lo
+   specialista è fuori a lavorare il posto resta lì, vuoto: si vede chi manca e perché */
+function drawPosts(){
+  SKILLS.forEach(function(sk){
+    var away = !!sk.escort;                                /* l'attrezzo sul posto vuoto solo se è fuori a lavorare */
+    ctx.save(); ctx.globalAlpha = away ? .95 : .55;
+    ctx.fillStyle = "rgba(4,16,24,.8)"; ctx.beginPath(); ctx.ellipse(sk.homeX, POST_Y + 2, 22, 9, 0, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = sk.c; ctx.lineWidth = 2; ctx.stroke();
+    if(away) drawSprite(skItem(sk), sk.homeX, POST_Y + 10, 1.6, false);
+    ctx.restore();
+  });
+}
 function drawSpecs(t, det){
+  drawPosts();
   SKILLS.forEach(function(sk){
     var give = SKFX && SKFX.sk === sk && SKFX.open;
-    var animWalk = sk.moving || sk.wandering;
+    var animWalk = sk.moving;
     var f = animWalk ? 2 + (Math.floor(sk.phase)%4) : (Math.floor(t*.002 + sk.x)%2);
     var hot = sk.last && (Date.now()-sk.last < 4000);
     if(hot){
@@ -1698,6 +1745,32 @@ function tokDelta(prev, next, room, key){
 function outDelta(prev, next, room){ return tokDelta(prev, next, room, "out"); }
 /* monete nella cassa di un reparto: scala log2 dei token d'uscita visti da questa pagina (500 = una moneta, max 12) */
 function coinCount(out){ return out > 0 ? Math.min(12, Math.max(1, Math.floor(Math.log2(1 + out/500)))) : 0; }
+/* quale hook ha scritto questo stato: la stazione del PONTE in sala comando */
+function linkKeyFor(s){
+  if(!s) return null;
+  var line = String(s.line || "");
+  if(line.indexOf("sessione aperta") === 0 || line === "contesto compattato") return "session";
+  if(s.status === "compacting") return "compact";
+  if(s.status === "spawning") return "pre";
+  if(s.tool) return "tool";
+  if(line.indexOf("reparto") >= 0) return "sub";
+  if(s.status === "waiting") return "notify";
+  if(isPromptEvent(s)) return "prompt";
+  if(s.status === "idle") return "stop";
+  return null;
+}
+/* il progetto di un terminale dal suo transcript: ~/.claude/projects/-Users-nome-my-agent/x.jsonl
+   diventa "my-agent" (la cartella codifica il percorso con i trattini; la casa sola è "home") */
+function projectName(path){
+  var parts = String(path || "").split("/"), dir = parts.length > 1 ? parts[parts.length - 2] : "";
+  if(!dir) return "";
+  var name = dir.replace(/^-(Users|home)-[^-]+-?/, "");
+  return name || "home";
+}
+/* la coda: n eventi ancora in fila dopo quello che parte. Più fila, passo più svelto (fino a 3x)
+   e sosta più corta (da 900 a 250 ms) */
+function qSpeed(n){ return Math.min(3, 1 + Math.max(0, n)*.4); }
+function qDwell(n){ return Math.max(250, 900/(1 + Math.max(0, n)*.5)); }
 /* WORK-PURE-END */
 
 var WORK = null, SHEETS = {}, TOKOUT = {}, FLOATS = [];
@@ -1754,7 +1827,8 @@ function drawWork(t){
     for(var r=0;r<3;r++){
       var a = age - r*.55; if(a < 0 || a > 1.5) continue;
       ctx.strokeStyle = col; ctx.globalAlpha = (1 - a/1.5)*.85;
-      ctx.beginPath(); ctx.ellipse(ux, uy-18, 12 + a*120, (12 + a*120)*.55, 0, 0, 6.2832); ctx.stroke();
+      var rr = (12 + a*120)*fxScale();
+      ctx.beginPath(); ctx.ellipse(ux, uy-18, rr, rr*.55, 0, 0, 6.2832); ctx.stroke();
     }
     ctx.globalAlpha = 1;
   } else if(w.kind === "wave"){
@@ -1762,7 +1836,7 @@ function drawWork(t){
     ctx.lineWidth = 3; ctx.strokeStyle = col;
     for(var q=0;q<4;q++){
       var ph = (age*.9 + q/4) % 1;
-      ctx.globalAlpha = (1-ph)*.8; ctx.beginPath(); ctx.arc(ax, ay, 16 + ph*150, ang-.45, ang+.45); ctx.stroke();
+      ctx.globalAlpha = (1-ph)*.8; ctx.beginPath(); ctx.arc(ax, ay, (16 + ph*150)*fxScale(), ang-.45, ang+.45); ctx.stroke();
     }
     ctx.globalAlpha = 1;
   } else if(w.kind === "read"){
@@ -1867,10 +1941,10 @@ function drawMarconi(t){
   var waiting = STATE.status === "waiting", closing = performance.now() - LINE_CLOSED < 1400;
   if(!waiting && !closing) return;
   var ph = closing ? (performance.now() - LINE_CLOSED)/1400 : (t % 1300)/1300;
-  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = closing ? P.green : P.blue;
+  ctx.save(); ctx.lineWidth = 3*fxScale(); ctx.strokeStyle = closing ? P.green : P.blue;
   for(var r=0;r<(closing ? 1 : 2);r++){
     var k = (ph + r*.5) % 1; ctx.globalAlpha = 1 - k;
-    ctx.beginPath(); ctx.arc(m.x, m.y-72, 10 + k*90, Math.PI*1.1, Math.PI*1.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(m.x, m.y-72, (10 + k*90)*fxScale(), Math.PI*1.1, Math.PI*1.9); ctx.stroke();
   }
   ctx.restore();
 }
@@ -1999,6 +2073,19 @@ function sendBack(m){
   });
 }
 
+/* NOTTE: la base ferma da SONNO_MS (o a riposo) dorme. Luci più basse e chi è alla sua postazione
+   fa "z", uno alla volta e sempre nello stesso giro: il tempo che passa senza lavoro, non l'ora. */
+var SONNO_MS = 10*60000, SLEEP_AT = 0, SLEEP_I = 0;
+function sleeping(){ return REST || (LIVE && STATE.status === "idle" && lastTs && Date.now() - lastTs > SONNO_MS); }
+function stepSleep(t){
+  if(!sleeping() || t - SLEEP_AT < 2600) return;
+  SLEEP_AT = t;
+  for(var k=0;k<CREW.length;k++){
+    var a = CREW[(SLEEP_I + k) % CREW.length];
+    if(a.resting && !(a.path && a.path.length)){ emote(a, "z", "#8fa6d6", 92); SLEEP_I = (SLEEP_I + k + 1) % CREW.length; return; }
+  }
+}
+
 /* ------------------------------------------------- vita nelle stanze
    Niente più scintille e fumo a ritmo fisso (erano a coordinate delle cupole e andavano anche
    a base vuota): le stanze si muovono solo col lavoro vero, vedi LAVORO più sotto. Qui resta
@@ -2065,9 +2152,12 @@ function resize(){
   if(!focus) fitAll();
 }
 /* inquadratura: i reparti arrivano a filo del mondo, quindi niente margine tagliato: tutto dentro, tra la barra in alto e l'avviso in basso */
+/* la vista generale sta nello spazio libero: a destra del ritratto (in basso a sinistra), sotto la
+   barra dei numeri, sopra l'avviso. Prima il ritratto copriva mezzo reparto RICERCA. */
 function fitAll(){
-  cam.ts = Math.min((VW-40)/WORLD.w, (VH-170)/WORLD.h);
-  cam.tx = WORLD.w/2; cam.ty = WORLD.h/2 - 45/cam.ts;
+  var L = VW > 700 ? 196 : 16, R0 = VW - 16, T = 124, B = VH - 58;
+  cam.ts = Math.min((R0-L)/WORLD.w, (B-T)/WORLD.h);
+  cam.tx = WORLD.w/2 - ((L+R0)/2 - VW/2)/cam.ts; cam.ty = WORLD.h/2 - ((T+B)/2 - VH/2)/cam.ts;
 }
 function focusRoom(r){
   focus = r; if(tipEl) tipEl.hidden = true;           /* la camera si sposta: il nome resterebbe nel posto sbagliato */
@@ -2081,10 +2171,20 @@ function unfocus(){
   if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>vista generale</b>";
   document.getElementById("hint").textContent = "clicca un settore per entrarci";
 }
+/* F: la camera segue Ultron di reparto in reparto; F, esc o trascinare la lasciano */
+var FOLLOW = false;
+function toggleFollow(){
+  FOLLOW = !FOLLOW; focus = null; if(tipEl) tipEl.hidden = true;
+  if(FOLLOW){ cam.ts = Math.max(cam.ts, .9);
+    if(VIEW==="base") document.getElementById("crumb").innerHTML = "BASE / <b>segui Ultron</b>";
+    document.getElementById("hint").textContent = "F o esc per smettere di seguirlo"; }
+  else unfocus();
+}
 function s2w(px,py){ return {x:(px-VW/2)/cam.s+cam.x, y:(py-VH/2)/cam.s+cam.y}; }
 var down=false, dragged=false, lastX=0, lastY=0;
 cv.addEventListener("click", function(e){
   if(dragged) return;
+  FOLLOW = false;
   var b = cv.getBoundingClientRect(), p = s2w(e.clientX-b.left, e.clientY-b.top);
   var r = roomAt(p.x,p.y);
   if(r) focusRoom(r); else unfocus();
@@ -2094,7 +2194,7 @@ window.addEventListener("pointerup", function(){ down=false; cv.classList.remove
 window.addEventListener("pointermove", function(e){
   if(!down) return;
   var dx=e.clientX-lastX, dy=e.clientY-lastY;
-  if(Math.abs(dx)+Math.abs(dy)>3) dragged=true;
+  if(Math.abs(dx)+Math.abs(dy)>3){ dragged=true; if(FOLLOW) toggleFollow(); }
   cam.tx-=dx/cam.s; cam.ty-=dy/cam.s; cam.x-=dx/cam.s; cam.y-=dy/cam.s;
   lastX=e.clientX; lastY=e.clientY;
 });
@@ -2103,7 +2203,8 @@ cv.addEventListener("wheel", function(e){
 }, {passive:false});
 window.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName === "INPUT")) return;   /* si scrive nel login, non si comandano scorciatoie */
-  if(e.key==="Escape"){ if(!keysEl.hidden) toggleKeys(false); else if(itemMcOn) closeItemDetail(); else if(mcOn) toggleMC(); else unfocus(); }
+  if(e.key==="Escape"){ if(!keysEl.hidden) toggleKeys(false); else if(itemMcOn) closeItemDetail(); else if(mcOn) toggleMC(); else { FOLLOW = false; unfocus(); } }
+  else if(e.key==="f"||e.key==="F") toggleFollow();
   else if(e.key==="?") toggleKeys();
   else if(e.key==="o"||e.key==="O") OVERLAY = !OVERLAY;
   else if(e.key==="t"||e.key==="T") toggleMC();
@@ -2116,20 +2217,29 @@ var STATE = {status:"thinking", room:null, node:null, task:null, target:null, to
 var paused=false, startTs=Date.now(), pulseHist=[], pulseLevel=0, pulseAt=0;
 for(var i=0;i<48;i++) pulseHist.push(0);
 
-function logEvent(kind, html){
+/* key: due righe di fila con la stessa chiave diventano una sola, "×N" (quattro Modifica in
+   officina sono una riga, non quattro) */
+var LOG_LAST = null;
+function logEvent(kind, html, key){
   pulseLevel = 1;                       /* ogni evento è un battito nel grafico */
   if(typeof EVENTS !== "undefined"){ EVENTS.push(Date.now()); if(EVENTS.length > 400) EVENTS.shift(); }
   var box = document.getElementById("events");
+  if(key && LOG_LAST && LOG_LAST.key === key && LOG_LAST.el === box.firstChild){
+    LOG_LAST.n++;
+    LOG_LAST.el.querySelector(".w").innerHTML = html + " <i class='rep'>×" + LOG_LAST.n + "</i>";
+    return;
+  }
   var d = document.createElement("div"); d.className = "ev "+kind;
   var now = new Date();
   d.innerHTML = "<time>"+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0")+
                 "</time><span class='w'>"+html+"</span>";
   box.insertBefore(d, box.firstChild);
+  LOG_LAST = key ? {key:key, el:d, n:1} : null;
   while(box.children.length>36) box.removeChild(box.lastChild);
 }
 function renderTasks(){
   var box = document.getElementById("tasks"); box.innerHTML = "";
-  box.parentNode.style.display = LIVE ? "none" : "";
+  box.parentNode.style.display = LIVE || REST ? "none" : "";
   sceneTasks().slice(0,5).forEach(function(t){
     var d = document.createElement("div");
     d.className = "task"+(t.st==="qa"?" qa":"");
@@ -2193,10 +2303,10 @@ function demoStep(){
     var r = DEMO_TOK[e.room] = DEMO_TOK[e.room] || {in:0, out:0, cread:0, cwrite:0};
     r.out += e.tok; r.cwrite += e.cw || 0; s.tokens = JSON.parse(JSON.stringify(DEMO_TOK));
   }
-  if(e.sub === "add"){ DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; }
+  if(e.sub === "add"){ DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; DEMO_MINI.task = e.task; }
   if(e.sub === "done" && DEMO_MINI){ sendBack(DEMO_MINI); DEMO_MINI = null; }
   if(!e.line && e.status === STATE.status && (e.status === "waiting" || e.status === "compacting")) return true;   /* solo tempo che passa */
-  applyLive(s);
+  enqueueEvent(s);
   return true;
 }
 function simulate(){
@@ -2206,14 +2316,6 @@ function simulate(){
 }
 function simulateScene(){
   var roll = Math.random();
-  /* ogni tanto, in demo, passa dall'arsenale a equipaggiarsi */
-  if(!SKFX && roll < .17){
-    var skd = SKILLS[Math.floor(Math.random()*SKILLS.length)];
-    var dst = ROOMS[Math.floor(Math.random()*ROOMS.length)];
-    STATE.status = "thinking"; STATE.target = dst.id;
-    useSkill(skd.id, function(){ goTo(ULTRON, dst.id, .5, .5, function(){ STATE.room = dst.id; }); }, dst.id, true);
-    renderTasks(); return;
-  }
   if(roll < .26){
     var idx = Math.floor(Math.random()*NODES.length), n = NODES[idx];
     STATE.status = Math.random()<.5 ? "writing" : "reading";
@@ -2354,9 +2456,9 @@ function ensureAuthThenSubscribe(){
 function acceptLiveRow(s){
   if(!s) return;
   try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
-  if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks(); }
+  if(!LIVE){ LIVE = true; REST = false; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks(); }
   lastSeen = Date.now(); LAST_STATE = s;
-  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; enqueueEvent(s); }
 }
 
 function subscribeRealtime(){
@@ -2377,6 +2479,7 @@ function subscribeRealtime(){
         reloadAux(); // scena giusta subito, non solo al primo evento
         var pill = document.getElementById("mode");
         var next = pill && pillAfterResubscribe(pill.textContent, LIVE);
+        if(next && REST && !LIVE) next = {cls:"pill rest", text:"A RIPOSO"};
         if(next){ pill.className = next.cls; pill.textContent = next.text; }
       } else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT"){
         USE_SUPABASE = false; // torna al poll: meglio HTTP che niente
@@ -2425,6 +2528,29 @@ fetch("/api/skills", {cache:"no-store"})
   .catch(function(){});
 
 var LIVE = false, lastTs = 0, lastSeen = 0, LAST_STATE = null;
+/* A RIPOSO: dopo una sessione vera (o se all'apertura c'è uno stato vecchio) la base non recita la
+   demo, che mostrerebbe lavoro finto con Ultron fermo: luci basse, truppa alle postazioni, notte.
+   La demo parte solo se la chiedi (clic sulla pillola) o se Ultron non ha mai lavorato qui. */
+var REST = false, DEMO_ASKED = false;
+function enterRest(why){
+  if(REST) return;
+  REST = true; DEMO_TURN = null; QUEUE.length = 0;
+  STATE.status = "idle"; STATE.target = null;
+  MINIS = MINIS.filter(function(m){ return !m.demo; });
+  var p = document.getElementById("mode"); p.className = "pill rest"; p.textContent = "A RIPOSO";
+  renderTasks();
+  logEvent("deleg", why);
+}
+(function(){
+  var p = document.getElementById("mode");
+  function toggle(){
+    if(LIVE) return;
+    if(REST){ REST = false; DEMO_ASKED = true; p.className = "pill demo"; p.textContent = "DEMO"; logEvent("deleg", "demo richiesta: la base recita un turno finto"); }
+    else if(DEMO_ASKED){ DEMO_ASKED = false; enterRest("demo finita: la base torna a riposo"); }
+  }
+  p.addEventListener("click", toggle);
+  p.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+})();
 /* Il ponte con Claude Code: gli hook scrivono un file, il server lo serve,
    la pagina lo chiede quattro volte al secondo. Se non risponde nessuno,
    resta in DEMO e il simulatore continua a girare. */
@@ -2439,11 +2565,8 @@ function checkStaleWatchdog(){
        agent_state riaccende il LIVE da sola (acceptLiveRow); spegnerlo
        rimandava cloni e mini-Ultron ai file locali fino al ricaricamento.
        Se il canale cade davvero, ci pensa CHANNEL_ERROR. */
-    LIVE = false; STATE.status = "idle";
-    var p = document.getElementById("mode");
-    p.className = "pill demo"; p.textContent = "DEMO";
-    renderTasks();
-    logEvent("deleg","sessione silenziosa da "+Math.round(SOGLIE.live_ms/60000)+" min · torno alla demo");
+    LIVE = false;
+    enterRest("sessione silenziosa da "+Math.round(SOGLIE.live_ms/60000)+" min: la base va a riposo");
   }
 }
 setInterval(checkStaleWatchdog, 60000);
@@ -2453,9 +2576,13 @@ function onLocalState(s){
   if(!s || USE_SUPABASE) return; // Realtime se ne occupa, vedi subscribeRealtime()
   /* live solo quando un evento vero è arrivato negli ultimi SOGLIE.live_ms:
      se apri la pagina e Ultron non sta lavorando, resta la demo */
-  if(!LIVE && (!s.ts || Date.now()-s.ts > SOGLIE.live_ms)) return;
+  if(!LIVE && (!s.ts || Date.now()-s.ts > SOGLIE.live_ms)){
+    /* Ultron ha lavorato qui, ma non adesso: la base riposa invece di recitare la demo */
+    if(s.ts && !REST && !DEMO_ASKED) enterRest("nessun lavoro negli ultimi " + Math.round(SOGLIE.live_ms/60000) + " min: la base riposa");
+    return;
+  }
   if(!LIVE){
-    LIVE = true;
+    LIVE = true; REST = false;
     var pill = document.getElementById("mode");
     pill.className = "pill live"; pill.textContent = "LIVE";
     renderTasks();
@@ -2464,7 +2591,7 @@ function onLocalState(s){
     logEvent("deleg","collegato a <b>Claude Code</b>");
   }
   lastSeen = Date.now(); LAST_STATE = s;
-  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; enqueueEvent(s); }
 }
 
 /* Server-Sent Events: il server manda stato, sessioni e sub-agenti appena gli
@@ -2495,6 +2622,58 @@ function poll(){
 setInterval(poll, 400);
 poll();
 
+/* AVVISI: quando Ultron ti aspetta (un permesso o la tua risposta) e la pagina non è davanti, un
+   avviso di sistema. Il permesso del browser si chiede solo col clic su AVVISI; la scelta resta in
+   questo browser. Oltre al titolo della scheda, che già diventa "(!)". */
+var NOTIFY = false;
+try{ NOTIFY = localStorage.getItem("baracca_avvisi") === "1" && window.Notification && Notification.permission === "granted"; }catch(e){}
+(function(){
+  var b = document.getElementById("bellBtn");
+  function show(){ b.textContent = NOTIFY ? "AVVISI SÌ" : "AVVISI NO"; b.setAttribute("aria-pressed", NOTIFY ? "true" : "false"); }
+  if(!window.Notification){ b.hidden = true; return; }
+  show();
+  b.addEventListener("click", function(){
+    if(NOTIFY){ NOTIFY = false; try{ localStorage.setItem("baracca_avvisi", "0"); }catch(e){} show(); return; }
+    Notification.requestPermission().then(function(p){
+      NOTIFY = p === "granted"; try{ localStorage.setItem("baracca_avvisi", NOTIFY ? "1" : "0"); }catch(e){}
+      show();
+      if(!NOTIFY) logEvent("fail", "avvisi negati dal browser: si riattivano dalle impostazioni del sito");
+    });
+  });
+})();
+function notifyWaiting(line){
+  if(!NOTIFY || !LIVE || (!document.hidden && document.hasFocus())) return;
+  try{
+    new Notification("Ultron ti aspetta", {tag:"baracca-attesa",
+      body: line.indexOf("permesso") === 0 ? "Chiede il permesso" + (line.split("· ")[1] ? " per " + line.split("· ")[1] : "") : "Aspetta che tu risponda"});
+  }catch(e){}
+}
+
+/* ======================================================== LA CODA ====
+   Gli eventi arrivano ogni 1-3 secondi, Ultron ci mette di più ad attraversare la base: prima
+   un evento nuovo cancellava il cammino verso quello precedente, e il suo lavoro non si vedeva
+   mai. Ora aspettano in fila e passano in ordine: uno che porta in un reparto parte solo quando
+   Ultron è arrivato al precedente e ci è rimasto un momento (qDwell); quelli senza reparto
+   (prompt, attesa, fine turno, compattazione) passano appena tocca a loro. Con la fila lunga
+   Ultron cammina più svelto e si ferma meno (qSpeed): la scena può restare indietro di qualche
+   secondo, ma non salta niente. A pagina nascosta non si recita: gli eventi passano subito. */
+var QUEUE = [], Q_MAX = 40;
+function enqueueEvent(s){
+  if(document.hidden){ while(QUEUE.length) applyLive(QUEUE.shift()); applyLive(s); return; }
+  QUEUE.push(s);
+  while(QUEUE.length > Q_MAX) applyLive(QUEUE.shift());   /* fila troppo lunga: i più vecchi passano senza aspettare */
+}
+function stepQueue(){
+  ULTRON.v = 330 * qSpeed(QUEUE.length);
+  while(QUEUE.length){
+    var s = QUEUE[0], walks = !!(s.room && R(s.room));
+    if(walks && ((ULTRON.path && ULTRON.path.length) || performance.now() - (ULTRON.arrivedAt || 0) < qDwell(QUEUE.length - 1))) return;
+    QUEUE.shift(); applyLive(s);
+    if(walks) return;
+  }
+}
+document.addEventListener("visibilitychange", function(){ if(document.hidden) while(QUEUE.length) applyLive(QUEUE.shift()); });
+
 function applyLive(s){
   vigOnLive(s);
   var was = STATE.status;
@@ -2504,8 +2683,7 @@ function applyLive(s){
   if(s.node) LAST_NODE = s.node;
   var line = String(s.line || "");
   /* nel pannello dei collegamenti contano solo i quattro hook che ha: gli altri stati non accendono niente */
-  var link = s.tool ? "tool" : line.indexOf("reparto") >= 0 ? "sub" : isPromptEvent(s) ? "prompt"
-           : s.status === "idle" && line.indexOf("sessione") < 0 ? "stop" : null;
+  var link = linkKeyFor(s);
   if(link) markLink(link);
   /* la sbarra si alza e il blocco del contesto torna a Ultron appena succede qualcos'altro */
   if(!(s.status === "waiting" && line.indexOf("permesso") === 0)) liftBarrier();
@@ -2534,6 +2712,7 @@ function applyLive(s){
   if(s.status === "compacting" && was !== "compacting") onCompact(s);
   if(line.indexOf("sessione aperta") === 0) onSessionStart(s);
   if(s.status === "waiting" && line.indexOf("permesso") === 0 && !(BARRIER && !BARRIER.up)) onPermission(line);
+  if(s.status === "waiting" && (was !== "waiting" || line.indexOf("permesso") === 0)) notifyWaiting(line);
   if(s.tokens){ onTokens(s); STATE.tokens = s.tokens; }
 
   /* un subagente al lavoro è un operativo che si sposta nel suo reparto */
@@ -2568,10 +2747,15 @@ function applyLive(s){
   }
 
   /* task è l'inizio di un comando Bash o di un pattern di grep: testo, mai HTML */
-  if(s.line) logEvent(s.status==="failing"?"fail":"write", esc(s.line));
-  else if(s.tool) logEvent(
-    s.status==="writing" ? "write" : s.status==="delegating" ? "deleg" : s.status==="failing" ? "fail" : "read",
-    "<b>"+esc(s.tool)+"</b> "+esc(s.node || s.task || (s.room ? R(s.room).n : "")));
+  /* nel rapporto frasi, non righe grezze: le righe dei personaggi (permesso, attesa, compattazione,
+     sessione) le racconta già chi si muove */
+  if(line.indexOf("reparto") >= 0) logEvent("deleg", "un reparto ha finito e rientra", "rientro");
+  else if(s.tool){
+    var what = s.node ? esc(s.node) : s.task ? "«" + esc(String(s.task).slice(0, 40)) + "»" : "";
+    logEvent(s.status==="writing" ? "write" : s.status==="delegating" ? "deleg" : s.status==="failing" ? "fail" : "read",
+      (s.status === "failing" ? "errore: " : "") + "<b>" + esc(toolLabel(s.tool)) + "</b>" + (s.room ? " in " + R(s.room).n.toLowerCase() : "") + (what ? " · " + what : ""),
+      s.status + s.tool + s.room + (s.node || s.task || ""));
+  }
   renderTasks();
 }
 
@@ -2614,10 +2798,11 @@ function dashSnapshot(m){
       perMin: mins > .2 ? (m.events/mins).toFixed(1) : null,
       lastTool: m.lastTool, lastToolLabel: m.lastToolLabel, node: String(m.lastNode).slice(0,14)
     },
-    link: {
-      hit: {prompt: !!hit.prompt, tool: !!hit.tool, sub: !!hit.sub, stop: !!hit.stop},
-      last: m.link.last || null, hot: m.now - m.link.at < 1600
-    },
+    link: (function(){
+      var keys = ["session", "prompt", "pre", "tool", "notify", "sub", "compact", "stop"], h = {}, seen = {}, sn = m.link.seen || {};
+      keys.forEach(function(k){ h[k] = !!hit[k]; seen[k] = sn[k] ? Math.max(0, Math.round((m.now - sn[k])/1000)) : null; });
+      return {hit: h, last: m.link.last || null, hot: m.now - m.link.at < 1600, seen: seen};
+    })(),
     crew: m.crew.map(function(a){
       var carrying = m.tasks.filter(function(k){ return k.carrier === a.id; })[0];
       var td = live && st.tokens && st.tokens[a.home];
@@ -2737,13 +2922,17 @@ function ghost(scale){
 /* un terminale mai visto entra dal PORTELLONE; uno che era già in scena (anche come titolare,
    cioè come ULTRON) si stacca da Ultron; alla prima lettura sono già dentro. Chi non è più attivo
    esce dal portellone invece di sparire. */
-var SEEN_SESSIONS = null;
+var SEEN_SESSIONS = null, PRIMARY_KEY = null;
+var TERM_COLS = ["#e0bf9b", "#8fa6d6", "#9fb04a", "#c96f9a", "#5fd8ea", "#e8b84a"];
+/* ogni terminale ha il suo colore, dal suo transcript: sempre lo stesso */
+function termColor(key){ return TERM_COLS[hashName(String(key || "")) % TERM_COLS.length]; }
 function renderSessions(sessions){
   var keys = Object.keys(sessions), first = !SEEN_SESSIONS;
   if(first) SEEN_SESSIONS = {};
   /* il titolare è la sessione con l'evento più recente in assoluto —
      è già lui a guidare ULTRON via agent_state, non gli serve un clone */
   var primary = keys.length ? keys.reduce(function(a,b){ return sessions[a].ts >= sessions[b].ts ? a : b; }) : null;
+  PRIMARY_KEY = primary;
   var live = {};
   keys.forEach(function(key){
     if(key === primary) return;
@@ -2777,7 +2966,8 @@ function renderSubagents(data){
   (data.list||[]).forEach(function(s){
     ids[s.id] = true;
     var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
-    if(!m) launchMini(s.id, s.room);
+    if(!m) m = launchMini(s.id, s.room);
+    if(s.task) m.task = s.task;
   });
   MINIS.forEach(function(m){ if(!ids[m.id] && !m.demo) sendBack(m); });
 }
@@ -2963,7 +3153,14 @@ function renderVault(v){
 }
 
 /* ------------------------------------------------- il ponte con gli hook */
-function markLink(k){ LINK_HIT[k] = true; LINK_LAST = k; LINK_AT = Date.now(); }
+/* LINK_SEEN: quando ogni hook si è fatto vivo l'ultima volta con un evento VERO (non la demo),
+   ricordato in questo browser: un hook "mai visto" in sala comando vuol dire che non è registrato */
+var LINK_SEEN = {};
+try{ LINK_SEEN = JSON.parse(localStorage.getItem("baracca_hook_visti") || "{}") || {}; }catch(e){}
+function markLink(k){
+  LINK_HIT[k] = true; LINK_LAST = k; LINK_AT = Date.now();
+  if(LIVE){ LINK_SEEN[k] = Date.now(); try{ localStorage.setItem("baracca_hook_visti", JSON.stringify(LINK_SEEN)); }catch(e){} }
+}
 
 /* isola React della sala comando (panels/src/dash): montata una volta, al primo
    giro della dashboard. Se il bundle manca o esplode, DASH resta null e il
@@ -3019,9 +3216,9 @@ function dashState(){
     clock: document.getElementById("coreClock").textContent,
     moving: ULTRON.moving, skfxName: SKFX ? SKFX.sk.n : null,
     events: EVENTS.length, lastTool: LAST_TOOL, lastToolLabel: toolLabel(LAST_TOOL), lastNode: LAST_NODE, lastState: LAST_STATE,
-    crew: CREW, tasks: TASKS, skills: SKILLS, rooms: ROOMS, roomTime: ROOMTIME, stages: STAGES,
+    crew: CREW, tasks: sceneTasks(), skills: SKILLS, rooms: ROOMS, roomTime: ROOMTIME, stages: STAGES,
     deliveredLog: DELIVERED_LOG, delivered: delivered,
-    pulse: pulseHist, link: {hit: LINK_HIT, last: LINK_LAST, at: LINK_AT},
+    pulse: pulseHist, link: {hit: LINK_HIT, last: LINK_LAST, at: LINK_AT, seen: LINK_SEEN},
     vault: VAULT, vaultDown: VAULT_DOWN, P: P,
     R: R, activeMissions: activeMissions, nextStep: nextStep, missionStepParts: missionStepParts, plainMd: plainMd
   };
@@ -3126,9 +3323,14 @@ function stepAntenna(now){
   var target = ULTRON.moving ? -1.6 : 0;                 /* in pixel sprite, sempre "dietro" al passo */
   ANT.v += (target - ANT.lag)*90*dt; ANT.v *= Math.pow(.02, dt); ANT.lag += ANT.v*dt;
 }
+var PEOPLE_MIN = 38;
+/* gli effetti che devono vedersi dalla vista generale (onde, trasmissioni, sonar) crescono quando la camera si allontana */
+function fxScale(){ return clamp(.6/cam.s, 1, 2.2); }
 function drawSprite(img, wx, wy, s, flip){
   if(img.q) s = 1.6;                                     /* omini: griglia delle cupole */
   if(img.qU) s = s*1.6/2.6;                              /* Ultron: da 2,6 a 1,6, cloni e mini in proporzione */
+  /* da lontano le persone non scendono sotto PEOPLE_MIN px di schermo: si ingrandiscono appena, restando sulla griglia */
+  if((img.q || img.qU) && img.height*s*cam.s < PEOPLE_MIN) s *= Math.min(1.8, PEOPLE_MIN/(img.height*s*cam.s));
   var r = roomAt(wx, wy-4), inCorr = !r && wy > CORR.y-10 && wy < CORR.y+CORR.h+20;
   var body = r ? tinted(img, hexRgb(r.c), .1) : inCorr ? tinted(img, "255,176,96", .08) : img;
   var w = img.width*s, h = img.height*s;
@@ -3150,6 +3352,7 @@ var EMO_GLYPH = {
   "?": [".###.","#...#","...#.","..#..",".....","..#.."],
   "n": ["..##.","..#.#","..#..","..#..","###..","##..."],
   "v": ["....#","...##","#.##.","###..",".#...","....."],
+  "z": ["#####","...#.","..#..",".#...","#####","....."],
   "€": ["..###",".#...","####.",".#...","####.","..###"]
 };
 var EMO = [], EMO_PREV = {status:null, room:null, carry:{}, uses:{}};
@@ -3440,16 +3643,19 @@ var CELL_DESC = {
 function hoverAt(p){
   var best = null, bd = Math.max(26, 22/cam.s);
   function test(x, y, name, info){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y-70, n:name, t:info}; } }
-  test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : ""));
+  test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : "") +
+       (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : ""));
   CREW.forEach(function(a){
     var carry = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
     test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
   });
   SKILLS.forEach(function(k){
-    test(k.x, k.y, k.n, k.d + " · " + (k.moving ? (k.escort ? "va in " + R(k.escort).n.toLowerCase() : "torna al posto") : k.escort ? "al lavoro in " + R(k.escort).n.toLowerCase() : "al posto"));
+    var here = Math.hypot(k.x - k.homeX, k.y - POST_Y) < 20;
+    test(k.x, k.y, k.n, k.d + " · " + (k.escort ? (k.moving ? "va in " : "al lavoro in ") + R(k.escort).n.toLowerCase()
+      : k.wander ? "a spasso nel corridoio" : k.moving ? "torna al posto" : here ? "al posto" : "in pausa nel corridoio"));
   });
-  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON", c.leaving ? "un altro terminale · esce" : "un altro terminale"); });
-  MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro"); });
+  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
+  MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
   if(best) return best;
   var things = [];
   things.push({x:GATE.x, y:GATE.y, n:"PORTELLONE", t:"da qui entrano ed escono i terminali"});
@@ -3547,7 +3753,9 @@ function loop(t){
   if(!paused){
     acc += dt*1000;
     /* nel turno finto un passo ogni 5,6 s: il tempo di attraversare la base e vedere il lavoro */
-    if(acc > (LIVE ? 1e9 : DEMO_TURN ? 5600 : 3400)){ acc = 0; simulate(); }
+    if(acc > (LIVE || REST ? 1e9 : DEMO_TURN ? 5600 : 3400)){ acc = 0; simulate(); }
+    stepQueue();
+    stepSleep(t);
     stepEntity(ULTRON, dt);
     CREW.forEach(function(a){ stepEntity(a, dt); });
     SKILLS.forEach(function(a){ stepEntity(a, dt); });
@@ -3568,7 +3776,7 @@ function loop(t){
   drawWorld(t); drawPortrait(t);
   if(mcOn && Math.floor(t/240)%2===0) drawMC();
   if(VIEW==="dash" && t-dashTick > 110){ dashTick = t; renderDashLive(); }
-  document.getElementById("coreState").textContent = (ULTRON.moving ? "in cammino · " : "") + nowDoing();
+  document.getElementById("coreState").textContent = (ULTRON.moving ? "in cammino · " : "") + nowDoing() + (QUEUE.length ? " · " + QUEUE.length + " in coda" : "");
   if(VIEW !== "dash" && t-hudTick > 250){ hudTick = t; renderHud(); }
   var el = Math.floor((Date.now()-startTs)/1000);
   document.getElementById("coreClock").textContent =
@@ -3903,7 +4111,7 @@ function envRoomLight(r){
   for(var i=0;i<acts.length;i++) if(roomAt(acts[i].x, acts[i].y) === r){ inside = true; break; }
   var lit = ROOM_LIT[r.id] = lerp(ROOM_LIT[r.id] || 0, inside ? 1 : 0, .05);
   ctx.save(); THEME.clip(ctx, r, 0, 0);
-  ctx.fillStyle = "rgba(2,10,20," + (.42*(1-lit)) + ")";
+  ctx.fillStyle = "rgba(2,10,20," + (.42*(1-lit) + (sleeping() ? .22 : 0)) + ")";
   ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.restore();
 }
@@ -3983,6 +4191,7 @@ function drawWorld(t){
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = THEME.void || "#04121b"; ctx.fillRect(0,0,VW,VH);
 
+  if(FOLLOW){ cam.tx = ULTRON.x; cam.ty = ULTRON.y - 40; }
   cam.s = lerp(cam.s,cam.ts,.09); cam.x = lerp(cam.x,cam.tx,.09); cam.y = lerp(cam.y,cam.ty,.09);
   /* in DASHBOARD il canvas è nascosto (VW=0): niente mondo, stessa guardia
      "seaOk" dell'originale contro la vista infinita */
@@ -4049,8 +4258,10 @@ function drawWorld(t){
     ctx.beginPath(); ctx.arc(ULTRON.x+16, ULTRON.y-100, 3+pulse*2, 0, 6.2832); ctx.fill();
   }
   CLONES.forEach(function(c){
-    var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2);
-    ctx.globalAlpha = .5;
+    var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2), tc = termColor(c.key);
+    ctx.save(); ctx.globalAlpha = .55; ctx.strokeStyle = tc; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(c.x, c.y - 2, 24, 8, 0, 0, 6.2832); ctx.stroke(); ctx.restore();
+    ctx.globalAlpha = .6;
     drawSprite(ultronSprite(cf, actionFor(c.status), c.status), c.x, c.y, c.scale, c.face<0);
     ctx.globalAlpha = 1;
   });

@@ -1,7 +1,7 @@
 // Istantanea della sala comando pubblicata dal vanilla (dashSnapshot in
 // baracca.html, blocco DASH-PURE). Oggetti semplici: niente funzioni, niente DOM.
 
-export type LinkKey = 'prompt' | 'tool' | 'sub' | 'stop';
+export type LinkKey = 'session' | 'prompt' | 'pre' | 'tool' | 'notify' | 'sub' | 'compact' | 'stop';
 
 export type DashHeader = {
   status: string;          // parola dello stato (stateWord)
@@ -25,7 +25,8 @@ export type DashSignal = {
   node: string;            // già tagliato a 14 caratteri
 };
 
-export type DashLink = { hit: Record<LinkKey, boolean>; last: LinkKey | null; hot: boolean };
+// seen: secondi dall'ultimo evento VERO di quell'hook (ricordato nel browser), null = mai visto
+export type DashLink = { hit: Record<LinkKey, boolean>; last: LinkKey | null; hot: boolean; seen: Record<LinkKey, number | null> };
 
 export type CrewCard = {
   id: string; name: string; color: string;

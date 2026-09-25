@@ -60,8 +60,11 @@ describe('SESSIONE', () => {
   it('ponte: stazioni toccate e calda, segnale sulla stazione, JSON solo con #debug', () => {
     const { c } = show(fakeSnap());
     const stn = c.querySelectorAll('#dLink .stn');
-    expect([...stn].map((s) => s.className)).toEqual(['stn on', 'stn on hot', 'stn', 'stn']);
-    expect((c.querySelector('#dSig') as HTMLElement).style.left).toBe('37.5%');
+    expect([...stn].map((s) => s.className)).toEqual(
+      ['stn never', 'stn on', 'stn never', 'stn on hot', 'stn', 'stn never', 'stn never', 'stn never']);
+    expect((c.querySelector('#dSig') as HTMLElement).style.left).toBe('43.75%');
+    expect([...stn].map((s) => s.querySelector('em')!.textContent)).toEqual(
+      ['mai visto', 'ora', 'mai visto', 'ora', '1 h fa', 'mai visto', 'mai visto', 'mai visto']);
     expect(c.querySelector('#dSig')!.className).toBe('sig go');
     expect((c.querySelector('#dRaw') as HTMLElement).style.display).toBe('none');
     const dbg = show(fakeSnap({ debugRaw: { label: 'state.json', json: '{"a":1}' } })).c;
