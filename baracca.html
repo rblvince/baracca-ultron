@@ -1532,7 +1532,10 @@ var focus = null;
 var cv = document.getElementById("world"), ctx = cv.getContext("2d");
 var VW=0, VH=0, dpr=1;
 function resize(){
-  dpr = Math.min(window.devicePixelRatio||1,2);
+  /* densità 1 anche su Retina: la pixel art non guadagna niente dal x2 (il CSS la
+     ingrandisce pixelata) e il canvas costava 4 volte i pixel. Misurato 25/09 sulla
+     Iris Plus: da 4,5 a 14,8 fps. */
+  dpr = 1;
   var b = cv.getBoundingClientRect(); VW = b.width; VH = b.height;
   cv.width = Math.round(VW*dpr); cv.height = Math.round(VH*dpr);
   ctx.imageSmoothingEnabled = false;
