@@ -25,7 +25,7 @@ function base(over = {}) {
     skills: [{ id: 'taste', n: 'TASTE', c: '#s', d: 'gusto', uses: 2, last: 119000, escort: null, moving: false }],
     rooms: ROOMS, roomTime: { ricerca: 1000, prod: 5000 }, stages: ['ricerca', 'prod'],
     deliveredLog: ['recapito · script'], delivered: 1,
-    pulse: [0, 0.5, 1], link: { hit: { tool: true }, last: 'tool', at: 119000 },
+    pulse: [0, 0.5, 1], link: { hit: { tool: true }, last: 'tool', at: 119000, seen: { tool: 60000 } },
     vault: null, vaultDown: false, P,
     R, activeMissions: (v) => (v && v.missions || []).filter((x) => x.steps.some((s) => !s.done)),
     nextStep: (x) => x.steps.findIndex((s) => !s.done),
@@ -44,7 +44,11 @@ function base(over = {}) {
   assert.equal(s.vault, null);
   assert.equal(s.signal.perMin, '3.0');                 // 6 eventi in 2 minuti
   assert.equal(s.signal.node, 'Active Priorit');         // 14 caratteri
-  assert.deepEqual(s.link, { hit: { prompt: false, tool: true, sub: false, stop: false }, last: 'tool', hot: true });
+  // otto stazioni, una per hook; "visto" in secondi dall'ultimo evento vero, null = mai visto
+  assert.deepEqual(s.link, {
+    hit: { session: false, prompt: false, pre: false, tool: true, notify: false, sub: false, compact: false, stop: false },
+    last: 'tool', hot: true,
+    seen: { session: null, prompt: null, pre: null, tool: 60, notify: null, sub: null, compact: null, stop: null } });
   assert.deepEqual(s.crew[0], { id: 'ricerca-1', name: 'RIC-1', color: '#a', role: 'PORTA CASSA', busy: true, tokens: null });
   assert.deepEqual(s.board.scene, [{ id: 7, text: 'vetrina · revisione', p: 0.5, stage: 'OFFICINA', qa: false }]);
   assert.deepEqual(s.board.delivered, ['recapito · script']);
