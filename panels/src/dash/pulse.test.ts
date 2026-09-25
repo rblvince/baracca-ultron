@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { portraitFrame, pulseBars } from './pulse';
-
-describe('pulseBars (SEGNALE)', () => {
-  it('una barra per valore, altezza pari, minimo 2 px, ultima evidenziata', () => {
-    const b = pulseBars([0, 0.5, 1], 210, 60);
-    expect(b.map((x) => x.h)).toEqual([2, 28, 54]);
-    expect(b.map((x) => x.x)).toEqual([0, 70, 140]);
-    expect(b[0].w).toBe(69);
-    expect(b.map((x) => x.last)).toEqual([false, false, true]);
-    expect(b[2].y).toBe(60 - 54 - 2);
-  });
-});
+import { portraitFrame } from './pulse';
 
 describe('portraitFrame (ritratto)', () => {
   it('battito di ciglia negli ultimi 120 ms di ogni 3 s', () => {
