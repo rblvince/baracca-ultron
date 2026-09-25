@@ -161,9 +161,9 @@ def read_state():
         data = {}
     now = int(time.time() * 1000)
     # a session that died mid-turn never writes "idle" — treat a stale
-    # "thinking"/"waiting"/"spawning" state as idle so the character doesn't
+    # "thinking"/"waiting"/"spawning"/"compacting" state as idle so the character doesn't
     # freeze forever.
-    if data.get("status") in ("thinking", "waiting", "spawning") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
+    if data.get("status") in ("thinking", "waiting", "spawning", "compacting") and now - data.get("ts", 0) > soglie.STATO_FERMO_MS:
         data = {"status": "idle", "area": None, "ts": now}
     data.setdefault("status", "idle")
     data.setdefault("area", None)
@@ -220,6 +220,39 @@ def config_payload():
     cfg = supabase_client.load_config()
     return {"url": cfg.get("SUPABASE_URL", ""), "anon_key": cfg.get("SUPABASE_ANON_KEY", ""),
             "soglie": soglie.per_la_pagina()}
+
+
+# dove Claude Code e `npx skills` le installano (utente e progetto dell'agente); i doppioni per nome contano una volta
+SKILL_DIRS = [os.path.expanduser("~/.claude/skills"), os.path.join(AGENT_HOME, ".claude", "skills"),
+              os.path.expanduser("~/.agents/skills"), os.path.join(AGENT_HOME, ".agents", "skills")]
+
+
+def read_skills(dirs=None):
+    """Le skill installate davvero: una cartella con SKILL.md in ~/.claude/skills o nel
+    progetto dell'agente. Nome e descrizione dal frontmatter (la cartella se manca).
+    La Baracca ne fa gli specialisti del corridoio. Sola lettura, niente altro del file."""
+    out, seen = [], set()
+    for base in dirs or SKILL_DIRS:
+        try:
+            names = sorted(os.listdir(base))
+        except OSError:
+            continue
+        for d in names:
+            text = read_text(os.path.join(base, d, "SKILL.md"))
+            if not text or d.startswith("."):
+                continue
+            meta = {}
+            m = re.match(r"^---\s*\n(.*?)\n---", text, re.S)
+            for line in (m.group(1).splitlines() if m else []):
+                k, _, v = line.partition(":")
+                if k.strip() in ("name", "description") and v.strip():
+                    meta[k.strip()] = v.strip().strip("\"'")
+            name = meta.get("name") or d
+            if name in seen:
+                continue
+            seen.add(name)
+            out.append({"name": name, "description": (meta.get("description") or "")[:140]})
+    return out
 
 
 def parse_missions():
@@ -309,6 +342,8 @@ class Handler(BaseHTTPRequestHandler):
             self._stream_events()
         elif path == "/api/config":
             self._send_json(config_payload())
+        elif path == "/api/skills":
+            self._send_json(read_skills())
         elif path in ("/", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
         elif path == "/panels/panels.js":

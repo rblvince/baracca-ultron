@@ -6,7 +6,7 @@ Tutte in millisecondi, come i ts scritti dagli hook."""
 
 MINUTO_MS = 60 * 1000
 
-# uno stato thinking/waiting/spawning più vecchio di così è una sessione morta
+# uno stato thinking/waiting/spawning/compacting più vecchio di così è una sessione morta
 # a metà turno (non ha mai scritto idle): il server lo serve come idle
 STATO_FERMO_MS = 10 * MINUTO_MS
 

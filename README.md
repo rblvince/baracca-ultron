@@ -9,7 +9,27 @@ Dashboard locale in pixel-art che rappresenta visivamente l'attività reale di u
 - `baracca.html` — frontend canvas/JS puro, nessuna dipendenza.
 - `server.py` — server Python stdlib-only, legge lo stato locale e la sessione, nessuna dipendenza esterna. Senza Supabase manda stato, sessioni e sub-agenti alla pagina via Server-Sent Events (`/api/events`); il polling resta solo come ripiego.
 - `hooks/soglie.py` — le soglie di tempo (stato fermo, LIVE, sub-agenti), in un posto solo: la pagina le riceve con `/api/config`.
-- `hooks/` — script Python richiamati dagli hook di Claude Code (`PostToolUse`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `Notification`, `PreToolUse`) che scrivono lo stato osservato.
+- `hooks/` — script Python richiamati dagli hook di Claude Code (`PostToolUse`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `Notification`, `PreToolUse`, `PreCompact`, `SessionStart`) che scrivono lo stato osservato.
+
+### Hook da aggiungere (26/09)
+
+Due personaggi nuovi vivono di hook che prima non erano registrati. In `settings.json`, accanto agli altri che chiamano `set_state.py` (percorso come per quelli):
+
+```json
+"PreCompact":   [{"hooks": [{"type": "command", "command": "python3 <baracca>/hooks/set_state.py compacting"}]}],
+"SessionStart": [{"hooks": [{"type": "command", "command": "python3 <baracca>/hooks/set_state.py idle"}]}]
+```
+
+- `PreCompact` → lo SPAZZINO pressa il contesto; `SessionStart` con `source: compact` chiude la compattazione.
+- `SessionStart` → il PORTINAIO apre il portellone; i terminali nuovi entrano da lì, quelli fermi escono da lì.
+- `Notification` (già registrato) ora distingue il permesso (GUARDIANO con la sbarra) dall'attesa semplice (MARCONI trasmette).
+- L'ECONOMO non ha bisogno di hook: legge la cache scritta dai token che già arrivano.
+
+### Specialisti = skill installate
+
+Gli specialisti in fila nel corridoio sono le skill installate davvero: `/api/skills` legge le cartelle con `SKILL.md` in `~/.claude/skills`, `~/.agents/skills` e nelle stesse cartelle di `~/my-agent` (al massimo 10 in scena, prima quelle con un disegno loro: taste, guidelines, marketing, regia). Si muovono solo quando Ultron usa la loro skill: lo raggiungono nel reparto e restano finché il reparto lavora. Bash, letture, vault e sub-agenti li fa la truppa.
+
+I nomi nella scena si leggono passando il cursore su persone, stanze, casse e portellone.
 
 ## Avvio
 
