@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* WORK-PURE-START \*\/([\s\S]*?)\/\* WORK-PURE-END \*\//);
 assert.ok(m, 'blocco WORK-PURE non trovato in baracca.html');
-const { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount } =
-  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount };')();
+const { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount, qSpeed, qDwell } =
+  new Function(m[1] + '; return { workKind, workWords, isPromptEvent, outDelta, tokDelta, coinCount, qSpeed, qDwell };')();
 
 // ogni sottostanza con una voce ha la sua animazione; NUCLEO, ATTREZZI e CABINA no
 assert.equal(workKind('prod', 'bash'), 'type');
@@ -53,4 +53,12 @@ assert.equal(coinCount(0), 0);
 assert.equal(coinCount(10), 1);
 assert.equal(coinCount(1500), 2);
 assert.equal(coinCount(1e9), 12);
+// la coda: senza fila passo normale e sosta piena; con la fila più svelto, mai oltre 3x e mai sotto 250 ms
+assert.equal(qSpeed(0), 1);
+assert.ok(qSpeed(2) > qSpeed(1));
+assert.equal(qSpeed(50), 3);
+assert.equal(qDwell(0), 900);
+assert.ok(qDwell(3) < qDwell(1));
+assert.equal(qDwell(100), 250);
+assert.equal(qSpeed(-1), 1);
 console.log('ok');

@@ -1290,7 +1290,7 @@ function stepEntity(e, dt){
       e.x = w.x; e.y = w.y; e.path.shift();
       if(!e.path.length){
         e.moving = false; e.room = e.dest;
-        if(e.isUltron && !e.noBeat) beat(e);
+        if(e.isUltron){ e.arrivedAt = performance.now(); if(!e.noBeat) beat(e); }
         e.noBeat = false;
         if(e.onArrive){ var cb = e.onArrive; e.onArrive = null; cb(e); }
       }
@@ -1690,6 +1690,10 @@ function tokDelta(prev, next, room, key){
 function outDelta(prev, next, room){ return tokDelta(prev, next, room, "out"); }
 /* monete nella cassa di un reparto: scala log2 dei token d'uscita visti da questa pagina (500 = una moneta, max 12) */
 function coinCount(out){ return out > 0 ? Math.min(12, Math.max(1, Math.floor(Math.log2(1 + out/500)))) : 0; }
+/* la coda: n eventi ancora in fila dopo quello che parte. Più fila, passo più svelto (fino a 3x)
+   e sosta più corta (da 900 a 250 ms) */
+function qSpeed(n){ return Math.min(3, 1 + Math.max(0, n)*.4); }
+function qDwell(n){ return Math.max(250, 900/(1 + Math.max(0, n)*.5)); }
 /* WORK-PURE-END */
 
 var WORK = null, SHEETS = {}, TOKOUT = {}, FLOATS = [];
@@ -2188,7 +2192,7 @@ function demoStep(){
   if(e.sub === "add"){ DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; }
   if(e.sub === "done" && DEMO_MINI){ sendBack(DEMO_MINI); DEMO_MINI = null; }
   if(!e.line && e.status === STATE.status && (e.status === "waiting" || e.status === "compacting")) return true;   /* solo tempo che passa */
-  applyLive(s);
+  enqueueEvent(s);
   return true;
 }
 function simulate(){
@@ -2348,7 +2352,7 @@ function acceptLiveRow(s){
   try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
   if(!LIVE){ LIVE = true; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks(); }
   lastSeen = Date.now(); LAST_STATE = s;
-  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; enqueueEvent(s); }
 }
 
 function subscribeRealtime(){
@@ -2456,7 +2460,7 @@ function onLocalState(s){
     logEvent("deleg","collegato a <b>Claude Code</b>");
   }
   lastSeen = Date.now(); LAST_STATE = s;
-  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; applyLive(s); }
+  if(s.ts && s.ts !== lastTs){ lastTs = s.ts; enqueueEvent(s); }
 }
 
 /* Server-Sent Events: il server manda stato, sessioni e sub-agenti appena gli
@@ -2486,6 +2490,31 @@ function poll(){
 }
 setInterval(poll, 400);
 poll();
+
+/* ======================================================== LA CODA ====
+   Gli eventi arrivano ogni 1-3 secondi, Ultron ci mette di più ad attraversare la base: prima
+   un evento nuovo cancellava il cammino verso quello precedente, e il suo lavoro non si vedeva
+   mai. Ora aspettano in fila e passano in ordine: uno che porta in un reparto parte solo quando
+   Ultron è arrivato al precedente e ci è rimasto un momento (qDwell); quelli senza reparto
+   (prompt, attesa, fine turno, compattazione) passano appena tocca a loro. Con la fila lunga
+   Ultron cammina più svelto e si ferma meno (qSpeed): la scena può restare indietro di qualche
+   secondo, ma non salta niente. A pagina nascosta non si recita: gli eventi passano subito. */
+var QUEUE = [], Q_MAX = 40;
+function enqueueEvent(s){
+  if(document.hidden){ while(QUEUE.length) applyLive(QUEUE.shift()); applyLive(s); return; }
+  QUEUE.push(s);
+  while(QUEUE.length > Q_MAX) applyLive(QUEUE.shift());   /* fila troppo lunga: i più vecchi passano senza aspettare */
+}
+function stepQueue(){
+  ULTRON.v = 330 * qSpeed(QUEUE.length);
+  while(QUEUE.length){
+    var s = QUEUE[0], walks = !!(s.room && R(s.room));
+    if(walks && ((ULTRON.path && ULTRON.path.length) || performance.now() - (ULTRON.arrivedAt || 0) < qDwell(QUEUE.length - 1))) return;
+    QUEUE.shift(); applyLive(s);
+    if(walks) return;
+  }
+}
+document.addEventListener("visibilitychange", function(){ if(document.hidden) while(QUEUE.length) applyLive(QUEUE.shift()); });
 
 function applyLive(s){
   vigOnLive(s);
@@ -3540,6 +3569,7 @@ function loop(t){
     acc += dt*1000;
     /* nel turno finto un passo ogni 5,6 s: il tempo di attraversare la base e vedere il lavoro */
     if(acc > (LIVE ? 1e9 : DEMO_TURN ? 5600 : 3400)){ acc = 0; simulate(); }
+    stepQueue();
     stepEntity(ULTRON, dt);
     CREW.forEach(function(a){ stepEntity(a, dt); });
     SKILLS.forEach(function(a){ stepEntity(a, dt); });
@@ -3560,7 +3590,7 @@ function loop(t){
   drawWorld(t); drawPortrait(t);
   if(mcOn && Math.floor(t/240)%2===0) drawMC();
   if(VIEW==="dash" && t-dashTick > 110){ dashTick = t; renderDashLive(); }
-  document.getElementById("coreState").textContent = (ULTRON.moving ? "in cammino · " : "") + nowDoing();
+  document.getElementById("coreState").textContent = (ULTRON.moving ? "in cammino · " : "") + nowDoing() + (QUEUE.length ? " · " + QUEUE.length + " in coda" : "");
   if(VIEW !== "dash" && t-hudTick > 250){ hudTick = t; renderHud(); }
   var el = Math.floor((Date.now()-startTs)/1000);
   document.getElementById("coreClock").textContent =
