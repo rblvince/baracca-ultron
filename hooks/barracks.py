@@ -25,6 +25,7 @@ import session_track
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_PATH = os.path.join(HERE, "..", "state", "state.json")
 TOKENS_PATH = os.path.join(HERE, "..", "state", "tokens.json")
+SKILLS_USED_PATH = os.path.join(HERE, "..", "state", "skills_used.json")
 VAULT = os.path.expanduser("~/Ultron vault")
 AGENT_HOME = os.path.expanduser("~/my-agent")
 
@@ -165,6 +166,38 @@ def last_assistant_usage(transcript_path, chunk=262144):
     except OSError:
         pass
     return None, None, None
+
+
+def skill_name(payload):
+    """Il nome della skill usata da un evento Skill/SlashCommand, None per gli altri tool."""
+    tool = payload.get("tool_name") or payload.get("toolName")
+    ti = tool_input(payload)
+    if tool == "Skill":
+        return str(ti.get("skill") or "").strip() or None
+    if tool == "SlashCommand":
+        cmd = str(ti.get("command") or "").split()
+        return (cmd[0].lstrip("/") or None) if cmd else None
+    return None
+
+
+def count_skill(name):
+    """+1 alla skill in state/skills_used.json: la Baracca mette nel corridoio le più usate."""
+    if not name:
+        return
+    with session_track.locked(SKILLS_USED_PATH):
+        try:
+            with open(SKILLS_USED_PATH, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = {}
+        data[name] = data.get(name, 0) + 1
+        tmp = SKILLS_USED_PATH + ".tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            os.replace(tmp, SKILLS_USED_PATH)
+        except OSError:
+            pass
 
 
 SEEN_MAX = 500  # chiavi di messaggio ricordate: bastano per molte sessioni in parallelo
@@ -341,6 +374,7 @@ def main():
         return
 
     status, room, node, agent, task = classify(payload)
+    count_skill(skill_name(payload))
 
     # un tool andato male è una rilavorazione: il collaudo respinge
     resp = payload.get("tool_response") or payload.get("toolResponse") or {}
