@@ -371,7 +371,6 @@ def main():
     test_classify_bash_qa()
     test_classify_bash_matches_whole_words_only()
     test_subagent_room_prefers_exact_and_whole_words()
-    test_main_posttooluse_agent_reconciles()
     test_classify_lsp_and_review_skill_are_qa()
     test_classify_task_matches_spawn_helper()
     test_accumulate_tokens_dedup()

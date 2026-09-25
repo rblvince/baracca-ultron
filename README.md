@@ -29,12 +29,8 @@ Lancia tutti i controlli: hook e server (Python), blocchi puri della pagina (Nod
 
 Le migrazioni in `supabase/migrations/` si applicano a mano dall'editor SQL, in ordine; `supabase/schema.sql` è lo schema completo dopo l'ultima.
 
-- `009_subagents_indici.sql` — solo indici, si può rilanciare.
-- `010_discord_menzione_dal_vault.sql` — l'id Discord da menzionare nell'avviso "Ultron ti aspetta" si legge dal Vault. **Prima** di applicarla:
-
-      select vault.create_secret('<il tuo id Discord>', 'discord_user_id');
-
-  Senza quel segreto l'avviso parte ancora, ma senza menzione (e in un canale di server non suona).
+- `009_record_event_tokens_isolated.sql` — i token in un sottoblocco di `record_event`: se falliscono non si portano via stato, sessione e avviso Discord. Si può applicare con gli hook attivi.
+- `010_subagents_indici.sql` — solo indici, si può rilanciare.
 
 ## Nota
 

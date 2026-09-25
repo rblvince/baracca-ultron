@@ -1,4 +1,4 @@
--- farm/supabase/migrations/009_subagents_indici.sql
+-- farm/supabase/migrations/010_subagents_indici.sql
 -- Indici per le query che la Baracca fa davvero. Il diario dei sub-agenti
 -- cresce (le righe si chiudono con finished_at, non si cancellano più) e
 -- senza indici ogni claim/reap/reconcile degli hook e ogni rilettura della
