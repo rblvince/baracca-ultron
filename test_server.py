@@ -101,6 +101,8 @@ def test_talk_restarts_the_single_discord_service():
     srv.subprocess.run = lambda args, **k: calls.append(args) or type("R", (), {"returncode": 0})()
     h = srv.Handler.__new__(srv.Handler)
     h.path = "/api/talk"
+    h.server = type("S", (), {"server_address": ("127.0.0.1", 8795)})()
+    h.headers = {"Host": "127.0.0.1:8795", "Origin": "http://127.0.0.1:8795"}
     sent = []
     h._send_json = lambda obj: sent.append(obj)
     try:
@@ -114,12 +116,53 @@ def test_talk_restarts_the_single_discord_service():
     assert "claude --channels" not in src, "nessun lancio di Claude con --channels"
 
 
+def test_foreign_host_and_origin_are_refused():
+    """DNS rebinding (Host estraneo) e POST da un altro sito (Origin estraneo):
+    403, e il servizio Discord non si tocca."""
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+    import server as srv
+    calls = []
+    old_run = srv.subprocess.run
+    srv.subprocess.run = lambda args, **k: calls.append(args) or type("R", (), {"returncode": 0})()
+    httpd = HTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    port = httpd.server_address[1]
+    base = "http://127.0.0.1:%d" % port
+
+    def status(path, method="GET", headers=None):
+        req = urllib.request.Request(base + path, method=method, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    try:
+        assert status("/api/state") == 200
+        assert status("/api/state", headers={"Host": "localhost:%d" % port}) == 200
+        assert status("/api/vault", headers={"Host": "attacker.example:%d" % port}) == 403
+        assert status("/api/vault", headers={"Host": "127.0.0.1"}) == 403
+        assert status("/api/talk", "POST", {"Origin": "https://attacker.example"}) == 403
+        assert calls == [], calls
+        assert status("/api/talk", "POST", {"Origin": "http://127.0.0.1:%d" % port}) == 200
+        assert status("/api/talk", "POST") == 200   # curl dal terminale: niente Origin
+        assert len(calls) == 2, calls
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        srv.subprocess.run = old_run
+
+
 def main():
     test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
     test_config_payload_never_leaks_service_key()
     test_config_payload_missing_config_returns_empty_strings()
     test_panels_route_serves_only_the_bundle()
+    test_foreign_host_and_origin_are_refused()
     print("server.py: tutti i controlli passati")
 
 
