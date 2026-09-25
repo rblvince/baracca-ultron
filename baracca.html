@@ -3142,7 +3142,7 @@ var ROOM_PX = 1.6;                                      /* griglia di pixel di i
 var SEA_PX = null;
 function seaPixel(){                                     /* fondale steso una volta sola, pixelato, con rocce fisse */
   var sea = img("bg"); if(SEA_PX || !envReady(sea)) return SEA_PX;
-  var W = WORLD.w+400, H = WORLD.h+400, sw = Math.round(W/(ROOM_PX*1.5)), sh = Math.round(H/(ROOM_PX*1.5));
+  var W = WORLD.w+1600, H = WORLD.h+1600, sw = Math.round(W/(ROOM_PX*1.5)), sh = Math.round(H/(ROOM_PX*1.5));
   var lo = document.createElement("canvas"); lo.width = sw; lo.height = sh;
   var lx = lo.getContext("2d"); lx.drawImage(sea, 0, 0, sw, sh);
   [[.06,.47,26],[.93,.5,30],[.5,.97,22],[.3,.52,12],[.72,.52,14],[.04,.08,20],[.96,.93,24],[.62,.03,16]].forEach(function(k){
@@ -3224,12 +3224,7 @@ var THEME = {
 
   back: function(t, v){
     var sea = seaPixel();
-    if(sea){                                             /* strato lontano: copre sempre lo schermo, scorre poco col trascinamento */
-      var k = Math.max(VW/sea.width, VH/sea.height)*1.1, dw = sea.width*k, dh = sea.height*k;
-      var ox = clamp((WORLD.w/2 - cam.x)*cam.s*.1, -(dw-VW)/2, (dw-VW)/2), oy = clamp((WORLD.h/2 - cam.y)*cam.s*.1, -(dh-VH)/2, (dh-VH)/2);
-      ctx.save(); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(sea, (VW-dw)/2 + ox, (VH-dh)/2 + oy, dw, dh); ctx.restore();
-    }
+    if(sea){ var sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(sea, -800, -800, WORLD.w+1600, WORLD.h+1600); ctx.imageSmoothingEnabled = sm; }
     ctx.fillStyle = "rgba(0,40,60,.25)"; ctx.fillRect(v.x, v.y, v.w, v.h);
     ctx.save(); ctx.fillStyle = "rgba(0,18,28,.3)";
     ROOMS.forEach(function(r){ stadium(ctx, r, 26, 34, -10); ctx.fill(); });
