@@ -2246,25 +2246,26 @@ function drawUltronFx(t){
     ctx.beginPath(); ctx.arc(x, y - 29*u, 10 + lv*90, 0, 6.2832); ctx.stroke(); ctx.restore();
     label("LIVELLO " + UA.lvlN + " · +10k token", x, top - 30 - lv*20, P.gold);
   }
-  if(reduce) return;
+  /* con prefers-reduced-motion restano i segnali fermi (nuvolette, batteria, fascio), senza moto */
+  var tm = reduce ? 0 : t;
   if(still && st === "thinking"){                            /* ragiona: nuvoletta con gli ingranaggi */
     var bx = x + 40*z*f, by = top - 26*z;
     ctx.save(); ctx.fillStyle = "rgba(244,241,230,.95)"; ctx.strokeStyle = P.out; ctx.lineWidth = 2*z;
     ctx.beginPath(); ctx.ellipse(bx, by, 40*z, 28*z, 0, 0, 6.2832); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.arc(x + 16*z*f, top - 2*z, 6*z, 0, 6.2832); ctx.fill(); ctx.stroke();
     ctx.restore();
-    gear(bx - 10*z, by + 4*z, 11*z, t*.004, "#7d8990"); gear(bx + 14*z, by - 8*z, 8*z, -t*.0056 + .3, P.gold);
+    gear(bx - 10*z, by + 4*z, 11*z, tm*.004, "#7d8990"); gear(bx + 14*z, by - 8*z, 8*z, -tm*.0056 + .3, P.gold);
   }
   if(still && st === "reading"){                             /* legge: fascio dalla visiera */
-    var ex = x + 2*f*u, ey = y - 38*u, fx = x + 90*z*f, sw = Math.sin(t*.004)*26*z;
+    var ex = x + 2*f*u, ey = y - 38*u, fx = x + 90*z*f, sw = Math.sin(tm*.004)*26*z;
     var g = ctx.createLinearGradient(ex, ey, fx, y);
     g.addColorStop(0, "rgba(53,215,238,.8)"); g.addColorStop(1, "rgba(53,215,238,.12)");
     ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g;
     ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(fx - 34*z + sw, y + 12*z); ctx.lineTo(fx + 34*z + sw, y + 12*z); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba(190,250,255,.85)"; ctx.fillRect(fx - 34*z + sw, y + 6*z + Math.sin(t*.01)*4*z, 68*z, 3*z);
+    ctx.fillStyle = "rgba(190,250,255,.85)"; ctx.fillRect(fx - 34*z + sw, y + 6*z + Math.sin(tm*.01)*4*z, 68*z, 3*z);
     ctx.restore();
   }
-  if(still && st === "writing" && now - UA.glyphAt > 150){    /* scrive: lettere luminose che salgono dal data-pad */
+  if(still && st === "writing" && !reduce && now - UA.glyphAt > 150){    /* scrive: lettere luminose che salgono dal data-pad */
     UA.glyphAt = now;
     UA.glyphs.push({x:x + 9*f*u + (Math.random()-.5)*10*z, y:y - 28*u, vx:(Math.random()-.5)*30*z, t:now,
                     ch:"{}<>=;/#abcdefx01"[Math.floor(Math.random()*17)]});
@@ -2281,16 +2282,16 @@ function drawUltronFx(t){
     var wx = x + 36*z*f, wy = top - 20*z;
     ctx.save(); ctx.fillStyle = "rgba(244,241,230,.95)"; ctx.strokeStyle = P.out; ctx.lineWidth = 2*z;
     ctx.beginPath(); ctx.roundRect(wx - 33*z, wy - 16*z, 66*z, 32*z, 14*z); ctx.fill(); ctx.stroke();
-    for(var d=0; d<3; d++){ var on = Math.floor(t/300) % 4 > d; ctx.fillStyle = on ? P.out : "#b9b1a2"; ctx.fillRect(wx - 19*z + d*15*z, wy - 4*z, 8*z, 8*z); }
+    for(var d=0; d<3; d++){ var on = reduce || Math.floor(t/300) % 4 > d; ctx.fillStyle = on ? P.out : "#b9b1a2"; ctx.fillRect(wx - 19*z + d*15*z, wy - 4*z, 8*z, 8*z); }
     ctx.restore();
-    if(Math.floor(now/260) % 3 === 0 && Math.random() < .2) dust(x + 8*f, y);
+    if(!reduce && Math.floor(now/260) % 3 === 0 && Math.random() < .2) dust(x + 8*f, y);
   }
   if(st === "compacting"){                                   /* compatta: la visiera deframmenta */
     var vx = x - 6*u, vy = y - (QU_H - 15)*u, cols = [P.green, P.gold, P.cyan, P.violet];
-    for(var b=0; b<4; b++){ var o = (Math.floor(t/140) + b*3) % 4;
+    for(var b=0; b<4; b++){ var o = (Math.floor(tm/140) + b*3) % 4;
       ctx.fillStyle = cols[o]; ctx.fillRect(vx + b*3*u, vy, 2.4*u, 3.2*u); }
     /* e sopra la testa la memoria che si riordina: blocchi sparsi che scivolano in fila */
-    var mx = x - 30*z, my = top - 40*z, ph = (t % 2400)/2400;
+    var mx = x - 30*z, my = top - 40*z, ph = reduce ? .5 : (t % 2400)/2400;
     ctx.save(); ctx.fillStyle = "rgba(10,22,28,.88)"; ctx.strokeStyle = P.gold; ctx.lineWidth = 2*z;
     ctx.beginPath(); ctx.roundRect(mx - 6*z, my - 6*z, 72*z, 36*z, 6*z); ctx.fill(); ctx.stroke();
     for(var c=0; c<12; c++){
@@ -2301,10 +2302,10 @@ function drawUltronFx(t){
     ctx.restore();
   }
   if(still && st === "idle"){                                /* fine turno: in carica */
-    var yawnDone = now - UA.yawn > 1100;
+    var yawnDone = reduce || now - UA.yawn > 1100;
     if(yawnDone){
       ctx.save(); ctx.fillStyle = "rgba(4,16,24,.55)"; ctx.fillRect(x - 6*u, y - (QU_H - 15)*u, 12*u, 5*u); ctx.restore();
-      var cx = x, cy = top - 22*z, lvl = Math.floor(t/500) % 5;
+      var cx = x, cy = top - 22*z, lvl = reduce ? 3 : Math.floor(t/500) % 5;
       ctx.fillStyle = "#e8e4d6"; ctx.fillRect(cx - 21*z, cy - 12*z, 42*z, 24*z); ctx.fillRect(cx + 21*z, cy - 6*z, 5*z, 12*z);
       ctx.fillStyle = "#16252c"; ctx.fillRect(cx - 18*z, cy - 9*z, 36*z, 18*z);
       for(var q=0; q<lvl; q++){ ctx.fillStyle = q < 2 ? P.gold : P.green; ctx.fillRect(cx - 16.5*z + q*8.2*z, cy - 7.5*z, 6*z, 15*z); }
