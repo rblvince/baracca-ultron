@@ -1857,7 +1857,8 @@ function startWork(s){
   WORK = {kind:kind, c:c, t0:performance.now(), fail:s.status === "failing", words:workWords(s.task),
           text: kind === "sonar" && s.task ? String(s.task).slice(0, 24) : ""};
   if(kind === "sheet" && !WORK.fail){ var k = c.room + ":" + c.id; SHEETS[k] = Math.min(14, (SHEETS[k] || 0) + 1); WORK.pile = k; }
-  if(kind === "ship" && !WORK.fail) delivered++;
+  if(kind === "ship" && !WORK.fail){ delivered++; uHop(2); uConfetti(); }
+  if(kind === "lamp" && !WORK.fail) uHop(1);
 }
 function fillPx(x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
 function panel(x, y, w, h, col){ fillPx(x-3, y-3, w+6, h+6, P.out); fillPx(x, y, w, h, "#07201c"); fillPx(x, y, w, 5, col); }
@@ -1971,6 +1972,7 @@ function onTokens(s){
   if(cw && cw >= CACHE_BIG) onCacheWrite(cw);
   var d = outDelta(STATE.tokens, s.tokens, s.room); if(!d) return;
   TOKOUT[s.room] = (TOKOUT[s.room] || 0) + d;
+  uLevel(Object.keys(TOKOUT).reduce(function(a, k){ return a + TOKOUT[k]; }, 0));
   FLOATS.push({txt:"+" + fmtTok(d), x:ULTRON.x, y:ULTRON.y, t0:performance.now(), to:cassaAt(R(s.room))});
 }
 function drawFloats(){
@@ -2005,7 +2007,7 @@ function stepTube(dt){
   }
   if(T.path.length) return;
   if(Math.hypot(ULTRON.x-T.x, ULTRON.y-T.y) > 30 && T.hops++ < 3){ T.path = ringRoute(T, ULTRON.x, ULTRON.y); return; }
-  sparks(ULTRON.x, ULTRON.y-60, P.gold, 12); emote(ULTRON, "!", "#c98a1c", 104);
+  sparks(ULTRON.x, ULTRON.y-60, P.gold, 12); emote(ULTRON, "!", "#c98a1c", 104); uHop(1);
   TUBE = null;
 }
 function drawMarconi(t){
@@ -2161,6 +2163,161 @@ function stepSleep(t){
     var a = CREW[(SLEEP_I + k) % CREW.length];
     if(a.resting && !(a.path && a.path.length)){ emote(a, "z", "#8fa6d6", 92); SLEEP_I = (SLEEP_I + k + 1) % CREW.length; return; }
   }
+}
+
+/* ==================================================== ULTRON VIVO =====
+   Animazioni di Ultron per renderlo più divertente da guardare. Ognuna nasce da quello che sta
+   succedendo davvero, così oltre a intrattenere dice cosa fa:
+     ragiona      nuvoletta con due ingranaggi che girano
+     legge        fascio di luce dalla visiera che scansiona il pavimento davanti a lui
+     scrive       lettere luminose che si staccano dal data-pad
+     ti aspetta   tamburella col piede, nuvoletta "…" che si anima
+     errore       glitch: sussulto coi colori sdoppiati (rosso/ciano) e scintille dalla testa
+     messaggio    saltello quando arriva la capsula · test passato: saltello · push: doppio salto e coriandoli
+     fine turno   sbadiglio (si allunga), poi in carica: batteria che si riempie, visiera abbassata
+     compatta     la visiera "deframmenta": barre colorate che si riordinano
+     sub-agente   un raggio dal petto e il mini-Ultron che si materializza a scansione
+     coda lunga   corre lasciando scie
+     10k token    "livello su": anello di luce dal nucleo sul petto e "+10k"
+   Le misure sono in pixel dello sprite (tela 32x55) per uK(), la scala a cui Ultron è disegnato. */
+var UA = {hop:0, hops:1, glitch:0, yawn:0, lvl:0, lvlN:0, trail:[], trailAt:0, glyphs:[], glyphAt:0};
+function uK(){                                              /* come drawSprite: 1,6 per pixel sprite, di più da lontano */
+  var s = 1.6, h = QU_H*s*cam.s;
+  return h < PEOPLE_MIN ? s*Math.min(1.8, PEOPLE_MIN/h) : s;
+}
+function uHop(n){ if(reduce) return; UA.hop = performance.now(); UA.hops = n || 1; }
+function uGlitch(){
+  if(reduce) return; UA.glitch = performance.now();
+  for(var i=0;i<16;i++){ var a = -Math.random()*3.14, v = 120 + Math.random()*160;
+    part(ULTRON.x, ULTRON.y - 55*uK(), Math.cos(a)*v, Math.sin(a)*v, i%3 ? P.red : "#fff7d8", .45 + Math.random()*.3, 6, 520); }
+}
+function uYawn(){ if(reduce) return; UA.yawn = performance.now(); }
+function uConfetti(){
+  if(reduce) return;
+  var cols = [P.gold, P.cyan, P.violet, P.green, P.red, "#fff7d8"];
+  for(var i=0;i<34;i++){ var a = -Math.PI/2 + (Math.random()-.5)*1.6, v = 160 + Math.random()*170;
+    part(ULTRON.x, ULTRON.y - 45*uK(), Math.cos(a)*v*1.4, Math.sin(a)*v*1.4, cols[i % cols.length], 1.1 + Math.random()*.6, 8, 380); }
+}
+/* ogni 10k token d'uscita spesi da quando è aperta la pagina: livello su */
+function uLevel(total){
+  var n = Math.floor(total/10000);
+  if(n > UA.lvlN){ UA.lvlN = n; UA.lvl = performance.now(); if(!reduce) sparks(ULTRON.x, ULTRON.y - 44, P.gold, 16); }
+}
+/* la posa del momento: spostamento e schiacciamento che drawSprite applica a Ultron */
+function ultronPose(now){
+  var p = {dx:0, dy:0, sx:1, sy:1, ghost:false};
+  if(reduce) return p;
+  var k = (now - UA.hop)/420;
+  if(k >= 0 && k < UA.hops){ var f = k % 1; p.dy -= Math.sin(f*Math.PI)*36*uK()/1.6; p.sy *= 1 + .06*Math.sin(f*Math.PI); }
+  var g = now - UA.glitch;
+  if(g >= 0 && g < 700){ p.dx = (Math.floor(g/45) % 3 - 1)*5; p.ghost = Math.floor(g/60) % 3 !== 2; }
+  var y = (now - UA.yawn)/1100;
+  if(y >= 0 && y < 1){ var e = Math.sin(y*Math.PI); p.sy *= 1 + .12*e; p.sx *= 1 - .06*e; }
+  if(STATE.status === "waiting" && !ULTRON.moving) p.dy += Math.floor(now/260) % 3 === 0 ? -1.5 : 0;   /* tamburella */
+  return p;
+}
+/* scie quando corre (coda lunga: passo oltre 1,5 volte il normale) */
+function stepTrail(now){
+  var fast = ULTRON.moving && ULTRON.v > U_SPEED*1.5 && !reduce;
+  if(fast && now - UA.trailAt > 70){ UA.trailAt = now; UA.trail.unshift({x:ULTRON.x, y:ULTRON.y, face:ULTRON.face, t:now}); }
+  UA.trail = UA.trail.filter(function(q){ return now - q.t < 260; }).slice(0, 3);
+}
+function drawTrail(uf, now){
+  UA.trail.forEach(function(q){
+    ctx.save(); ctx.globalAlpha = .28*(1 - (now - q.t)/260);
+    drawSprite(ultronSprite(uf, actionOf(), STATE.status), q.x, q.y, 2.6, q.face < 0);
+    ctx.restore();
+  });
+}
+function gear(cx, cy, r, a, col){
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(a); ctx.fillStyle = col;
+  for(var i=0;i<8;i++){ ctx.rotate(Math.PI/4); ctx.fillRect(-r*.18, -r*1.25, r*.36, r*.5); }
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = "#16252c"; ctx.beginPath(); ctx.arc(0, 0, r*.38, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+function drawUltronFx(t){
+  var now = performance.now(), u = uK(), x = ULTRON.x, y = ULTRON.y, f = ULTRON.face < 0 ? -1 : 1;
+  var st = STATE.status, still = !ULTRON.moving, top = y - QU_H*u, z = u/1.6;
+  /* livello su: anello dal petto e "+10k" */
+  var lv = (now - UA.lvl)/1300;
+  if(lv >= 0 && lv < 1){
+    ctx.save(); ctx.globalAlpha = 1 - lv; ctx.strokeStyle = P.gold; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(x, y - 29*u, 10 + lv*90, 0, 6.2832); ctx.stroke(); ctx.restore();
+    label("LIVELLO " + UA.lvlN + " · +10k token", x, top - 30 - lv*20, P.gold);
+  }
+  /* con prefers-reduced-motion restano i segnali fermi (nuvolette, batteria, fascio), senza moto */
+  var tm = reduce ? 0 : t;
+  if(still && st === "thinking"){                            /* ragiona: nuvoletta con gli ingranaggi */
+    var bx = x + 40*z*f, by = top - 26*z;
+    ctx.save(); ctx.fillStyle = "rgba(244,241,230,.95)"; ctx.strokeStyle = P.out; ctx.lineWidth = 2*z;
+    ctx.beginPath(); ctx.ellipse(bx, by, 40*z, 28*z, 0, 0, 6.2832); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 16*z*f, top - 2*z, 6*z, 0, 6.2832); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    gear(bx - 10*z, by + 4*z, 11*z, tm*.004, "#7d8990"); gear(bx + 14*z, by - 8*z, 8*z, -tm*.0056 + .3, P.gold);
+  }
+  if(still && st === "reading"){                             /* legge: fascio dalla visiera */
+    var ex = x + 2*f*u, ey = y - 38*u, fx = x + 90*z*f, sw = Math.sin(tm*.004)*26*z;
+    var g = ctx.createLinearGradient(ex, ey, fx, y);
+    g.addColorStop(0, "rgba(53,215,238,.8)"); g.addColorStop(1, "rgba(53,215,238,.12)");
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(fx - 34*z + sw, y + 12*z); ctx.lineTo(fx + 34*z + sw, y + 12*z); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(190,250,255,.85)"; ctx.fillRect(fx - 34*z + sw, y + 6*z + Math.sin(tm*.01)*4*z, 68*z, 3*z);
+    ctx.restore();
+  }
+  if(still && st === "writing" && !reduce && now - UA.glyphAt > 150){    /* scrive: lettere luminose che salgono dal data-pad */
+    UA.glyphAt = now;
+    UA.glyphs.push({x:x + 9*f*u + (Math.random()-.5)*10*z, y:y - 28*u, vx:(Math.random()-.5)*30*z, t:now,
+                    ch:"{}<>=;/#abcdefx01"[Math.floor(Math.random()*17)]});
+  }
+  UA.glyphs = UA.glyphs.filter(function(q){ return now - q.t < 1100; });
+  if(UA.glyphs.length){
+    ctx.save(); ctx.font = "bold " + Math.round(Math.max(26*z, 14/cam.s)) + "px ui-monospace, monospace"; ctx.textAlign = "center";
+    UA.glyphs.forEach(function(q){ var a = (now - q.t)/1100;
+      ctx.globalAlpha = 1 - a; ctx.fillStyle = a < .3 ? "#fff7d8" : "#35d7ee";
+      ctx.fillText(q.ch, q.x + q.vx*a*2, q.y - a*120*z); });
+    ctx.restore();
+  }
+  if(still && st === "waiting"){                             /* ti aspetta: "…" che si anima e piede che batte */
+    var wx = x + 36*z*f, wy = top - 20*z;
+    ctx.save(); ctx.fillStyle = "rgba(244,241,230,.95)"; ctx.strokeStyle = P.out; ctx.lineWidth = 2*z;
+    ctx.beginPath(); ctx.roundRect(wx - 33*z, wy - 16*z, 66*z, 32*z, 14*z); ctx.fill(); ctx.stroke();
+    for(var d=0; d<3; d++){ var on = reduce || Math.floor(t/300) % 4 > d; ctx.fillStyle = on ? P.out : "#b9b1a2"; ctx.fillRect(wx - 19*z + d*15*z, wy - 4*z, 8*z, 8*z); }
+    ctx.restore();
+    if(!reduce && Math.floor(now/260) % 3 === 0 && Math.random() < .2) dust(x + 8*f, y);
+  }
+  if(st === "compacting"){                                   /* compatta: la visiera deframmenta */
+    var vx = x - 6*u, vy = y - (QU_H - 15)*u, cols = [P.green, P.gold, P.cyan, P.violet];
+    for(var b=0; b<4; b++){ var o = (Math.floor(tm/140) + b*3) % 4;
+      ctx.fillStyle = cols[o]; ctx.fillRect(vx + b*3*u, vy, 2.4*u, 3.2*u); }
+    /* e sopra la testa la memoria che si riordina: blocchi sparsi che scivolano in fila */
+    var mx = x - 30*z, my = top - 40*z, ph = reduce ? .5 : (t % 2400)/2400;
+    ctx.save(); ctx.fillStyle = "rgba(10,22,28,.88)"; ctx.strokeStyle = P.gold; ctx.lineWidth = 2*z;
+    ctx.beginPath(); ctx.roundRect(mx - 6*z, my - 6*z, 72*z, 36*z, 6*z); ctx.fill(); ctx.stroke();
+    for(var c=0; c<12; c++){
+      var sc = (c*7) % 12, done = Math.min(1, Math.max(0, ph*14 - c)), k2 = c < 12*ph ? done : 0;
+      var from = sc, cc = from + (c - from)*k2, gx = mx + (cc % 6)*10*z, gy = my + Math.floor(cc/6)*12*z;
+      ctx.fillStyle = k2 >= 1 ? P.green : cols[c % 4]; ctx.fillRect(gx, gy, 8*z, 10*z);
+    }
+    ctx.restore();
+  }
+  if(still && st === "idle"){                                /* fine turno: in carica */
+    var yawnDone = reduce || now - UA.yawn > 1100;
+    if(yawnDone){
+      ctx.save(); ctx.fillStyle = "rgba(4,16,24,.55)"; ctx.fillRect(x - 6*u, y - (QU_H - 15)*u, 12*u, 5*u); ctx.restore();
+      var cx = x, cy = top - 22*z, lvl = reduce ? 3 : Math.floor(t/500) % 5;
+      ctx.fillStyle = "#e8e4d6"; ctx.fillRect(cx - 21*z, cy - 12*z, 42*z, 24*z); ctx.fillRect(cx + 21*z, cy - 6*z, 5*z, 12*z);
+      ctx.fillStyle = "#16252c"; ctx.fillRect(cx - 18*z, cy - 9*z, 36*z, 18*z);
+      for(var q=0; q<lvl; q++){ ctx.fillStyle = q < 2 ? P.gold : P.green; ctx.fillRect(cx - 16.5*z + q*8.2*z, cy - 7.5*z, 6*z, 15*z); }
+    }
+  }
+  /* sub-agente: raggio dal petto verso il mini-Ultron appena nato */
+  MINIS.forEach(function(m){
+    var a = now - (m.born || 0); if(a < 0 || a > 700) return;
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 1 - a/700;
+    ctx.strokeStyle = "#9c6fc4"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x, y - 29*u); ctx.lineTo(m.x, m.y - 30); ctx.stroke(); ctx.restore();
+  });
 }
 
 /* ------------------------------------------------- vita nelle stanze
@@ -2802,9 +2959,9 @@ function applyLive(s){
   if(s.room) SKILLS.forEach(function(sk){ if(sk.escort === s.room) sk.hotUntil = Date.now() + SK_STAY; });
 
   /* chi si muove per questo evento: dopo go(), così sanno dove sta andando Ultron */
-  if(STATE.status === "failing" && was !== "failing"){ shake(); banner("RESPINTO", "COLLAUDO", P.red); qaRejects(); }
+  if(STATE.status === "failing" && was !== "failing"){ shake(); banner("RESPINTO", "COLLAUDO", P.red); qaRejects(); uGlitch(); }
   if(isPromptEvent(s)) onPrompt();
-  if(s.status === "idle" && was !== "idle" && line.indexOf("sessione") < 0){ LINE_CLOSED = performance.now(); logEvent("deleg", "<b>MARCONI</b> chiude la linea: turno finito"); }
+  if(s.status === "idle" && was !== "idle" && line.indexOf("sessione") < 0){ LINE_CLOSED = performance.now(); uYawn(); logEvent("deleg", "<b>MARCONI</b> chiude la linea: turno finito"); }
   if(s.status === "compacting" && was !== "compacting") onCompact(s);
   if(line.indexOf("sessione aperta") === 0) onSessionStart(s);
   if(s.status === "waiting" && line.indexOf("permesso") === 0 && !(BARRIER && !BARRIER.up)) onPermission(line);
@@ -3088,7 +3245,7 @@ function renderSubagents(data){
 }
 /* parte da Ultron con l'ordine sigillato e lo porta nel reparto */
 function launchMini(id, room){
-  var m = ghost(1.4); m.id = id; m.status = "delegating"; m.x = ULTRON.x; m.y = ULTRON.y; m.carry = "order";
+  var m = ghost(1.4); m.id = id; m.status = "delegating"; m.x = ULTRON.x; m.y = ULTRON.y; m.carry = "order"; m.born = performance.now();
   MINIS.push(m);
   if(room && R(room)) goTo(m, room, .2+Math.random()*.5, .6, function(a){ a.carry = null; });
   return m;
@@ -3465,8 +3622,15 @@ function drawSprite(img, wx, wy, s, flip){
   var body = r ? tinted(img, hexRgb(r.c), .1) : inCorr ? tinted(img, "255,176,96", .08) : img;
   var w = img.width*s, h = img.height*s;
   var isU = !reduce && img.qU && wx === ULTRON.x && wy === ULTRON.y, sx = 1, sy = 1;
-  if(isU){ var k = (performance.now() - ANT.stopAt)/260; if(k >= 0 && k < 1){ var e = Math.sin(k*Math.PI)*(1-k); sx = 1 + .16*e; sy = 1 - .13*e; } }
-  ctx.save(); ctx.translate(wx, wy); if(flip) ctx.scale(-1, 1); ctx.scale(sx, sy);
+  var pose = isU ? ultronPose(performance.now()) : null;
+  if(isU){ var k = (performance.now() - ANT.stopAt)/260; if(k >= 0 && k < 1){ var e = Math.sin(k*Math.PI)*(1-k); sx = 1 + .16*e; sy = 1 - .13*e; }
+           sx *= pose.sx; sy *= pose.sy; }
+  ctx.save(); ctx.translate(wx + (pose ? pose.dx : 0), wy + (pose ? pose.dy : 0)); if(flip) ctx.scale(-1, 1); ctx.scale(sx, sy);
+  if(pose && pose.ghost){                                /* glitch: due copie sfasate, rossa e ciano */
+    ctx.globalAlpha = .6;
+    ctx.drawImage(tinted(img, "255,60,60", .85), -w/2 - 3*s, -h, w, h); ctx.drawImage(tinted(img, "60,230,255", .85), -w/2 + 3*s, -h, w, h);
+    ctx.globalAlpha = 1;
+  }
   ctx.drawImage(rimOf(img), -w/2 - s*(flip ? -1 : 1), -h - s, w, h);
   if(isU){
     var cut = img.uCut, off = Math.round(ANT.lag)*s;     /* le righe dell'antenna spostate dalla molla */
@@ -4379,14 +4543,9 @@ function drawWorld(t){
   ctx.globalAlpha = .2; ctx.fillStyle = stColor();
   ctx.beginPath(); ctx.ellipse(ULTRON.x, ULTRON.y-2, 26+Math.sin(t*.004)*3, 9, 0, 0, 6.2832); ctx.fill();
   ctx.globalAlpha = 1;
+  stepTrail(performance.now()); drawTrail(uf, performance.now());
   drawSprite(ultronSprite(uf, actionOf(), STATE.status), ULTRON.x, ULTRON.y, 2.6, ULTRON.face<0);
-  if(STATE.status === "waiting"){
-    drawSprite(BUBBLE, ULTRON.x+16, ULTRON.y-102, 1.8, false);
-  } else if(STATE.status === "thinking" && !reduce){
-    var pulse = .5+.5*Math.sin(t*.006);
-    ctx.fillStyle = "rgba(143,208,255,"+(0.35+pulse*0.5)+")";
-    ctx.beginPath(); ctx.arc(ULTRON.x+16, ULTRON.y-100, 3+pulse*2, 0, 6.2832); ctx.fill();
-  }
+  drawUltronFx(t);
   CLONES.forEach(function(c){
     var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2), tc = termColor(c.key);
     ctx.save(); ctx.globalAlpha = .55; ctx.strokeStyle = tc; ctx.lineWidth = 3;
@@ -4397,9 +4556,12 @@ function drawWorld(t){
   });
   MINIS.forEach(function(m){
     var mf = m.moving ? 2 + (Math.floor(m.phase)%4) : 0;
+    var mb = reduce ? 1 : Math.min(1, (performance.now() - (m.born || 0))/700);   /* si materializza dal basso */
     ctx.save(); ctx.filter = "sepia(1) saturate(5) hue-rotate(220deg) brightness(.95)";
+    if(mb < 1){ ctx.beginPath(); ctx.rect(m.x - 40, m.y - 90*mb, 80, 90*mb + 4); ctx.clip(); ctx.globalAlpha = .4 + .6*mb; }
     drawSprite(ultronSprite(mf, "point", m.status), m.x, m.y, m.scale, m.face<0);
     ctx.restore();
+    if(mb < 1){ ctx.fillStyle = "rgba(191,160,255,.9)"; ctx.fillRect(m.x - 16, m.y - 90*mb, 32, 2); }
     if(m.carry) drawSprite(PAPER[m.carry], m.x, m.y - 50 - (m.moving ? Math.abs(Math.sin(m.phase*1.6))*2 : 0), 2, false);
   });
   drawWork(t);
