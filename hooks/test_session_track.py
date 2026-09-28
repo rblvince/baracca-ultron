@@ -34,6 +34,27 @@ def test_update_session_writes_locally_and_returns_the_row():
         st.SESSIONS_PATH = old_sessions_path
 
 
+def test_update_session_marks_the_baracca_terminal_only_locally():
+    """Un claude aperto dal cassetto TERMINALI ha BARACCA_TERM: finisce nel file
+    locale (la pagina lega clone e terminale), non nella riga per Supabase."""
+    import json
+    tmp_dir = tempfile.mkdtemp()
+    old_sessions_path, old_env = st.SESSIONS_PATH, os.environ.get("BARACCA_TERM")
+    st.SESSIONS_PATH = os.path.join(tmp_dir, "sessions.json")
+    os.environ["BARACCA_TERM"] = "t3"
+    try:
+        row = st.update_session("/x.jsonl", status="writing", room="prod")
+        assert "term" not in row, row
+        with open(st.SESSIONS_PATH, encoding="utf-8") as f:
+            assert json.load(f)["/x.jsonl"]["term"] == "t3"
+    finally:
+        st.SESSIONS_PATH = old_sessions_path
+        if old_env is None:
+            os.environ.pop("BARACCA_TERM", None)
+        else:
+            os.environ["BARACCA_TERM"] = old_env
+
+
 def test_last_room_reads_the_terminal_last_event():
     tmp_dir = tempfile.mkdtemp()
     old_sessions_path = st.SESSIONS_PATH
@@ -315,6 +336,7 @@ def main():
     test_reconcile_sets_missing_agent_id()
     test_reconcile_without_ids_or_row_does_nothing()
     test_update_session_writes_locally_and_returns_the_row()
+    test_update_session_marks_the_baracca_terminal_only_locally()
     test_hooks_only_enqueue_and_the_drain_keeps_the_order()
     test_queue_is_bounded_and_survives_a_broken_job()
     test_parallel_hooks_do_not_lose_sessions()

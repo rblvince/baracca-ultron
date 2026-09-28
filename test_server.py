@@ -248,6 +248,78 @@ def test_events_stream_pushes_what_the_hooks_write():
         srv.STATE_PATH, srv.SESSIONS_PATH, srv.SUBAGENTS_PATH = old
 
 
+def test_terminals_need_the_page_token_and_run_a_real_tty():
+    """I terminali: senza il gettone della pagina (o con un Origin estraneo) 403
+    e nessun processo; col gettone si apre una tty vera (qui cat al posto di
+    claude), i tasti arrivano, l'uscita torna in SSE e close la chiude.
+    La pagina servita contiene il gettone; il tipo è solo uno di KINDS."""
+    import base64
+    import http.client
+    import json
+    import threading
+    import time
+    from http.server import ThreadingHTTPServer
+    import server as srv
+    import terminali
+    old_terms = srv.TERMS
+    srv.TERMS = terminali.Terminali(os.getcwd(), argv_for={"claude": ["cat"]})
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    port = httpd.server_address[1]
+    tok = srv.TERM_TOKEN
+
+    def call(method, path, body=None, headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        h = {"Content-Type": "application/json"}
+        h.update(headers or {})
+        c.request(method, path, json.dumps(body) if body is not None else None, h)
+        r = c.getresponse()
+        data = r.read()
+        c.close()
+        return r.status, data
+
+    try:
+        st, page = call("GET", "/baracca.html")
+        assert st == 200 and ('<meta name="baracca-term" content="%s">' % tok).encode() in page
+        assert call("POST", "/api/term", {"kind": "claude"})[0] == 403
+        assert call("POST", "/api/term", {"kind": "claude"}, {"X-Baracca-Token": "sbagliato"})[0] == 403
+        assert call("POST", "/api/term", {"kind": "claude"},
+                    {"X-Baracca-Token": tok, "Origin": "https://attacker.example"})[0] == 403
+        assert call("GET", "/api/term")[0] == 403
+        assert srv.TERMS.list() == []
+        assert call("POST", "/api/term", {"kind": "rm -rf /"}, {"X-Baracca-Token": tok})[0] == 400
+        st, data = call("POST", "/api/term", {"kind": "claude", "cols": 80, "rows": 24}, {"X-Baracca-Token": tok})
+        assert st == 200, st
+        tid = json.loads(data)["id"]
+        assert call("GET", "/api/term?t=" + tok)[0] == 200
+        assert call("GET", "/api/term/%s/stream" % tid)[0] == 403
+
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/term/%s/stream?t=%s&from=0" % (tid, tok))
+        resp = conn.getresponse()
+        assert resp.status == 200 and resp.getheader("Content-Type") == "text/event-stream"
+        assert call("POST", "/api/term/%s/input" % tid, {"data": "ciao baracca\r"}, {"X-Baracca-Token": tok})[0] == 200
+        seen, deadline = b"", time.time() + 5
+        while b"ciao baracca" not in seen and time.time() < deadline:
+            line = resp.fp.readline()
+            if line.startswith(b"data: "):
+                seen += base64.b64decode(line[6:].strip())
+        assert b"ciao baracca" in seen, seen
+        assert call("POST", "/api/term/%s/resize" % tid, {"cols": 120, "rows": 40}, {"X-Baracca-Token": tok})[0] == 200
+        assert call("POST", "/api/term/%s/close" % tid, {}, {"X-Baracca-Token": tok})[0] == 200
+        ended = False
+        while not ended and time.time() < deadline + 5:
+            ended = resp.fp.readline().startswith(b"event: exit")
+        assert ended, "il flusso chiude con event: exit"
+        conn.close()
+        assert srv.TERMS.list() == []
+    finally:
+        srv.TERMS.close_all()
+        srv.TERMS = old_terms
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def main():
     test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
@@ -258,6 +330,7 @@ def main():
     test_read_skills_lists_installed_skills()
     test_panels_route_serves_only_the_bundle()
     test_foreign_host_and_origin_are_refused()
+    test_terminals_need_the_page_token_and_run_a_real_tty()
     print("server.py: tutti i controlli passati")
 
 

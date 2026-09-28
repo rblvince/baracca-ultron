@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>La baracca di Ultron</title>
+<!-- il server ci scrive il gettone dei terminali (vedi terminali.py): senza, niente terminali -->
+<meta name="baracca-term" content="">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap">
 <style>
   :root{
@@ -447,6 +449,63 @@
   @keyframes pop{from{transform:rotate(-1.5deg) scale(.6);opacity:0}}
   @media (prefers-reduced-motion:reduce){ .hud.alert,.vig.go{animation:none;} }
 
+  /* TERMINALI (28/09): il cassetto in basso con le sessioni vere, una o affiancate.
+     Aperto, la tela e quel che sta in basso nella scena salgono della sua altezza. */
+  .scene{--tdock:0px;}
+  #world{height:calc(100% - var(--tdock));}
+  .portrait{bottom:calc(12px + var(--tdock));} .zoomhint{bottom:calc(16px + var(--tdock));} .vig{bottom:calc(16px + var(--tdock));}
+  .tdock{position:absolute;left:0;right:0;bottom:0;height:var(--tdock);z-index:6;display:none;flex-direction:column;
+    background:var(--panel);border-top:2px solid var(--bg);box-shadow:0 -4px 12px var(--shadow), inset 0 1px 0 rgba(255,255,255,.08);}
+  .scene.tdock-on .tdock{display:flex;}
+  .tgrip{height:8px;cursor:ns-resize;flex:none;display:flex;justify-content:center;align-items:center;touch-action:none;}
+  .tgrip::before{content:"";width:46px;height:3px;border-radius:2px;background:var(--panel-hi);}
+  .tbar{display:flex;align-items:center;gap:6px;padding:0 8px 6px;flex:none;min-width:0;}
+  .ttabs{display:flex;gap:4px;min-width:0;overflow-x:auto;flex:1;scrollbar-width:thin;}
+  .ttab{appearance:none;display:flex;align-items:center;gap:6px;flex:none;max-width:340px;padding:4px 6px 4px 8px;cursor:pointer;
+    background:var(--surface);color:var(--ink-soft);border:2px solid var(--bg);border-radius:6px;font:inherit;font-size:12px;
+    box-shadow:inset 0 1px 0 var(--surface-hi);}
+  .ttab:hover{color:var(--ink);}
+  .ttab.on{color:var(--ink);box-shadow:inset 0 -3px 0 var(--tc,var(--gold)), inset 0 1px 0 var(--surface-hi);background:#123247;}
+  .ttab i{flex:none;width:9px;height:9px;border-radius:2px;background:var(--tc,var(--ink-dim));}
+  .ttab.dead{opacity:.6;} .ttab.dead i{background:transparent;border:2px solid var(--ink-dim);}
+  .ttab span{flex:none;white-space:nowrap;}
+  .ttab em{font-style:normal;font-size:10.5px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .ttab b{font-family:var(--arc);font-weight:400;font-size:8px;color:var(--bg);background:var(--gold);padding:1px 3px;border-radius:3px;}
+  .ttab .tx{appearance:none;border:0;background:none;color:var(--ink-dim);font:inherit;font-size:13px;line-height:1;padding:0 2px;cursor:pointer;}
+  .ttab .tx:hover{color:var(--red-hi);}
+  .tbtn{appearance:none;flex:none;font-family:var(--arc);font-size:10px;padding:5px 8px;border:2px solid var(--bg);border-radius:6px;cursor:pointer;
+    background:var(--surface);color:var(--ink-soft);box-shadow:inset 0 1px 0 var(--surface-hi);white-space:nowrap;}
+  .tbtn:hover{color:var(--ink);}
+  .tbtn.go{background:var(--green-dk);color:#eafff5;box-shadow:inset 0 2px 0 var(--green);}
+  .tbtn[aria-pressed="true"]{background:var(--amber);color:var(--bg);box-shadow:inset 0 2px 0 var(--gold);}
+  .ttab:focus-visible,.tbtn:focus-visible,.ttab .tx:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .tmenu{position:absolute;bottom:calc(100% - 4px);z-index:7;display:grid;gap:3px;padding:6px;min-width:230px;}
+  .tmenu[hidden]{display:none;}
+  .tmenu button{appearance:none;text-align:left;display:grid;gap:2px;padding:6px 8px;border:2px solid var(--bg);border-radius:6px;cursor:pointer;
+    background:var(--surface);color:var(--ink);font:inherit;font-size:12px;}
+  .tmenu button small{color:var(--ink-dim);font-size:10.5px;}
+  .tmenu button:hover,.tmenu button:focus-visible{border-color:var(--panel-hi);outline:none;}
+  .tpanes{flex:1;min-height:0;display:grid;gap:6px;padding:0 8px 8px;grid-template-columns:1fr;grid-auto-rows:1fr;}
+  .tpanes.split.n2{grid-template-columns:1fr 1fr;}
+  .tpanes.split.n3,.tpanes.split.n4{grid-template-columns:1fr 1fr;}
+  .tpanes.split.n5,.tpanes.split.n6,.tpanes.split.n7,.tpanes.split.n8{grid-template-columns:1fr 1fr 1fr;}
+  .tpane{display:none;flex-direction:column;min-width:0;min-height:0;border:2px solid var(--bg);border-radius:8px;overflow:hidden;background:#06121c;}
+  .tpane.show{display:flex;}
+  .tpanes.split .tpane.on{border-color:var(--tc,var(--gold));}
+  .tph{display:flex;align-items:center;gap:8px;padding:3px 8px;font-size:11px;color:var(--ink-dim);background:var(--scr-hdr);flex:none;cursor:pointer;}
+  .tph i{width:8px;height:8px;border-radius:2px;background:var(--tc,var(--ink-dim));flex:none;}
+  .tph b{font-weight:400;color:var(--ink);}
+  .tph span{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tpanes:not(.split) .tph{display:none;}
+  .tbody{flex:1;min-height:0;padding:4px 0 0 6px;}
+  .tbody .xterm{height:100%;}
+  .tbody .xterm-viewport{scrollbar-width:thin;}
+  .tempty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;color:var(--ink-soft);font-size:13px;padding:10px;}
+  .tempty p{margin:0;max-width:520px;line-height:1.45;}
+  .tempty code{color:var(--gold);}
+  .pill.sidebtn .tn{display:inline-block;min-width:14px;margin-left:5px;padding:0 3px;border-radius:3px;background:var(--bg);color:var(--ink);font-size:10px;}
+  @media (max-width:600px){ .tpanes.split{grid-template-columns:1fr !important;} .ttab em{display:none;} }
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"
@@ -476,6 +535,7 @@
       <span class="pill demo" id="mode" role="button" tabindex="0" title="A riposo o in demo: clic per avviare o fermare la demo">DEMO</span>
       <button class="pill talk" id="talkBtn" type="button" title="Riavvia l'unico Ultron in ascolto su Discord (servizio launchd)">PARLA SU DISCORD</button>
       <button class="pill sidebtn" id="sideBtn" type="button" aria-controls="sidePanel" aria-expanded="false" title="Mostra o nascondi missioni e rapporto">PANNELLO ▸</button>
+      <button class="pill sidebtn" id="termBtn" type="button" aria-controls="tdock" aria-expanded="false" title="Terminali: chatta con Ultron da qui, anche più sessioni insieme (tasto `)">TERMINALI</button>
       <button class="pill sidebtn" id="bellBtn" type="button" aria-pressed="false" title="Un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti">AVVISI NO</button>
       <button class="keysbtn" id="keysBtn" type="button" aria-controls="keys" aria-expanded="false" title="Tasti rapidi (?)">?</button>
     </div>
@@ -488,6 +548,7 @@
     <kbd>O</kbd><span>strato token e tempo per reparto</span>
     <kbd>U</kbd><span>segui Ultron</span>
     <kbd>spazio</kbd><span>pausa</span>
+    <kbd>`</kbd><span>terminali</span>
     <kbd>?</kbd><span>questo pannello</span>
   </div>
 
@@ -504,6 +565,24 @@
     </div>
     <div class="zoomhint bezel" id="hint">trascina per esplorare · esc: tutta la base</div>
     <div class="banner" id="banner"></div>
+    <div class="tdock" id="tdock" role="region" aria-label="Terminali">
+      <div class="tgrip" id="tgrip" title="trascina per allargare"></div>
+      <div class="tbar">
+        <div class="ttabs" id="ttabs" role="tablist"></div>
+        <div style="position:relative">
+          <button class="tbtn go" id="tNew" type="button" aria-haspopup="true" aria-expanded="false">+ SESSIONE</button>
+          <div class="tmenu bezel" id="tMenu" hidden>
+            <button type="button" data-kind="claude"><b>claude</b><small>una sessione nuova di Ultron</small></button>
+            <button type="button" data-kind="continua"><b>claude --continue</b><small>riprende l'ultima conversazione</small></button>
+            <button type="button" data-kind="shell"><b>shell</b><small>il terminale normale</small></button>
+          </div>
+        </div>
+        <button class="tbtn" id="tSplit" type="button" aria-pressed="false" title="tutte le sessioni affiancate">AFFIANCATE</button>
+        <button class="tbtn" id="tBig" type="button" aria-pressed="false" title="cassetto grande">GRANDE</button>
+        <button class="tbtn" id="tHide" type="button" title="chiudi il cassetto (le sessioni restano aperte)">▾</button>
+      </div>
+      <div class="tpanes" id="tpanes"></div>
+    </div>
     <div class="mc" id="mc">
       <div class="mcbox bezel">
         <h2>STATUS</h2>
@@ -2432,6 +2511,8 @@ cv.addEventListener("click", function(e){
   if(dragged) return;
   FOLLOW = false;
   var b = cv.getBoundingClientRect(), p = s2w(e.clientX-b.left, e.clientY-b.top);
+  var hit = hoverAt(p);
+  if(hit && hit.term && termOpen(hit.term)) return;
   var r = roomAt(p.x,p.y);
   if(r) focusRoom(r); else unfocus();
 });
@@ -2449,6 +2530,8 @@ cv.addEventListener("wheel", function(e){
 }, {passive:false});
 window.addEventListener("keydown", function(e){
   if(e.target && (e.target.tagName === "INPUT")) return;   /* si scrive nel login, non si comandano scorciatoie */
+  if(e.target && e.target.closest && e.target.closest(".tdock")) return;   /* e nemmeno mentre si scrive in un terminale */
+  if(e.key === "`"){ e.preventDefault(); termDock(!sceneEl.classList.contains("tdock-on")); return; }
   if(e.key==="Escape"){ if(!keysEl.hidden) toggleKeys(false); else if(itemMcOn) closeItemDetail(); else if(mcOn) toggleMC(); else if(focus || FOLLOW){ FOLLOW = false; unfocus(); } else setFull(!FULL); }
   else if(e.key==="u"||e.key==="U") toggleFollow();
   else if(e.key==="?") toggleKeys();
@@ -3205,6 +3288,7 @@ function renderSessions(sessions){
      è già lui a guidare ULTRON via agent_state, non gli serve un clone */
   var primary = keys.length ? keys.reduce(function(a,b){ return sessions[a].ts >= sessions[b].ts ? a : b; }) : null;
   PRIMARY_KEY = primary;
+  termLink(sessions, primary);
   var live = {};
   keys.forEach(function(key){
     if(key === primary) return;
@@ -3217,6 +3301,7 @@ function renderSessions(sessions){
       else { c.x = ULTRON.x; c.y = ULTRON.y; }
     }
     if(s.status) c.status = s.status;
+    c.term = s.term || null;
     if(s.room && R(s.room) && c.room !== s.room){ c.room = s.room; goTo(c, s.room, .3+Math.random()*.4, .5); }
   });
   keys.forEach(function(k){ SEEN_SESSIONS[k] = true; });
@@ -3936,9 +4021,10 @@ var CELL_DESC = {
 };
 function hoverAt(p){
   var best = null, bd = Math.max(26, 22/cam.s);
-  function test(x, y, name, info){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y-70, n:name, t:info}; } }
+  function test(x, y, name, info, term){ var d = Math.hypot(p.x-x, p.y-(y-30)); if(d < bd){ bd = d; best = {x:x, y:y-70, n:name, t:info, term:term}; } }
   test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : "") +
-       (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY, HOME_DIR) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : ""));
+       (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY, HOME_DIR) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : "") +
+       (PRIMARY_TERM && termById(PRIMARY_TERM) ? " · clic: il suo terminale" : ""), PRIMARY_TERM);
   CREW.forEach(function(a){
     var carry = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
     test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
@@ -3948,7 +4034,8 @@ function hoverAt(p){
     test(k.x, k.y, k.n, k.d + " · " + (k.escort ? (k.moving ? "va in " : "al lavoro in ") + R(k.escort).n.toLowerCase()
       : k.wander ? "a spasso nel corridoio" : k.moving ? "torna al posto" : here ? "al posto" : "in pausa nel corridoio"));
   });
-  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key, HOME_DIR) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
+  CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key, HOME_DIR) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "") +
+    (c.term && termById(c.term) ? " · clic: il suo terminale" : ""), c.term); });
   MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
   if(best) return best;
   var things = [];
@@ -4595,6 +4682,234 @@ function drawWorld(t){
     ctx.restore();
   }
   ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+/* ------------------------------------------------------ TERMINALI
+   Il cassetto in basso: sessioni vere (claude, claude --continue o la shell) aperte dal server in
+   una pseudo-tty (terminali.py) e mostrate con xterm.js, che si carica solo alla prima apertura.
+   Più sessioni: una alla volta con le linguette, o AFFIANCATE. Ogni sessione ha un id (t1, t2...)
+   che gli hook scrivono in sessions.json: così la linguetta prende il colore del suo clone nella
+   base e dice dov'è e cosa fa, e cliccando un clone (o Ultron) si apre il suo terminale.
+   Il gettone arriva nella pagina dal server: senza (vetrina, file aperto a mano) niente terminali. */
+var TERM_TOKEN = (document.querySelector('meta[name="baracca-term"]') || {}).content || "";
+var XTERM_BASE = "/vendor/xterm/";
+var TERM_API = (function(){
+  function req(method, path, body){
+    return fetch(path, {method:method, cache:"no-store", body: body ? JSON.stringify(body) : undefined,
+                        headers:{"Content-Type":"application/json", "X-Baracca-Token":TERM_TOKEN}})
+      .then(function(r){ if(!r.ok) throw new Error(r.status === 429 ? "troppi terminali aperti (massimo 8)" : "errore " + r.status); return r.json(); });
+  }
+  return {
+    ok: function(){ return !!TERM_TOKEN; },
+    list: function(){ return req("GET", "/api/term").then(function(d){ return d.terms || []; }); },
+    create: function(kind, cols, rows){ return req("POST", "/api/term", {kind:kind, cols:cols, rows:rows}); },
+    input: function(id, data){ return req("POST", "/api/term/" + id + "/input", {data:data}); },
+    resize: function(id, cols, rows){ return req("POST", "/api/term/" + id + "/resize", {cols:cols, rows:rows}); },
+    close: function(id){ return req("POST", "/api/term/" + id + "/close", {}); },
+    /* l'uscita arriva in base64; EventSource al ricollegamento riparte da Last-Event-ID da sé */
+    stream: function(id, onData, onExit){
+      var es = new EventSource("/api/term/" + id + "/stream?from=0&t=" + encodeURIComponent(TERM_TOKEN));
+      es.addEventListener("out", function(e){
+        var s = atob(e.data), b = new Uint8Array(s.length);
+        for(var i=0;i<s.length;i++) b[i] = s.charCodeAt(i);
+        onData(b);
+      });
+      es.addEventListener("exit", function(e){ es.close(); var d = {}; try{ d = JSON.parse(e.data); }catch(_){} onExit(d.code); });
+      return {close: function(){ es.close(); }};
+    }
+  };
+})();
+var TERMS_UI = [], TERM_ON = null, TERM_SPLIT = false, TERM_SESS = {}, PRIMARY_TERM = null, XTERM_P = null;
+var tdockEl = document.getElementById("tdock"), sceneEl = document.querySelector(".scene");
+var termBtn = document.getElementById("termBtn"), tMenu = document.getElementById("tMenu"), tNew = document.getElementById("tNew");
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(_){ return null; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(_){} }
+function loadXterm(){
+  if(XTERM_P) return XTERM_P;
+  function add(tag, attrs){ return new Promise(function(ok, ko){ var el = document.createElement(tag);
+    Object.keys(attrs).forEach(function(k){ el[k] = attrs[k]; }); el.onload = ok; el.onerror = ko; document.head.appendChild(el); }); }
+  XTERM_P = Promise.all([add("link", {rel:"stylesheet", href:XTERM_BASE + "xterm.css"}), add("script", {src:XTERM_BASE + "xterm.js"})])
+    .then(function(){ return add("script", {src:XTERM_BASE + "addon-fit.js"}); });
+  XTERM_P.catch(function(){ XTERM_P = null; });
+  return XTERM_P;
+}
+/* altezza del cassetto: ricordata, mai più di quanto lascia vedere la base */
+function dockMax(){ return Math.max(160, sceneEl.getBoundingClientRect().height - 90); }
+function dockH(){ var h = +lsGet("baracca.tdock.h"); return h > 0 ? h : Math.round(sceneEl.getBoundingClientRect().height*.42); }
+function setDockH(h, save){
+  h = Math.round(clamp(h, 160, dockMax()));
+  if(tdockEl.classList.contains("big")) h = Math.round(dockMax());
+  sceneEl.style.setProperty("--tdock", sceneEl.classList.contains("tdock-on") ? h + "px" : "0px");
+  if(save) lsSet("baracca.tdock.h", h);
+  resize(); termFitAll();
+}
+function termDock(on){
+  if(on && VIEW !== "base") showView("base");
+  sceneEl.classList.toggle("tdock-on", on);
+  termBtn.setAttribute("aria-expanded", on ? "true" : "false");
+  lsSet("baracca.tdock.on", on ? "1" : "");
+  setDockH(dockH());
+  if(!on){ tMenu.hidden = true; return; }
+  if(!TERM_API.ok()){ termEmpty("I terminali si aprono dalla Baracca in locale: avviala con <code>./start.sh</code> (o <code>python3 server.py</code>) e apri <code>http://127.0.0.1:8795</code>."); return; }
+  if(!TERMS_UI.length) termEmpty("Nessuna sessione aperta. <b>+ SESSIONE</b> apre claude qui dentro: scrivi e Ultron lavora nella base qui sopra. Puoi aprirne più d'una e vederle <b>AFFIANCATE</b>.");
+  var t = termById(TERM_ON); if(t && t.xt) setTimeout(function(){ t.xt.focus(); }, 30);
+}
+function termEmpty(html){
+  var box = document.getElementById("tpanes"), e = box.querySelector(".tempty");
+  if(!html){ if(e) e.remove(); return; }
+  if(!e){ e = document.createElement("div"); e.className = "tempty"; box.appendChild(e); }
+  e.innerHTML = "<p>" + html + "</p>";
+}
+function termById(id){ return TERMS_UI.filter(function(t){ return t.id === id; })[0]; }
+function termColorOf(t){ var s = TERM_SESS[t.id]; return !s ? "" : s.key === PRIMARY_KEY ? P.gold : termColor(s.key); }
+function termStatus(t){
+  if(!t.alive) return "chiusa" + (t.code ? " · codice " + t.code : "");
+  var s = TERM_SESS[t.id]; if(!s) return t.kind === "shell" ? "" : "in avvio";
+  return (STATE_LIVE[s.status] || s.status || "") + (s.room && R(s.room) && R(s.room).id === s.room ? " · " + R(s.room).n.toLowerCase() : "");
+}
+function termRender(){
+  var tabs = document.getElementById("ttabs"), box = document.getElementById("tpanes");
+  tabs.innerHTML = "";
+  TERMS_UI.forEach(function(t, i){
+    var b = document.createElement("div"), c = termColorOf(t), s = TERM_SESS[t.id];
+    b.className = "ttab" + (t.id === TERM_ON ? " on" : "") + (t.alive ? "" : " dead");
+    b.setAttribute("role", "tab"); b.tabIndex = 0; b.setAttribute("aria-selected", t.id === TERM_ON ? "true" : "false");
+    if(c) b.style.setProperty("--tc", c);
+    b.innerHTML = "<i></i><span></span>" + (s && s.key === PRIMARY_KEY && t.alive ? "<b>ULTRON</b>" : "") + "<em></em><button class='tx' type='button' aria-label='chiudi'>×</button>";
+    b.querySelector("span").textContent = (i + 1) + " · " + t.title;
+    b.querySelector("em").textContent = termStatus(t);
+    b.title = t.title + " · " + t.cwd;
+    b.addEventListener("click", function(e){ if(e.target.classList.contains("tx")) termClose(t); else termSelect(t.id); });
+    b.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); termSelect(t.id); } });
+    tabs.appendChild(b);
+    t.pane.style.setProperty("--tc", c || "var(--gold)");
+    t.pane.classList.toggle("on", t.id === TERM_ON);
+    t.pane.classList.toggle("show", TERM_SPLIT || t.id === TERM_ON);
+    t.pane.querySelector(".tph b").textContent = (i + 1) + " · " + t.title;
+    t.pane.querySelector(".tph span").textContent = termStatus(t);
+  });
+  box.className = "tpanes" + (TERM_SPLIT ? " split n" + TERMS_UI.length : "");
+  var n = TERMS_UI.filter(function(t){ return t.alive; }).length;
+  termBtn.innerHTML = "TERMINALI" + (n ? "<span class='tn'>" + n + "</span>" : "");
+  if(TERMS_UI.length) termEmpty(null);
+}
+function termFit(t){
+  if(!t.fit || !t.pane.classList.contains("show") || !sceneEl.classList.contains("tdock-on")) return;
+  try{ t.fit.fit(); }catch(_){ return; }
+  if(t.alive && (t.cols !== t.xt.cols || t.rows !== t.xt.rows)){
+    t.cols = t.xt.cols; t.rows = t.xt.rows;
+    TERM_API.resize(t.id, t.cols, t.rows).catch(function(){});
+  }
+}
+function termFitAll(){ TERMS_UI.forEach(termFit); }
+/* i tasti partono uno dopo l'altro, mai due richieste insieme: l'ordine è quello battuto */
+function termSend(t, data){
+  t.out += data;
+  if(t.sending || !t.alive) return;
+  var chunk = t.out; t.out = ""; t.sending = true;
+  TERM_API.input(t.id, chunk).catch(function(){}).then(function(){ t.sending = false; if(t.out) termSend(t, ""); });
+}
+function termAttach(info){
+  return loadXterm().then(function(){
+    var t = termById(info.id);
+    if(t) return t;
+    t = {id:info.id, kind:info.kind, title:info.title, cwd:info.cwd, alive:info.alive, code:info.code, out:"", sending:false};
+    var pane = document.createElement("div");
+    pane.className = "tpane";
+    pane.innerHTML = "<div class='tph'><i></i><b></b><span></span></div><div class='tbody'></div>";
+    pane.querySelector(".tph").addEventListener("click", function(){ termSelect(t.id); });
+    document.getElementById("tpanes").appendChild(pane);
+    t.pane = pane;
+    t.xt = new window.Terminal({cursorBlink:true, fontSize:13, scrollback:5000, allowProposedApi:false,
+      fontFamily:'Menlo, "SF Mono", ui-monospace, Consolas, monospace',
+      theme:{background:"#06121c", foreground:"#fbeedc", cursor:"#e08a4a", cursorAccent:"#06121c", selectionBackground:"rgba(224,138,74,.35)",
+             black:"#0a1d2b", red:"#e0685a", green:"#3cc99a", yellow:"#e8b84a", blue:"#6fa6d6", magenta:"#b58ad6", cyan:"#5fd8ea", white:"#e8dcc6",
+             brightBlack:"#50707f", brightRed:"#ff8a7a", brightGreen:"#6fe0b8", brightYellow:"#ffd27a", brightBlue:"#9cc4ec", brightMagenta:"#d2b0ec", brightCyan:"#9ff0fa", brightWhite:"#fff7ea"}});
+    t.fit = new window.FitAddon.FitAddon();
+    t.xt.loadAddon(t.fit);
+    t.xt.open(pane.querySelector(".tbody"));
+    t.xt.onData(function(d){ termSend(t, d); });
+    t.xt.textarea && t.xt.textarea.addEventListener("focus", function(){ if(TERM_ON !== t.id){ TERM_ON = t.id; termRender(); } });
+    if(window.ResizeObserver){ var rt = 0; new ResizeObserver(function(){ clearTimeout(rt); rt = setTimeout(function(){ termFit(t); }, 60); }).observe(pane); }
+    t.stream = TERM_API.stream(t.id, function(bytes){ t.xt.write(bytes); }, function(code){
+      t.alive = false; t.code = code;
+      t.xt.write("\r\n\x1b[2m[sessione chiusa" + (code ? ", codice " + code : "") + ": la × sulla linguetta la toglie]\x1b[0m\r\n");
+      termRender();
+    });
+    TERMS_UI.push(t);
+    return t;
+  });
+}
+function termSelect(id){
+  TERM_ON = id; termRender();
+  var t = termById(id); if(!t) return;
+  requestAnimationFrame(function(){ termFit(t); t.xt.focus(); });
+}
+function termNew(kind){
+  tMenu.hidden = true; tNew.setAttribute("aria-expanded", "false");
+  if(!TERM_API.ok()) return;
+  termEmpty(null);
+  TERM_API.create(kind, 100, 30).then(termAttach).then(function(t){ termSelect(t.id); })
+    .catch(function(e){ termEmpty("Non si apre: " + esc(e && e.message || e)); if(TERMS_UI.length) setTimeout(function(){ termEmpty(null); }, 2500); });
+}
+function termClose(t){
+  if(t.alive && t.kind !== "shell" && !window.confirm("Chiudere la sessione " + t.title + "? Il processo viene terminato.")) return;
+  TERM_API.close(t.id).catch(function(){});
+  if(t.stream) t.stream.close();
+  if(t.xt) t.xt.dispose();
+  t.pane.remove();
+  var i = TERMS_UI.indexOf(t); TERMS_UI.splice(i, 1);
+  if(TERM_ON === t.id) TERM_ON = TERMS_UI.length ? TERMS_UI[Math.min(i, TERMS_UI.length - 1)].id : null;
+  termRender();
+  if(TERM_ON) termSelect(TERM_ON); else termDock(true);
+}
+/* chiamata da renderSessions: quale sessione (transcript) sta in quale terminale */
+function termLink(sessions, primary){
+  var m = {};
+  Object.keys(sessions).forEach(function(k){ var s = sessions[k]; if(s.term) m[s.term] = {key:k, status:s.status, room:s.room}; });
+  TERM_SESS = m;
+  PRIMARY_TERM = primary && sessions[primary] ? sessions[primary].term || null : null;
+  if(TERMS_UI.length) termRender();
+}
+/* un clone (o Ultron) che vive in un terminale di qui: apre quel terminale */
+function termOpen(id){
+  if(!termById(id)) return false;
+  termDock(true); termSelect(id); return true;
+}
+termBtn.addEventListener("click", function(){ termDock(!sceneEl.classList.contains("tdock-on")); });
+document.getElementById("tHide").addEventListener("click", function(){ termDock(false); });
+tNew.addEventListener("click", function(){
+  if(!TERM_API.ok()) return termDock(true);
+  tMenu.hidden = !tMenu.hidden; tNew.setAttribute("aria-expanded", tMenu.hidden ? "false" : "true");
+  if(!tMenu.hidden) tMenu.querySelector("button").focus();
+});
+tMenu.addEventListener("click", function(e){ var b = e.target.closest("button[data-kind]"); if(b) termNew(b.dataset.kind); });
+tMenu.addEventListener("keydown", function(e){ if(e.key === "Escape"){ e.stopPropagation(); tMenu.hidden = true; tNew.focus(); } });
+document.getElementById("tSplit").addEventListener("click", function(){
+  TERM_SPLIT = !TERM_SPLIT; this.setAttribute("aria-pressed", TERM_SPLIT ? "true" : "false");
+  termRender(); requestAnimationFrame(termFitAll);
+});
+document.getElementById("tBig").addEventListener("click", function(){
+  var on = !tdockEl.classList.contains("big"); tdockEl.classList.toggle("big", on); this.setAttribute("aria-pressed", on ? "true" : "false");
+  setDockH(dockH());
+});
+(function(){                                              /* la maniglia: trascinando si allarga */
+  var grip = document.getElementById("tgrip"), y0 = 0, h0 = 0, on = false;
+  grip.addEventListener("pointerdown", function(e){ on = true; y0 = e.clientY; h0 = tdockEl.getBoundingClientRect().height; grip.setPointerCapture(e.pointerId);
+    tdockEl.classList.remove("big"); document.getElementById("tBig").setAttribute("aria-pressed", "false"); });
+  grip.addEventListener("pointermove", function(e){ if(on) setDockH(h0 + (y0 - e.clientY), false); });
+  grip.addEventListener("pointerup", function(){ if(!on) return; on = false; setDockH(tdockEl.getBoundingClientRect().height, true); });
+})();
+window.addEventListener("resize", function(){ if(sceneEl.classList.contains("tdock-on")) setDockH(dockH()); });
+/* dopo un ricaricamento le sessioni sono ancora vive nel server: si riattaccano, con la loro storia */
+if(TERM_API.ok()){
+  TERM_API.list().then(function(list){
+    return list.reduce(function(p, info){ return p.then(function(){ return termAttach(info); }); }, Promise.resolve());
+  }).then(function(){
+    if(TERMS_UI.length){ TERM_ON = TERMS_UI[TERMS_UI.length - 1].id; termRender(); }
+    if(lsGet("baracca.tdock.on")) termDock(true);
+    if(TERM_ON) termSelect(TERM_ON);
+  }).catch(function(){});
 }
 
 function boot(){

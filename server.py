@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 """Server locale della Baracca (solo 127.0.0.1): serve la pagina, il bundle
 React, le immagini e piccoli endpoint JSON in sola lettura (vault, stato e
-sessioni scritti dagli hook, config pubblica di Supabase). L'unica eccezione
-è POST /api/talk, che riavvia il servizio launchd di Discord: non legge né
-scrive niente."""
+sessioni scritti dagli hook, config pubblica di Supabase). Le eccezioni:
+POST /api/talk, che riavvia il servizio launchd di Discord, e i TERMINALI
+(/api/term...), sessioni claude o shell vere aperte dalla pagina (vedi
+terminali.py). Quelli chiedono in più il gettone che il server mette nella
+pagina a ogni avvio: un altro sito non lo può leggere."""
+import base64
+import hmac
 import json
 import os
 import re
+import secrets
 import subprocess
 import time
+from urllib.parse import parse_qs
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import sys as _sys
 _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "hooks"))
 import supabase_client
 import soglie
+import terminali
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VAULT = os.path.expanduser("~/Ultron vault")
@@ -38,6 +45,12 @@ MISSIONS_DIR = os.path.join(VAULT, "05 - Resources", "Missioni")
 EVENTS_TICK_S = 0.15
 EVENTS_REFRESH_S = 30
 EVENTS_PING_S = 15
+# terminali: il gettone vale fino al riavvio del server, un corpo POST non passa i 64k
+TERM_TOKEN = secrets.token_urlsafe(24)
+TERM_BODY_MAX = 64 * 1024
+TERM_WAIT_S = 15
+TERM_RE = re.compile(r"^/api/term/(t\d{1,4})/(stream|input|resize|close)$")
+TERMS = terminali.Terminali(AGENT_HOME)
 
 
 def read_text(path):
@@ -367,8 +380,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(config_payload())
         elif path == "/api/skills":
             self._send_json(read_skills())
+        elif path == "/api/term":
+            if not self._term_ok():
+                return self._forbidden()
+            self._send_json({"terms": TERMS.list()})
+        elif TERM_RE.match(path) and TERM_RE.match(path).group(2) == "stream":
+            if not self._term_ok():
+                return self._forbidden()
+            self._stream_term(TERM_RE.match(path).group(1))
         elif path in ("/", "/baracca.html"):
-            self._send_file("baracca.html", "text/html")
+            self._send_page()
+        elif path.startswith("/vendor/xterm/") and path[len("/vendor/xterm/"):] in VENDOR:
+            name = path[len("/vendor/xterm/"):]
+            self._send_file(os.path.join("vendor", "xterm", name), VENDOR[name])
         elif path == "/panels/panels.js":
             # isola React dei pannelli STORICO: solo il bundle, nient'altro di panels/
             self._send_file(os.path.join("panels", "dist", "panels.js"), "text/javascript")
@@ -392,9 +416,131 @@ class Handler(BaseHTTPRequestHandler):
             r = subprocess.run(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{DISCORD_SERVICE}"],
                                capture_output=True, timeout=10)
             self._send_json({"ok": r.returncode == 0})
+        elif self.path == "/api/term" or TERM_RE.match(self.path):
+            self._term_post()
         else:
             self.send_response(404)
             self.end_headers()
+
+    # --- terminali ------------------------------------------------------------
+
+    def _term_ok(self):
+        """Il gettone arriva nell'intestazione (fetch) o nella query (EventSource non ne manda)."""
+        given = self.headers.get("X-Baracca-Token")
+        if given is None and "?" in self.path:
+            given = (parse_qs(self.path.split("?", 1)[1]).get("t") or [None])[0]
+        return given is not None and hmac.compare_digest(given, TERM_TOKEN)
+
+    def _body(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if n < 0 or n > TERM_BODY_MAX:
+            return None
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+        except (ValueError, UnicodeDecodeError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _term_post(self):
+        if not self._term_ok():
+            return self._forbidden()
+        body = self._body()
+        if body is None:
+            self.send_response(400)
+            self.end_headers()
+            return
+        if self.path == "/api/term":
+            try:
+                t = TERMS.new(str(body.get("kind", "claude")), body.get("cols", 100), body.get("rows", 30))
+            except (ValueError, TypeError):
+                self.send_response(400)
+                self.end_headers()
+                return
+            except OverflowError:
+                self.send_response(429)
+                self.end_headers()
+                return
+            return self._send_json(t.info())
+        tid, what = TERM_RE.match(self.path).groups()
+        t = TERMS.get(tid)
+        if t is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+        if what == "input":
+            data = body.get("data")
+            ok = isinstance(data, str) and t.write(data.encode("utf-8"))
+            return self._send_json({"ok": bool(ok)})
+        if what == "resize":
+            try:
+                t.resize(body.get("cols", 100), body.get("rows", 30))
+            except (TypeError, ValueError):
+                pass
+            return self._send_json({"ok": True})
+        if what == "close":
+            return self._send_json({"ok": TERMS.drop(tid)})
+        self.send_response(404)
+        self.end_headers()
+
+    def _stream_term(self, tid):
+        """L'uscita del terminale come Server-Sent Events, in base64 (i byte
+        della tty non sono per forza UTF-8 interi). L'id di ogni evento è la
+        posizione raggiunta: al ricollegamento EventSource la rimanda in
+        Last-Event-ID e si riprende da lì, senza doppioni."""
+        t = TERMS.get(tid)
+        if t is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+        q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+        start = self.headers.get("Last-Event-ID") or (q.get("from") or ["0"])[0]
+        try:
+            pos = max(0, int(start))
+        except ValueError:
+            pos = 0
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(b"retry: 1500\n\n")
+            self.wfile.flush()
+            while True:
+                pos, data = t.read_from(pos, TERM_WAIT_S)
+                if data:
+                    self.wfile.write(("event: out\nid: %d\ndata: %s\n\n"
+                                      % (pos, base64.b64encode(data).decode("ascii"))).encode("ascii"))
+                elif t.alive:
+                    self.wfile.write(b": ping\n\n")
+                if not t.alive and pos >= t.end:
+                    self.wfile.write(("event: exit\ndata: %s\n\n" % json.dumps({"code": t.code})).encode("ascii"))
+                    self.wfile.flush()
+                    return
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            return
+
+    def _send_page(self):
+        """baracca.html col gettone dei terminali dentro: solo chi apre la pagina
+        da qui lo legge (un altro sito non può leggere le risposte di questo)."""
+        try:
+            with open(os.path.join(HERE, "baracca.html"), "rb") as f:
+                body = f.read()
+        except OSError:
+            self.send_response(404)
+            self.end_headers()
+            return
+        body = body.replace(b'<meta name="baracca-term" content="">',
+                            b'<meta name="baracca-term" content="' + TERM_TOKEN.encode("ascii") + b'">', 1)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _stream_events(self):
         """Server-Sent Events: stato, sessioni e sub-agenti appena gli hook
@@ -447,10 +593,17 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+VENDOR = {"xterm.js": "text/javascript", "addon-fit.js": "text/javascript", "xterm.css": "text/css"}
+
+
 def main():
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    server.daemon_threads = True      # i flussi aperti non tengono vivo il server alla chiusura
     print(f"Ultron's Farm up: http://127.0.0.1:{PORT}/baracca.html")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        TERMS.close_all()
 
 
 if __name__ == "__main__":

@@ -40,6 +40,16 @@ I nomi nella scena si leggono passando il cursore su persone, stanze, casse e po
 - **AVVISI**: un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti (il browser chiede il permesso al primo clic).
 - **Ponte** in sala comando: gli otto hook, ognuno con l'ultima volta che si è fatto vivo con un evento vero. "Mai visto" vuol dire che quell'hook non è registrato.
 
+### Terminali (28/09)
+
+Il pulsante **TERMINALI** in alto (o il tasto <kbd>`</kbd>) apre un cassetto in basso con terminali veri: **+ SESSIONE** apre `claude`, `claude --continue` o la shell dentro la Baracca (cartella `~/my-agent`), e mentre scrivi Ultron lavora nella base qui sopra.
+
+- **Più sessioni**: una alla volta con le linguette, o tutte **AFFIANCATE** (fino a 8). La maniglia in alto allarga il cassetto, **GRANDE** lo porta quasi a tutto schermo.
+- **Linguetta = clone**: ogni sessione aperta da qui ha `BARACCA_TERM` nell'ambiente, gli hook lo scrivono in `state/sessions.json` e la linguetta prende il colore del suo Ultron nella base, con reparto e stato; la sessione che guida Ultron ha il bollino ULTRON. Clic su un clone (o su Ultron) apre il suo terminale.
+- **Ricaricare** la pagina non chiude niente: le sessioni vivono nel server (`terminali.py`) e si riattaccano con la loro storia. Chiudere il server le chiude.
+- **Sicurezza**: il server apre solo i tre tipi previsti (mai un comando arrivato dalla pagina) e ogni chiamata ai terminali chiede un gettone che il server scrive nella pagina a ogni avvio: un altro sito aperto nel browser non lo può leggere, e il controllo di Host/Origin resta.
+- xterm.js è in `vendor/xterm/` (MIT), servito dal server: niente CDN.
+
 ## Avvio
 
 ```sh

@@ -110,12 +110,18 @@ def update_session(session_key, **fields):
     now = int(time.time() * 1000)
     entry = {k: v for k, v in fields.items() if v is not None}
     entry["ts"] = now
+    row = dict(entry, transcript_path=session_key)
+    # aperto dal cassetto TERMINALI della Baracca: il suo id, così la pagina lega
+    # il clone al terminale. Solo nel file locale: a Supabase non serve.
+    term = os.environ.get("BARACCA_TERM")
+    if term:
+        entry["term"] = term
     with locked(SESSIONS_PATH):
         data = _load(SESSIONS_PATH, {})
         data = {k: v for k, v in data.items() if now - v.get("ts", 0) < MAX_AGE_MS}
         data[session_key] = entry
         _save(SESSIONS_PATH, data)
-    return dict(entry, transcript_path=session_key)
+    return row
 
 
 def last_room(session_key):
