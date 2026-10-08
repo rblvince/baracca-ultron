@@ -20,20 +20,44 @@ Due personaggi nuovi vivono di hook che prima non erano registrati. In `settings
 "SessionStart": [{"hooks": [{"type": "command", "command": "python3 <baracca>/hooks/set_state.py idle"}]}]
 ```
 
-- `PreCompact` → lo SPAZZINO pressa il contesto; `SessionStart` con `source: compact` chiude la compattazione.
+- `PreCompact` → i fogli del contesto volano da Ultron alla FORGIA, dove lo SPAZZINO li pressa; `SessionStart` con `source: compact` chiude la compattazione e il blocco torna a Ultron.
 - `SessionStart` → il PORTINAIO apre il portellone; i terminali nuovi entrano da lì, quelli fermi escono da lì.
-- `Notification` (già registrato) ora distingue il permesso (GUARDIANO con la sbarra) dall'attesa semplice (MARCONI trasmette).
+- `Notification` (già registrato) ora distingue il permesso (il GUARDIANO abbassa la sbarra in VERIFICHE) dall'attesa semplice (MARCONI trasmette).
 - L'ECONOMO non ha bisogno di hook: legge la cache scritta dai token che già arrivano.
+
+### Chi si muove
+
+Camminano solo **Ultron**, i **cloni** degli altri terminali (entrano ed escono dal portellone) e i **sub-agenti**: i mini-Ultron e i tre personaggi qui sotto. Chi cammina sta portando qualcosa da un posto all'altro; tutto il resto della squadra sta fermo, ognuno nella sua stanza, e fa il suo mestiere da lì.
+
+- **La truppa** (i dodici operativi) ha una postazione fissa (`STATION` in `baracca.html`) e non la lascia mai. Quando tocca a loro si accendono al loro posto, si girano, mostrano l'emote o l'attrezzo: il collaudo respinge alle PROVE, la sbarra del permesso scende in VERIFICHE, il contesto si pressa in FORGIA, la spesa della cache si annota allo SCHEDARIO.
+- **In demo** le casse delle missioni le porta Ultron, da un reparto all'altro; l'operativo del reparto d'arrivo le riceve dal suo posto.
+
+### Tre sub-agenti con un personaggio
+
+Tre tipi di sub-agente hanno un aspetto loro. Il ponte li riconosce dal `subagent_type` esatto (maiuscole o minuscole non contano, `SUBAGENT_CHARACTER` in `hooks/barracks.py`) e manda alla pagina il loro id come `agent`:
+
+| `subagent_type` | Personaggio | Reparto | Aspetto |
+|---|---|---|---|
+| `coder` | CODER, scrive codice, script, test e config | OFFICINA, BANCO | felpa col cappuccio, occhiali, portatile |
+| `valutatore` | VALUTATORE, rilegge il codice e cerca bug veri | COLLAUDO, CONFRONTO | lente da orologiaio, barattolo col bug |
+| `jev-giuria` | JEV GIURIA, mette ai voti le strade e dà il verdetto | LABORATORIO, PIANI | parrucca da giudice, martelletto |
+
+- Il corridoio alto è loro: ognuno ha un posto fisso, col tondo del suo colore e l'attrezzo. A riposo passeggiano piano lungo il corridoio; di notte tornano al posto e restano lì. Ci sono sempre, anche in demo e senza server.
+- Quando parte un sub-agente del loro tipo esce la fascia RINFORZO col nome. Il personaggio raggiunge Ultron, prende l'ordine sigillato, lo porta nel suo reparto e lavora lì, sul posto, finché il sub-agente è in corso. Poi porta il rapporto a Ultron e torna al posto. Per quel sub-agente non nasce un mini-Ultron.
+- Un personaggio fa un sub-agente alla volta: il secondo dello stesso tipo resta un mini-Ultron, così il conto di quelli in corso è vero. Tutti gli altri tipi restano mini-Ultron, negli stessi reparti di prima.
+- In sala comando stanno in SQUADRA, sotto il filtro «sub-agenti».
 
 ### Specialisti = skill installate
 
-Gli specialisti in fila nel corridoio sono le skill installate davvero: `/api/skills` legge le cartelle con `SKILL.md` in `~/.claude/skills`, `~/.agents/skills` e nelle stesse cartelle di `~/my-agent` (al massimo 10 in scena, prima quelle con un disegno loro: taste, guidelines, marketing, regia). Si muovono solo quando Ultron usa la loro skill: lo raggiungono nel reparto e restano finché il reparto lavora. Bash, letture, vault e sub-agenti li fa la truppa.
+Gli specialisti sono le skill installate davvero: `/api/skills` legge le cartelle con `SKILL.md` in `~/.claude/skills`, `~/.agents/skills` e nelle stesse cartelle di `~/my-agent` (al massimo 10 in scena, prima quelle con un disegno loro: taste, guidelines, marketing, regia). Bash, letture, vault e sub-agenti li fa la truppa.
+
+Ognuno sta fermo nella sottostanza dove il ponte manda la sua skill: le skill di revisione e verifica in COLLAUDO, REVISIONE; tutte le altre in LABORATORIO, ATTREZZI. I posti sono fissi, in righe da due (da tre con cinque o più), e con dieci specialisti nessuno copre un altro (`test_squadra.mjs`). Quando Ultron usa la loro skill esce la fascia SKILL e lo specialista gli lancia l'attrezzo dal suo posto, senza muoversi.
 
 I nomi nella scena si leggono passando il cursore su persone, stanze, casse e portellone.
 
 ### Come si guarda
 
-- **A RIPOSO / DEMO**: se Ultron ha già lavorato qui ma non negli ultimi 15 minuti, la base riposa (luci basse, truppa alle postazioni, dopo 10 minuti si dorme). La demo parte solo cliccando la pillola, o se non c'è mai stata una sessione.
+- **A RIPOSO / DEMO**: se Ultron ha già lavorato qui ma non negli ultimi 15 minuti, la base riposa (luci basse, dopo 10 minuti si dorme). La demo parte solo cliccando la pillola, o se non c'è mai stata una sessione.
 - **Coda**: gli eventi passano in ordine; con la fila lunga Ultron cammina fino a 3 volte più svelto. Il ritratto dice quanti eventi sono in coda.
 - **Pianta**: le stanze sono grandi il 50% in più di quelle di progetto; all'apertura la base si vede da vicino e si esplora trascinando o con la rotella. ESC mostra tutta la base (e di nuovo ESC torna da vicino).
 - **U** segue Ultron di reparto in reparto; esc o trascinare smettono.
