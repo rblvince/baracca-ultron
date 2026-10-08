@@ -64,6 +64,10 @@ I nomi nella scena si leggono passando il cursore su persone, stanze, casse e po
 - **AVVISI**: un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti (il browser chiede il permesso al primo clic).
 - **Ponte** in sala comando: gli otto hook, ognuno con l'ultima volta che si è fatto vivo con un evento vero. "Mai visto" vuol dire che quell'hook non è registrato.
 
+## Prototipo: la Baracca a strati
+
+`http://127.0.0.1:8795/baracca-strati.html` — la base vista in sezione, di fronte, fatta di otto piani 2D in pixel-art sovrapposti nello spazio 3D (CSS 3D, nessuna libreria). Fermi combaciano, col mouse scorrono a velocità diverse; **E** li esplode. Stessi dati (`/api/events`), stessi reparti e sottostanze. La proposta completa è in `docs/redesign-strati.md`.
+
 ## Avvio
 
 ```sh

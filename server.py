@@ -369,6 +369,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(read_skills())
         elif path in ("/", "/baracca.html"):
             self._send_file("baracca.html", "text/html")
+        elif path == "/baracca-strati.html":
+            # prototipo del redesign a strati (docs/redesign-strati.md), stessi dati della baracca
+            self._send_file("baracca-strati.html", "text/html")
         elif path == "/panels/panels.js":
             # isola React dei pannelli STORICO: solo il bundle, nient'altro di panels/
             self._send_file(os.path.join("panels", "dist", "panels.js"), "text/javascript")

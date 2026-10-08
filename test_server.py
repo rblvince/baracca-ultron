@@ -248,6 +248,27 @@ def test_events_stream_pushes_what_the_hooks_write():
         srv.STATE_PATH, srv.SESSIONS_PATH, srv.SUBAGENTS_PATH = old
 
 
+def test_strati_route_serves_the_prototype():
+    """il prototipo a strati ha la sua rotta e parla con lo stesso stream della baracca"""
+    import threading
+    import urllib.request
+    from http.server import HTTPServer
+    import server as srv
+    httpd = HTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = "http://127.0.0.1:%d" % httpd.server_address[1]
+    try:
+        with urllib.request.urlopen(base + "/baracca-strati.html?v=1") as r:
+            assert r.status == 200, r.status
+            assert r.headers["Content-Type"] == "text/html", r.headers["Content-Type"]
+            html = r.read().decode("utf-8")
+            assert "/api/events" in html
+            assert "mix-blend-mode:screen" not in html, "il blend appiattisce il 3D in Chrome"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def main():
     test_talk_restarts_the_single_discord_service()
     test_parse_missions_reads_only_mission_steps()
@@ -257,6 +278,7 @@ def main():
     test_config_payload_missing_config_returns_empty_strings()
     test_read_skills_lists_installed_skills()
     test_panels_route_serves_only_the_bundle()
+    test_strati_route_serves_the_prototype()
     test_foreign_host_and_origin_are_refused()
     print("server.py: tutti i controlli passati")
 
