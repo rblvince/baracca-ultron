@@ -1673,7 +1673,7 @@ function useSkill(id, then, isSkill){
   var sk = skillBy(id); if(!sk) return;
   sk.uses++; sk.last = Date.now();
   if(isSkill) banner("SKILL", sk.n, sk.c);          /* la fascia solo per le skill vere, non per ogni Bash */
-  logEvent("skill", "<b>" + sk.n + "</b> passa l'attrezzo a Ultron da " + sk.cellName);
+  logEvent("skill", "<b>" + esc(sk.n) + "</b> passa l'attrezzo a Ultron da " + esc(sk.cellName));   /* il nome arriva da fuori (SKILL.md, hook) */
   handoff(sk);
 }
 /* chi serve per l'evento che è appena arrivato dagli hook */
@@ -1893,13 +1893,14 @@ function drawParts(){
   ctx.globalAlpha = 1;
 }
 
-/* la fascia che attraversa lo schermo, stile "MISSION START" */
+/* la fascia che attraversa lo schermo, stile "MISSION START". kind e text sono testo, mai HTML:
+   text può venire da fuori (il nome di una skill) */
 var bnEl = null, bnT = 0;
 function banner(kind, text, col){
   if(!bnEl) bnEl = document.getElementById("banner");
   if(!bnEl || reduce) return;
   var cls = col===P.red ? "red" : col===P.green ? "green" : col===P.cyan ? "cyan" : col===P.violet ? "violet" : "";
-  bnEl.innerHTML = "<span class='bk'>"+kind+"</span><span class='bt'>"+text+"</span>";
+  bnEl.innerHTML = "<span class='bk'>"+esc(kind)+"</span><span class='bt'>"+esc(text)+"</span>";
   bnEl.className = "banner " + cls;
   void bnEl.offsetWidth;                 /* riavvia l'animazione anche a raffica */
   bnEl.className = "banner go " + cls;
@@ -2854,7 +2855,13 @@ function ensureAuthThenSubscribe(){
 function acceptLiveRow(s){
   if(!s) return;
   try{ localStorage.setItem("baracca_last_state", JSON.stringify(s)); }catch(e){}
-  if(!LIVE){ LIVE = true; REST = false; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks(); }
+  if(!LIVE){
+    LIVE = true; REST = false; var pill=document.getElementById("mode"); pill.className="pill live"; pill.textContent="LIVE"; renderTasks();
+    /* il turno finto è finito, come in onLocalState: via i mini-Ultron della demo, i personaggi al posto */
+    DEMO_TURN = null;
+    MINIS = MINIS.filter(function(m){ return !m.demo; });
+    AGENTS.forEach(function(a){ if(a.demo) agentHome(a); });
+  }
   lastSeen = Date.now(); LAST_STATE = s;
   if(s.ts && s.ts !== lastTs){ lastTs = s.ts; enqueueEvent(s); }
 }
@@ -3396,13 +3403,22 @@ function renderSessions(sessions){
 /* un sub-agente nuovo di uno dei tre tipi (AGENTS) lo fa il suo personaggio, se è libero; tutti gli
    altri, e il secondo dello stesso tipo, sono mini-Ultron: il conto di quelli in corso resta vero */
 function renderSubagents(data){
-  var ids = {};
-  (data.list||[]).forEach(function(s){
-    ids[s.id] = true;
+  var list = data.list || [], ids = {};
+  list.forEach(function(s){ ids[s.id] = true; });
+  list.forEach(function(s){
     var a = AGENTS.filter(function(x){ return x.sub === s.id && !x.demo; })[0];
     if(a){ if(s.task) a.task = s.task; return; }
     var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
     if(!m){
+      /* cambio di fonte (SSE locale, poi Realtime): gli id non coincidono, lo stesso sub-agente torna
+         con un id nuovo mentre quello vecchio esce dalla lista. Il personaggio del suo tipo resta suo:
+         prende l'id nuovo, niente rapporto e niente mini-Ultron. Se invece gli è già stato detto di
+         consegnare (done, o è in report) il suo sub-agente era finito davvero: questo è un altro.
+         ponytail: un sub-agente che finisce e uno nuovo dello stesso tipo nella stessa rilettura sono
+         indistinguibili dal cambio di fonte, e il personaggio passa al secondo senza consegnare il
+         rapporto; per distinguerli serve un id stabile fra le due fonti (hooks/ e supabase/). */
+      var same = agentBy(s.agent);
+      if(same && !same.demo && same.sub != null && !ids[same.sub] && !same.done && same.state !== "report"){ same.sub = s.id; if(s.task) same.task = s.task; return; }
       var who = bearerFor(s.agent, AGENTS);
       if(who){ callAgent(agentBy(who), s.id, s.task, false); return; }
       m = launchMini(s.id, s.room);

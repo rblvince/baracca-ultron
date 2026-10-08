@@ -21,6 +21,7 @@ run node test_aux.mjs
 run node test_lavoro.mjs
 run node test_pianta.mjs
 run node test_squadra.mjs
+run node test_agenti.mjs
 if [ -d panels/node_modules ]; then
   run npm --prefix panels test
   run npm --prefix panels run typecheck
