@@ -769,6 +769,16 @@ function qHeld(g, kind, hx, hy){                      /* hx, hy = mano */
   else if(kind === "sign"){ g.r(hx+1, hy-8, 2, 11, O); g.r(hx-3, hy-15, 10, 9, O); g.r(hx-2, hy-14, 8, 7, "#d8372d"); g.r(hx-1, hy-11, 6, 1, Q_C.white); }
   else if(kind === "abacus"){ g.r(hx-2, hy-6, 9, 9, O); g.r(hx-1, hy-5, 7, 7, "#6b4a26"); [hy-4, hy-2, hy].forEach(function(y, i){ g.r(hx-1, y, 7, 1, "#b9a47c"); g.r(hx + i*2, y, 2, 1, "#e8b84a"); }); }
   else if(kind === "viewfinder"){ g.r(hx-2, hy-5, 8, 6, O); g.r(hx-1, hy-4, 6, 4, "#2b2622"); g.r(hx+3, hy-3, 1, 1, "#e8a04e"); }
+  else if(kind === "laptop"){                          /* portatile aperto, il codice verde sullo schermo */
+    g.r(hx-3, hy-6, 10, 7, O); g.r(hx-2, hy-5, 8, 5, "#12343c"); g.r(hx-1, hy-4, 3, 1, "#3fdc7a"); g.r(hx, hy-2, 4, 1, "#7fe0a6"); g.r(hx+3, hy-4, 2, 1, "#e8f7a0");
+    g.r(hx-4, hy+1, 12, 3, O); g.r(hx-3, hy+1, 10, 2, Q_C.metal); }
+  else if(kind === "bugjar"){                          /* il barattolo col bug catturato */
+    g.r(hx-2, hy-8, 8, 11, O); g.r(hx-1, hy-6, 6, 8, "#c4f3ff"); g.r(hx-1, hy-6, 1, 8, Q_C.white);
+    g.r(hx-1, hy-8, 6, 2, "#a46a34"); g.r(hx+1, hy-3, 2, 3, "#2a2020"); g.r(hx+1, hy-3, 2, 1, "#d8372d");
+    g.r(hx, hy-2, 1, 1, "#2a2020"); g.r(hx+3, hy-2, 1, 1, "#2a2020"); g.r(hx, hy, 1, 1, "#2a2020"); g.r(hx+3, hy, 1, 1, "#2a2020"); }
+  else if(kind === "gavel"){                           /* martelletto del giudice */
+    g.r(hx+1, hy-6, 3, 10, O); g.r(hx+2, hy-5, 1, 8, Q_C.wood);
+    g.r(hx-3, hy-10, 11, 5, O); g.r(hx-2, hy-9, 9, 3, "#6b4a26"); g.r(hx+1, hy-9, 3, 3, "#e8b84a"); }
 }
 function qBack(g, kind, x, y){                        /* x, y = angolo alto a sinistra dello zaino */
   var O = P.out;
@@ -909,6 +919,22 @@ function qPerson(s, dir, fr, walk, carry){
       else if(sideV){ g.r(hx+5, hy-1, 4, 3, O); g.r(hx+6, hy, 2, 1, "#5fd8ea"); }
       if(dir !== "up") g.r(hx+headW-3, hy+3, 3, 2, "#efe3c6");                      /* benda */
     }
+    else if(s.hat === "hood"){                                           /* cappuccio della felpa, tirato su */
+      if(dir === "up"){ g.r(hx-2, hy-3, headW+4, 13, O); qTone(g, hx-1, hy-2, headW+2, 11, hc); }
+      else { g.r(hx-2, hy-3, headW+4, 4, O); qTone(g, hx-1, hy-2, headW+2, 2, hc);
+             g.r(hx-3, hy, 3, 10, O); g.r(hx-2, hy, 2, 9, qMix(hc, .15));
+             if(!sideV){ g.r(hx+headW, hy, 3, 10, O); g.r(hx+headW, hy, 2, 9, qMix(hc, -.3)); }
+             if(dir === "down"){ g.r(cx-2, torsoY+1, 1, 4, Q_C.white); g.r(cx+1, torsoY+1, 1, 4, Q_C.white); } } }   /* i lacci */
+    else if(s.hat === "loupe"){                                          /* lente da orologiaio sull'occhio destro */
+      if(dir !== "up"){ var lx = sideV ? hx+6 : hx+5;
+        g.r(hx-1, hy+2, headW+2, 1, "#3a2a20"); g.r(lx, ey-2, 5, 4, O); g.r(lx+1, ey-1, 3, 2, "#c4f3ff"); g.r(lx+1, ey-1, 1, 1, Q_C.white); }
+      else g.r(hx-1, hy+2, headW+2, 1, "#3a2a20"); }
+    else if(s.hat === "wig"){                                            /* parrucca bianca da giudice, coi riccioli ai lati */
+      var wg = "#ece6da", wd = "#b9b1a2";
+      g.r(hx-2, hy-4, headW+4, 5, O); g.r(hx-1, hy-3, headW+2, 3, wg); g.r(hx+1, hy-3, headW-2, 1, Q_C.white);
+      [hx-3, hx+headW].forEach(function(x, i){ if(sideV && i) return;
+        g.r(x, hy, 4, 11, O); for(var r=0;r<3;r++){ g.r(x+1, hy+1+r*3, 2, 2, wg); g.r(x+1, hy+3+r*3, 2, 1, wd); } });
+      if(dir === "up"){ g.r(hx-1, hy, headW+2, 10, wg); for(var q=0;q<3;q++) g.r(hx, hy+2+q*3, headW, 1, wd); } }
     else if(s.hat === "headset"){ g.r(hx-1, hy-3, headW+2, 1, O); if(dir !== "up"){ g.r(hx-2, hy+4, 3, 4, O); g.r(hx-1, hy+5, 1, 2, "#c9a028"); if(dir === "down"){ g.r(hx+headW-1, hy+4, 3, 4, O); g.r(hx+headW, hy+5, 1, 2, "#c9a028"); } } }
 
     /* oggetto in mano */
@@ -1131,7 +1157,12 @@ var Q_CAST = {
   "taste":    {skin:0, hair:"brown",  hairStyle:"long",  hat:"beret",  hatCol:"#6b3fa0", shirt:"#9b6fd6", held:"palette", w:12},
   "guide":    {skin:1, hair:"black",  hairStyle:"short", glasses:true, shirt:"#3f8fc9", held:"ruler", w:14, tall:1},
   "mkt":      {skin:3, hair:"black",  hairStyle:"bald",  beard:"stubble", shirt:"#d68a3c", held:"horn", w:16},
-  "regia":    {skin:0, hair:"grey",   hairStyle:"short", beard:"full", hat:"beret", hatCol:"#2a2018", shirt:"#c97a3c", held:"viewfinder", w:14}
+  "regia":    {skin:0, hair:"grey",   hairStyle:"short", beard:"full", hat:"beret", hatCol:"#2a2018", shirt:"#c97a3c", held:"viewfinder", w:14},
+  /* i tre sub-agenti con un personaggio (AGENTS): felpa col cappuccio e portatile, lente da orologiaio e
+     barattolo col bug, parrucca da giudice e martelletto */
+  "coder":      {skin:2, hair:"black", hairStyle:"short", glasses:true, hat:"hood", hatCol:"#3a3f48", shirt:"#3a3f48", held:"laptop", w:13},
+  "valutatore": {skin:0, hair:"grey",  hairStyle:"short", beard:"stubble", hat:"loupe", shirt:"#8a3566", held:"bugjar", w:14, tall:1},
+  "jev-giuria": {skin:3, hair:"white", hairStyle:"short", hat:"wig", shirt:"#3a2e5c", held:"gavel", w:15}
 };
 
 /* direzione dal movimento vero fra un fotogramma e l'altro; il lato sinistro lo fa il ribaltamento */
@@ -1595,6 +1626,17 @@ function skIcon(g, kind, col, ox, oy){
     r(4,3,2,2,P.out);
     r(2,1,1,1,P.metalDk); r(7,1,1,1,P.metalDk); r(2,6,1,1,P.metalDk); r(7,6,1,1,P.metalDk);
     r(9,7,2,2,P.out); r(9,8,1,1,col);
+  } else if(kind==="code"){                       /* lo schermo con < > */
+    r(0,1,12,9,P.out); r(1,2,10,7,"#12343c");
+    r(4,3,1,1,col); r(3,4,1,1,col); r(2,5,1,1,col); r(3,6,1,1,col); r(4,7,1,1,col);
+    r(7,3,1,1,col); r(8,4,1,1,col); r(9,5,1,1,col); r(8,6,1,1,col); r(7,7,1,1,col);
+  } else if(kind==="bug"){                        /* il bug, con le zampe */
+    r(4,1,4,9,P.out); r(5,3,2,6,col); r(5,2,2,1,P.ink);
+    r(1,3,3,1,P.out); r(8,3,3,1,P.out); r(1,6,3,1,P.out); r(8,6,3,1,P.out); r(2,9,2,1,P.out); r(8,9,2,1,P.out);
+    r(4,0,1,1,P.out); r(7,0,1,1,P.out);
+  } else if(kind==="ballot"){                     /* l'urna, con la scheda che entra */
+    r(1,5,10,6,P.out); r(2,6,8,4,col); r(4,6,4,1,P.out);
+    r(4,0,4,6,P.out); r(5,1,2,4,P.paper); r(5,2,2,1,P.green);
   } else {
     r(2,4,8,6,P.out); r(3,5,6,4,P.metalDk); r(4,6,3,1,col); r(4,8,2,1,col);
     r(8,0,1,5,P.out); r(8,0,1,1,col);
@@ -1673,6 +1715,143 @@ function drawSkillFx(t){
     ctx.strokeStyle = sk.c; ctx.lineWidth = 3; ctx.globalAlpha = 1-k2;
     ctx.beginPath(); ctx.arc(ULTRON.x, ULTRON.y-44, 20+k2*44, 0, 6.2832); ctx.stroke(); ctx.globalAlpha = 1;
   }
+}
+
+/* ============================================ I RINFORZI CON UN NOME ==
+   Tre sub-agenti di Vincent hanno un personaggio loro (07/10): CODER (l'unico che scrive codice,
+   script, test e config; niente commit né push), VALUTATORE (rilegge quello che ha scritto il coder e
+   cerca bug veri, non modifica niente) e JEV GIURIA (con due o più strade serie scrive schede neutre,
+   le mette ai voti e riporta classifica e verdetto). Il ponte li riconosce dal tipo esatto
+   (SUBAGENT_CHARACTER in hooks/barracks.py) e manda il loro id come agent.
+   Ci sono sempre, anche in demo e senza server, e non contano nel tetto degli specialisti. Il corridoio
+   è loro: un posto fisso ciascuno nella fila contro il muro alto, col tondo del colore e l'attrezzo.
+   A riposo passeggiano piano lungo il corridoio; di notte tornano al posto e ci restano.
+   Quando parte un sub-agente del loro tipo fanno quello che fa un mini-Ultron, ma col loro aspetto:
+     fetch   raggiungono Ultron e prendono l'ordine sigillato
+     carry   lo portano nel loro reparto, al loro punto di lavoro
+     work    lavorano lì, sul posto, finché il sub-agente è in corso
+     report  quando rientra portano il rapporto a Ultron
+     home    tornano al posto nel corridoio (post)
+   Un personaggio fa un sub-agente alla volta: il secondo dello stesso tipo resta un mini-Ultron. */
+var POST_Y = CORR.y + 30;                         /* la fila dei posti, contro il muro alto */
+var AG_V = 330, AG_STROLL = 100;                  /* il passo di chi lavora, e quello della passeggiata */
+var AGENTS = [
+  {id:"coder",      n:"CODER",      d:"scrive codice, script, test e config", c:"#4fd18b", icon:"code",   dept:"prod", cell:"edit", fx:.86, fy:.62},
+  {id:"valutatore", n:"VALUTATORE", d:"rilegge il codice e cerca bug veri",    c:"#e0629f", icon:"bug",    dept:"qa",   cell:"diff", fx:.8,  fy:.6},
+  {id:"jev-giuria", n:"JEV GIURIA", d:"mette ai voti le strade e dà il verdetto", c:"#b48cff", icon:"ballot", dept:"rs", cell:"plan", fx:.5, fy:.24}
+];
+AGENTS.forEach(function(a, i){
+  a.homeX = Math.round(CORR.x + CORR.w*(i + 1)/(AGENTS.length + 1));
+  Object.assign(a, {x:a.homeX, y:POST_Y, face:1, v:AG_V, phase:0, path:[], moving:false,
+                    state:"post", sub:null, demo:false, task:"", carry:null, wander:false, wanderAt:0});
+});
+function agentBy(id){ var k = String(id == null ? "" : id).trim().toLowerCase(); return AGENTS.filter(function(a){ return a.id === k; })[0]; }
+/* il punto di lavoro nel reparto, nella sottostanza del mestiere */
+function agentWorkPoint(a){
+  var c = RING.cells.filter(function(q){ return q.room === a.dept && q.id === a.cell; })[0];
+  return {x:c.x + c.w*a.fx, y:c.y + c.h*a.fy};
+}
+/* dove sta andando Ultron, o dov'è: lì si prende l'ordine e si consegna il rapporto */
+function ultronEnd(){ return ULTRON.path.length ? ULTRON.path[ULTRON.path.length-1] : ULTRON; }
+
+function callAgent(a, id, task, demo){
+  a.sub = id; a.task = task || ""; a.demo = !!demo; a.done = false;
+  a.wander = false; a.v = AG_V; a.carry = null; a.state = "fetch"; a.since = Date.now();
+  logEvent("deleg", "<b>" + a.n + "</b> va da Ultron a prendere l'ordine");
+  var end = ultronEnd();
+  goToPoint(a, end.x - 36, end.y + 4, function(b){
+    b.carry = "order"; b.state = "carry"; b.since = Date.now();
+    puff(b.x, b.y - 20, b.c, 8);
+    var p = agentWorkPoint(b);
+    goToPoint(b, p.x, p.y, function(e){
+      e.carry = null; e.state = "work"; e.face = 1; e.since = Date.now();
+      logEvent("deleg", "<b>" + e.n + "</b> al lavoro in " + R(e.dept).n.toLowerCase());
+      if(e.done) agentReport(e);                   /* il sub-agente è finito mentre arrivava */
+    });
+  });
+}
+/* il sub-agente è rientrato: il rapporto va a Ultron. Se il personaggio non è ancora arrivato al
+   lavoro ci arriva prima, così l'ordine fa il suo giro intero */
+function agentReport(a){
+  if(a.state === "fetch" || a.state === "carry"){ a.done = true; return; }
+  if(a.state !== "work") return;
+  a.state = "report"; a.carry = "report"; a.done = false; a.since = Date.now();
+  var end = ultronEnd();
+  goToPoint(a, end.x - 36, end.y + 4, agentDelivered);
+}
+function agentDelivered(a){
+  sparks(ULTRON.x, ULTRON.y - 50, a.c, 10);
+  logEvent("deleg", "<b>" + a.n + "</b> consegna il <b>rapporto</b> a Ultron");
+  agentHome(a);
+}
+function agentHome(a){
+  a.carry = null; a.sub = null; a.demo = false; a.done = false; a.task = ""; a.state = "home"; a.v = AG_V; a.wander = false;
+  goToPoint(a, a.homeX, POST_Y, function(b){ b.state = "post"; b.face = 1; b.wanderAt = Date.now() + 2000 + Math.random()*5000; });
+}
+/* A RIPOSO PASSEGGIANO (era degli specialisti, dal 07/10 è dei tre): due passi lungo il corridoio
+   verso un punto a caso, piano, una sosta di qualche secondo e si riparte. Di notte (sleeping)
+   tornano al loro posto e restano lì. */
+var RING_WALK = RING.segs.filter(function(q){ return DEMO.graph.nodes[q[0]] && DEMO.graph.nodes[q[1]]; });
+function corridorSpot(){
+  var q = RING_WALK[Math.floor(Math.random()*RING_WALK.length)], a = RING.pts[q[0]], b = RING.pts[q[1]], k = .1 + Math.random()*.8;
+  return {x:a.x + (b.x-a.x)*k + (Math.random()-.5)*30, y:a.y + (b.y-a.y)*k + (Math.random()-.5)*30};
+}
+function stepAgents(){
+  var now = Date.now(), night = sleeping();
+  AGENTS.forEach(function(a){
+    /* un rapporto che non arriva (Ultron irraggiungibile) non tiene il personaggio fuori per sempre */
+    if(a.state === "report" && now - a.since > 25000){ puff(a.x, a.y - 14, a.c, 8); agentDelivered(a); return; }
+    if(a.state !== "post" || (a.path && a.path.length)) return;
+    if(night){
+      if(Math.hypot(a.x - a.homeX, a.y - POST_Y) > 20){ a.v = AG_V; a.wander = false; goToPoint(a, a.homeX, POST_Y, function(b){ b.face = 1; }); }
+      a.wanderAt = 0; return;
+    }
+    if(!a.wanderAt){ a.wanderAt = now + 1500 + Math.random()*6000; return; }
+    if(now < a.wanderAt) return;
+    var p = corridorSpot();
+    a.v = AG_STROLL; a.wander = true; a.wanderAt = now + 1e9;
+    goToPoint(a, p.x, p.y, function(b){ b.wander = false; b.v = AG_V; b.wanderAt = Date.now() + 3000 + Math.random()*7000; });
+  });
+}
+/* cosa sta facendo, in parole: per il cursore e la sala comando */
+function agentDoing(a){
+  var dep = R(a.dept).n.toLowerCase(), t = a.task ? " · " + String(a.task).slice(0, 60) : "";
+  if(a.state === "fetch") return "va da Ultron a prendere l'ordine" + t;
+  if(a.state === "carry") return "porta l'ordine in " + dep + t;
+  if(a.state === "work") return "al lavoro in " + dep + t;
+  if(a.state === "report") return "porta il rapporto a Ultron" + t;
+  if(a.state === "home") return "torna al posto";
+  return a.wander ? "a spasso nel corridoio" : "al posto nel corridoio";
+}
+
+var AG_ITEM = {};
+function agItem(a){
+  if(!AG_ITEM[a.id]) AG_ITEM[a.id] = spr(14,12,function(g){ skIcon(g, a.icon, a.c, 1, 1); });
+  return AG_ITEM[a.id];
+}
+/* il posto di ognuno nel corridoio: un tondo del suo colore con l'attrezzo. Quando è fuori per un
+   sub-agente il posto resta lì, vuoto e più acceso: si vede chi manca e perché */
+function drawPosts(){
+  AGENTS.forEach(function(a){
+    var away = a.sub != null;
+    ctx.save(); ctx.globalAlpha = away ? .95 : .55;
+    ctx.fillStyle = "rgba(4,16,24,.8)"; ctx.beginPath(); ctx.ellipse(a.homeX, POST_Y + 2, 22, 9, 0, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = a.c; ctx.lineWidth = 2; ctx.stroke();
+    drawSprite(agItem(a), a.homeX, POST_Y + 10, 1.6, false);
+    ctx.restore();
+  });
+}
+function drawAgents(t){
+  drawPosts();
+  AGENTS.forEach(function(a){
+    var work = a.state === "work";
+    if(work) drawHot(a, a.c, t);
+    drawSprite(qSprite(a, Q_CAST[a.id], !!a.carry), a.x, a.y, 2.2, a.face<0);
+    /* l'ordine e il rapporto si portano sopra la testa, come le casse */
+    if(a.carry) drawSprite(PAPER[a.carry], a.x, a.y - 66 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0), 2, false);
+    /* al lavoro: l'attrezzo del mestiere nella nuvoletta, a intermittenza */
+    if(work && (reduce || Math.floor(t/1200)%2 === 0)){ drawSprite(BUBBLE, a.x+14, a.y-72, 2, false); drawSprite(agItem(a), a.x+14, a.y-78, 1.4, false); }
+  });
 }
 
 /* ======================================================= EFFETTI =====
@@ -2480,6 +2659,13 @@ function haul(task, toRoom, then){
    animazione della demo è quella che vedrai col lavoro vero. Un turno sì e uno no il test fallisce.
    Fra un turno e l'altro gira la scena delle casse (MISSIONI). */
 var DEMO_TURN = null, DEMO_N = 0, DEMO_GAP = 0, DEMO_TOK = {}, DEMO_MINI = null;
+/* il sub-agente del turno, a giro: i tre con un personaggio e uno qualunque (mini-Ultron) */
+var DEMO_SUBS = [
+  {room:"prod",    agent:"coder",      task:"scrive il test dei cloni"},
+  {room:"qa",      agent:"valutatore", task:"rilegge il diff del coder"},
+  {room:"rs",      agent:"jev-giuria", task:"anello o pettine: schede e voto"},
+  {room:"ricerca", agent:"ricerca-1",  task:"trova dove nascono i cloni"}
+];
 function demoTurn(){
   var n = DEMO_N++, fail = n % 2 === 1, test = {status:"thinking", room:"qa", tool:"Bash", task:"npm test -- --run", tok:300};
   var st = n % 3 === 0 ? [{status:"idle", line:"sessione aperta · startup"}] : [];
@@ -2487,7 +2673,7 @@ function demoTurn(){
     {status:"thinking"},
     {status:"reading", room:"ricerca", tool:"Read", tok:900, cw: n % 3 === 0 ? 48000 : 2000},
     {status:"reading", room:"ricerca", tool:"Grep", task:"function goTo", tok:400},
-    {status:"spawning", room:"ricerca", agent:"ricerca-1", task:"trova dove nascono i cloni", sub:"add"},
+    Object.assign({status:"spawning", sub:"add"}, DEMO_SUBS[n % DEMO_SUBS.length]),
     {status:"writing", room:"prod", tool:"Edit", tok:2600},
     {status:"thinking", room:"rs", tool:"Skill", task:SKILLS.length ? SKILLS[n % SKILLS.length].match[0] : "taste", tok:600});
   if(fail) st.push({status:"failing", room:"prod", tool:"Bash", task:"npm test -- --run", tok:500},
@@ -2510,8 +2696,12 @@ function demoStep(){
     var r = DEMO_TOK[e.room] = DEMO_TOK[e.room] || {in:0, out:0, cread:0, cwrite:0};
     r.out += e.tok; r.cwrite += e.cw || 0; s.tokens = JSON.parse(JSON.stringify(DEMO_TOK));
   }
-  if(e.sub === "add"){ DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; DEMO_MINI.task = e.task; }
-  if(e.sub === "done" && DEMO_MINI){ sendBack(DEMO_MINI); DEMO_MINI = null; }
+  if(e.sub === "add"){
+    var who = bearerFor(e.agent, AGENTS);
+    if(who){ DEMO_MINI = agentBy(who); callAgent(DEMO_MINI, "demo" + DEMO_N, e.task, true); }
+    else { DEMO_MINI = launchMini("demo" + DEMO_N, e.room); DEMO_MINI.demo = true; DEMO_MINI.task = e.task; }
+  }
+  if(e.sub === "done" && DEMO_MINI){ if(AGENTS.indexOf(DEMO_MINI) >= 0) agentReport(DEMO_MINI); else sendBack(DEMO_MINI); DEMO_MINI = null; }
   if(!e.line && e.status === STATE.status && (e.status === "waiting" || e.status === "compacting")) return true;   /* solo tempo che passa */
   enqueueEvent(s);
   return true;
@@ -2748,6 +2938,7 @@ function enterRest(why){
   STATE.status = "idle"; STATE.target = null;
   liftBarrier(); endCompact();               /* a riposo nessuno aspetta più un permesso o un riassunto */
   MINIS = MINIS.filter(function(m){ return !m.demo; });
+  AGENTS.forEach(function(a){ if(a.demo) agentHome(a); });   /* il turno finto è finito: al posto */
   var p = document.getElementById("mode"); p.className = "pill rest"; p.textContent = "A RIPOSO";
   renderTasks();
   logEvent("deleg", why);
@@ -2799,6 +2990,7 @@ function onLocalState(s){
     renderTasks();
     STATE.tokens = null; TOKOUT = {}; DEMO_TURN = null;
     MINIS = MINIS.filter(function(m){ return !m.demo; });
+    AGENTS.forEach(function(a){ if(a.demo) agentHome(a); });
     logEvent("deleg","collegato a <b>Claude Code</b>");
   }
   lastSeen = Date.now(); LAST_STATE = s;
@@ -2905,8 +3097,9 @@ function applyLive(s){
   if(!(s.status === "waiting" && line.indexOf("permesso") === 0)) liftBarrier();
   if(s.status !== "compacting") endCompact();
   if(STATE.status === "spawning" && was !== "spawning" && s.agent){
-    var spawned = crewBy(s.agent);
+    var spawned = crewBy(s.agent), named = agentBy(s.agent);
     if(spawned){ banner("RINFORZO", spawned.n, P.gold); puff(spawned.x, spawned.y-20, P.gold, 14); busyAt(spawned, P.gold); }
+    else if(named){ banner("RINFORZO", named.n, named.c); puff(named.x, named.y-20, named.c, 14); }
   }
   /* il reparto: Ultron ci va a piedi, e se l'evento richiede un attrezzo
      passa prima dall'arsenale a prenderlo. */
@@ -2929,8 +3122,9 @@ function applyLive(s){
   if(s.status === "waiting" && (was !== "waiting" || line.indexOf("permesso") === 0)) notifyWaiting(line);
   if(s.tokens){ onTokens(s); STATE.tokens = s.tokens; }
 
-  /* l'operativo di quel lavoro si accende alla sua postazione, senza lasciarla */
-  if(s.agent){
+  /* l'operativo di quel lavoro si accende alla sua postazione, senza lasciarla. I tre con un
+     personaggio fanno da sé: per loro non si accende nessun operativo generico */
+  if(s.agent && !agentBy(s.agent)){
     busyAt(crewBy(s.agent) || crewBy(({ricerca:"ricerca-1", prod:"produzione-1",
       qa:"qualita-1", pub:"orchestratore", vault:"custode", rs:"orchestratore"})[s.room] || ""));
     /* Volt e Doc abitano spedizioni e laboratorio: se il reparto lavora, lavorano anche loro */
@@ -3051,6 +3245,10 @@ function dashSnapshot(m){
       deliveredCount: m.delivered, live: live,
       sub: live ? realMs.length+" ATTIVE" : m.tasks.length+" IN CORSO · "+m.delivered+" CONSEGNATE"
     },
+    /* i tre sub-agenti con un personaggio: al posto, a spasso o in giro per un sub-agente */
+    agents: (m.agents || []).map(function(a){
+      return {id: a.id, name: a.n, color: a.c, desc: a.d, state: m.agentDoing(a), busy: a.sub != null};
+    }),
     skills: m.skills.map(function(sk){
       var hot = !!(sk.last && m.now - sk.last < 4000), where = (sk.cellName || "").toLowerCase();
       return {id: sk.id, name: sk.n, color: sk.c, desc: sk.d, uses: sk.uses||0, hot: hot,
@@ -3115,6 +3313,14 @@ function makeSeq(){
 function pillAfterResubscribe(current, live){
   if(current !== "OFFLINE") return null;
   return live ? {cls:"pill live", text:"LIVE"} : {cls:"pill demo", text:"DEMO"};
+}
+/* chi fa da personaggio a un sub-agente appena partito: l'id del personaggio se il tipo (agent, come lo
+   manda il ponte) è il suo, maiuscole o minuscole non contano, ed è libero; altrimenti null e il
+   sub-agente resta un mini-Ultron */
+function bearerFor(agent, chars){
+  var k = String(agent == null ? "" : agent).trim().toLowerCase();
+  var c = (chars || []).filter(function(a){ return a.id === k; })[0];
+  return c && c.sub == null ? c.id : null;
 }
 /* AUX-PURE-END */
 /* LABEL-PURE-START */
@@ -3187,15 +3393,24 @@ function renderSessions(sessions){
   });
 }
 
+/* un sub-agente nuovo di uno dei tre tipi (AGENTS) lo fa il suo personaggio, se è libero; tutti gli
+   altri, e il secondo dello stesso tipo, sono mini-Ultron: il conto di quelli in corso resta vero */
 function renderSubagents(data){
   var ids = {};
   (data.list||[]).forEach(function(s){
     ids[s.id] = true;
+    var a = AGENTS.filter(function(x){ return x.sub === s.id && !x.demo; })[0];
+    if(a){ if(s.task) a.task = s.task; return; }
     var m = MINIS.filter(function(x){ return x.id===s.id; })[0];
-    if(!m) m = launchMini(s.id, s.room);
+    if(!m){
+      var who = bearerFor(s.agent, AGENTS);
+      if(who){ callAgent(agentBy(who), s.id, s.task, false); return; }
+      m = launchMini(s.id, s.room);
+    }
     if(s.task) m.task = s.task;
   });
   MINIS.forEach(function(m){ if(!ids[m.id] && !m.demo) sendBack(m); });
+  AGENTS.forEach(function(a){ if(a.sub != null && !a.demo && !ids[a.sub]) agentReport(a); });
 }
 /* parte da Ultron con l'ordine sigillato e lo porta nel reparto */
 function launchMini(id, room){
@@ -3401,7 +3616,7 @@ function dashEngine(){
     x.drawImage(img, Math.round((img.width - w)/2), 1, w, h, 0, 0, w, h);
     return c;
   }
-  function crewById(id){ return CREW.filter(function(a){ return a.id === id; })[0]; }
+  function crewById(id){ return CREW.filter(function(a){ return a.id === id; })[0] || agentBy(id); }
   function skillById(id){ return SKILLS.filter(function(s){ return s.id === id; })[0]; }
   return {
     sprites: {
@@ -3458,7 +3673,9 @@ function dashState(){
     pulse: pulseHist, link: {hit: LINK_HIT, last: LINK_LAST, at: LINK_AT, seen: LINK_SEEN},
     rest: REST, queue: QUEUE.length, waitLine: STATE.status === "waiting" ? String((LAST_STATE && LAST_STATE.line) || WAIT_LINE || "attesa") : null,
     terminals: (LIVE ? 1 : 0) + CLONES.filter(function(c){ return !c.leaving; }).length,
-    subagents: MINIS.filter(function(x){ return !x.back; }).length,
+    subagents: MINIS.filter(function(x){ return !x.back; }).length +
+               AGENTS.filter(function(a){ return a.sub != null && a.state !== "report" && a.state !== "home"; }).length,
+    agents: AGENTS, agentDoing: agentDoing,
     activity: ACTIVITY, tokout: TOKOUT, crewRole: CREW_ROLE,
     vault: VAULT, vaultDown: VAULT_DOWN, P: P,
     R: R, activeMissions: activeMissions, nextStep: nextStep, missionStepParts: missionStepParts, plainMd: plainMd
@@ -3500,7 +3717,7 @@ var ROOM_LIT = {}, DOOR_OPEN = {}, BUBS = [], FISH = [];
 })();
 
 function envActors(){
-  return [ULTRON].concat(CREW, SKILLS, CLONES, MINIS).filter(function(e){ return e && isFinite(e.x); });
+  return [ULTRON].concat(CREW, SKILLS, AGENTS, CLONES, MINIS).filter(function(e){ return e && isFinite(e.x); });
 }
 function nearest(x, y, list){
   var best = null, bd = 1e9;
@@ -3895,6 +4112,7 @@ function hoverAt(p){
     var hot = k.last && Date.now() - k.last < 4000;
     test(k.x, k.y, k.n, k.d + " · " + (hot ? "passa l'attrezzo a Ultron" : "al posto") + " · " + String(k.cellName || "").toLowerCase());
   });
+  AGENTS.forEach(function(a){ test(a.x, a.y, a.n, a.d + " · " + agentDoing(a)); });
   CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key, HOME_DIR) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
   MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
   if(best) return best;
@@ -3998,6 +4216,8 @@ function loop(t){
     stepQueue();
     stepSleep(t);
     stepEntity(ULTRON, dt);
+    AGENTS.forEach(function(a){ stepEntity(a, dt); });
+    stepAgents();
     CLONES.forEach(function(a){ stepEntity(a, dt); });
     MINIS.forEach(function(a){ stepEntity(a, dt); });
     stepTube(dt);
@@ -4477,6 +4697,7 @@ function drawWorld(t){
     if(isBusy(a)) drawHot(a, a.busyCol || a.col, t);
     drawSprite(crewSprite(a, 0, false), a.x, a.y, 2.2, a.face<0);
   });
+  drawAgents(t);
   var uf = ULTRON.moving ? 2 + (Math.floor(ULTRON.phase)%4) : (Math.floor(t*.003)%2);
   ctx.globalAlpha = .2; ctx.fillStyle = stColor();
   ctx.beginPath(); ctx.ellipse(ULTRON.x, ULTRON.y-2, 26+Math.sin(t*.004)*3, 9, 0, 0, 6.2832); ctx.fill();

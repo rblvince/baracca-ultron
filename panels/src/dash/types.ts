@@ -44,7 +44,7 @@ export type DashLink = { hit: Record<LinkKey, boolean>; last: LinkKey | null; ho
 export type CrewCard = {
   id: string; name: string; color: string;
   desc: string;            // il mestiere, in una riga
-  role: string;            // nome del reparto, "IN CAMMINO" o "PORTA CASSA"
+  role: string;            // nome del reparto della postazione, o "PORTELLONE"
   state: string;           // cosa sta facendo, in parole
   busy: boolean;
 };
@@ -59,6 +59,9 @@ export type DashBoard = {
   live: boolean;
   sub: string;             // "2 ATTIVE" oppure "3 IN CORSO · 5 CONSEGNATE"
 };
+
+/** I tre sub-agenti con un personaggio (CODER, VALUTATORE, JEV GIURIA): busy = c'è un loro sub-agente in corso. */
+export type AgentCard = { id: string; name: string; color: string; desc: string; state: string; busy: boolean };
 
 export type SkillCard = { id: string; name: string; color: string; desc: string; uses: number; hot: boolean; where: string; busy: boolean };
 export type ShelfRow = { label: string; count: number; color: string };
@@ -79,6 +82,7 @@ export type DashSnapshot = {
   crew: CrewCard[];
   board: DashBoard;
   skills: SkillCard[];
+  agents: AgentCard[];
   shelf: ShelfRow[];                  // sempre 6 righe
   vault: VaultSnap | 'down' | null;   // null = non ancora letto
   debugRaw: { label: string; json: string } | null; // solo con #debug

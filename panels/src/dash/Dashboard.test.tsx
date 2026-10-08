@@ -131,6 +131,23 @@ describe('SQUADRA', () => {
     expect(c.querySelector('.who em')!.textContent).toBe('skill · 2 usi');
     expect(c.querySelector('.who canvas')!.getAttribute('data-sprite')).toBe('taste');
   });
+  it('i tre sub-agenti con un nome: in testa, col loro filtro, chi è fuori per un sub-agente al lavoro', () => {
+    const agents = [
+      { id: 'coder', name: 'CODER', color: '#4fd18b', desc: 'scrive codice', state: 'al lavoro in officina · test', busy: true },
+      { id: 'valutatore', name: 'VALUTATORE', color: '#e0629f', desc: 'cerca bug', state: 'al posto nel corridoio', busy: false },
+      { id: 'jev-giuria', name: 'JEV GIURIA', color: '#b48cff', desc: 'mette ai voti', state: 'a spasso nel corridoio', busy: false },
+    ];
+    const { c } = show(<Squadra />, fakeSnap({ agents }));
+    const names = () => [...c.querySelectorAll('.who')].map((w) => w.getAttribute('data-id'));
+    expect([...c.querySelectorAll('.chips button')].map((b) => b.textContent))
+      .toEqual(['tutti 6', 'al lavoro 2', 'truppa 2', 'specialisti 1', 'sub-agenti 3']);
+    expect(names().slice(0, 2)).toEqual(['coder', 'produzione-1']);
+    act(() => { fireEvent.click(c.querySelectorAll('.chips button')[4]); });
+    expect(names()).toEqual(['coder', 'valutatore', 'jev-giuria']);
+    expect(c.querySelector('.who[data-id="coder"] .ws')!.textContent).toBe('al lavoro in officina · test');
+    expect(c.querySelector('.who[data-id="coder"] em')!.textContent).toBe('sub-agente');
+    expect(c.querySelector('.who[data-id="coder"] canvas')!.getAttribute('data-sprite')).toBe('coder');
+  });
   it('clic su una persona: la base con la camera su di lei', () => {
     const e = fakeEngine();
     const { c } = show(<Squadra />, fakeSnap(), e);

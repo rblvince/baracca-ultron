@@ -27,10 +27,25 @@ Due personaggi nuovi vivono di hook che prima non erano registrati. In `settings
 
 ### Chi si muove
 
-Camminano solo **Ultron**, i **cloni** degli altri terminali (entrano ed escono dal portellone) e i **sub-agenti**. Chi cammina sta portando qualcosa da un posto all'altro; tutto il resto della squadra sta fermo, ognuno nella sua stanza, e fa il suo mestiere da lì.
+Camminano solo **Ultron**, i **cloni** degli altri terminali (entrano ed escono dal portellone) e i **sub-agenti**: i mini-Ultron e i tre personaggi qui sotto. Chi cammina sta portando qualcosa da un posto all'altro; tutto il resto della squadra sta fermo, ognuno nella sua stanza, e fa il suo mestiere da lì.
 
 - **La truppa** (i dodici operativi) ha una postazione fissa (`STATION` in `baracca.html`) e non la lascia mai. Quando tocca a loro si accendono al loro posto, si girano, mostrano l'emote o l'attrezzo: il collaudo respinge alle PROVE, la sbarra del permesso scende in VERIFICHE, il contesto si pressa in FORGIA, la spesa della cache si annota allo SCHEDARIO.
 - **In demo** le casse delle missioni le porta Ultron, da un reparto all'altro; l'operativo del reparto d'arrivo le riceve dal suo posto.
+
+### Tre sub-agenti con un personaggio
+
+Tre tipi di sub-agente hanno un aspetto loro. Il ponte li riconosce dal `subagent_type` esatto (maiuscole o minuscole non contano, `SUBAGENT_CHARACTER` in `hooks/barracks.py`) e manda alla pagina il loro id come `agent`:
+
+| `subagent_type` | Personaggio | Reparto | Aspetto |
+|---|---|---|---|
+| `coder` | CODER, scrive codice, script, test e config | OFFICINA, BANCO | felpa col cappuccio, occhiali, portatile |
+| `valutatore` | VALUTATORE, rilegge il codice e cerca bug veri | COLLAUDO, CONFRONTO | lente da orologiaio, barattolo col bug |
+| `jev-giuria` | JEV GIURIA, mette ai voti le strade e dà il verdetto | LABORATORIO, PIANI | parrucca da giudice, martelletto |
+
+- Il corridoio alto è loro: ognuno ha un posto fisso, col tondo del suo colore e l'attrezzo. A riposo passeggiano piano lungo il corridoio; di notte tornano al posto e restano lì. Ci sono sempre, anche in demo e senza server.
+- Quando parte un sub-agente del loro tipo esce la fascia RINFORZO col nome. Il personaggio raggiunge Ultron, prende l'ordine sigillato, lo porta nel suo reparto e lavora lì, sul posto, finché il sub-agente è in corso. Poi porta il rapporto a Ultron e torna al posto. Per quel sub-agente non nasce un mini-Ultron.
+- Un personaggio fa un sub-agente alla volta: il secondo dello stesso tipo resta un mini-Ultron, così il conto di quelli in corso è vero. Tutti gli altri tipi restano mini-Ultron, negli stessi reparti di prima.
+- In sala comando stanno in SQUADRA, sotto il filtro «sub-agenti».
 
 ### Specialisti = skill installate
 

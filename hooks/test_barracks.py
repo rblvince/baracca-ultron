@@ -259,6 +259,46 @@ def _run_main(payload):
         sys.stdin, sys.argv = old_stdin, old_argv
 
 
+def _spawned_by_pretooluse(subagent_type):
+    """(room, agent) che il ramo PreToolUse di main() passa a spawn_subagent per quel tipo."""
+    import session_track
+    spawned = []
+    old_spawn, old_upd, old_write = session_track.spawn_subagent, session_track.update_session, b.write_state
+    session_track.spawn_subagent = lambda room, agent, task, tool_use_id=None: spawned.append((room, agent))
+    session_track.update_session = lambda *a, **k: None
+    b.write_state = lambda **k: None
+    try:
+        _run_main({"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_use_id": "toolu_x",
+                   "tool_input": {"subagent_type": subagent_type, "description": "lavoro"}})
+    finally:
+        session_track.spawn_subagent, session_track.update_session, b.write_state = old_spawn, old_upd, old_write
+    assert len(spawned) == 1, spawned
+    return spawned[0]
+
+
+def test_subagent_characters_bring_their_own_agent():
+    """I tre sub-agenti con un personaggio nella Baracca: il tipo esatto (maiuscole o minuscole
+    non contano) dà il reparto e, come agent, l'id del personaggio. Uguale a fine Task
+    (classify) e alla partenza (PreToolUse)."""
+    for kind, want in (("coder", ("prod", "coder")), ("CODER", ("prod", "coder")),
+                       ("valutatore", ("qa", "valutatore")), ("Valutatore", ("qa", "valutatore")),
+                       ("jev-giuria", ("rs", "jev-giuria")), ("Jev-Giuria", ("rs", "jev-giuria"))):
+        for tool in ("Agent", "Task"):
+            status, room, node, agent, task = b.classify({"tool_name": tool, "tool_input": {"subagent_type": kind}})
+            assert (status, room, agent) == ("delegating",) + want, (kind, tool, status, room, agent)
+        assert _spawned_by_pretooluse(kind) == want, kind
+
+
+def test_subagent_other_types_unchanged():
+    """Gli altri tipi restano mini-Ultron anonimi, negli stessi reparti di prima (guardiano compreso:
+    il personaggio GUARDIANO è un'altra cosa e il sub-agente omonimo non lo diventa)."""
+    for kind, want in (("general-purpose", ("prod", "produzione-1")), ("Explore", ("ricerca", "ricerca-1")),
+                       ("guardiano", ("prod", "produzione-1")), ("code-reviewer", ("prod", "produzione-1")),
+                       ("coder-helper", ("prod", "produzione-1"))):
+        assert b.classify({"tool_name": "Agent", "tool_input": {"subagent_type": kind}})[1:4:2] == want, kind
+        assert _spawned_by_pretooluse(kind) == want, kind
+
+
 def test_main_subagent_start_claims_agent_id():
     import session_track
     calls = []
@@ -416,6 +456,8 @@ def main():
     test_main_pretooluse_agent_spawns_subagent()
     test_main_subagent_start_claims_agent_id()
     test_main_subagent_stop_reaps_by_agent_id()
+    test_subagent_characters_bring_their_own_agent()
+    test_subagent_other_types_unchanged()
     print("barracks.py: tutti i controlli passati")
 
 

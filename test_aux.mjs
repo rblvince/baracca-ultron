@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('./baracca.html', import.meta.url), 'utf8');
 const m = html.match(/\/\* AUX-PURE-START \*\/([\s\S]*?)\/\* AUX-PURE-END \*\//);
 assert.ok(m, 'blocco AUX-PURE non trovato in baracca.html');
-const { sessionsFromRows, subagentsFromRows, auxSourceOk, makeSeq, pillAfterResubscribe } =
-  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined, makeSeq: typeof makeSeq === "function" ? makeSeq : undefined, pillAfterResubscribe: typeof pillAfterResubscribe === "function" ? pillAfterResubscribe : undefined };')();
+const { sessionsFromRows, subagentsFromRows, auxSourceOk, makeSeq, pillAfterResubscribe, bearerFor } =
+  new Function(m[1] + '; return { sessionsFromRows, subagentsFromRows, auxSourceOk: typeof auxSourceOk === "function" ? auxSourceOk : undefined, makeSeq: typeof makeSeq === "function" ? makeSeq : undefined, pillAfterResubscribe: typeof pillAfterResubscribe === "function" ? pillAfterResubscribe : undefined, bearerFor: typeof bearerFor === "function" ? bearerFor : undefined };')();
 
 // sessioni: indicizzate per transcript_path, campi null lasciati null
 assert.deepEqual(
@@ -77,5 +77,26 @@ assert.deepEqual(pillAfterResubscribe('OFFLINE', true), { cls: 'pill live', text
 assert.deepEqual(pillAfterResubscribe('OFFLINE', false), { cls: 'pill demo', text: 'DEMO' });
 assert.equal(pillAfterResubscribe('LIVE', true), null);
 assert.equal(pillAfterResubscribe('DEMO', false), null);
+
+// personaggio o mini-Ultron: un sub-agente dei tre tipi lo fa il suo personaggio se è libero,
+// il secondo dello stesso tipo e tutti gli altri tipi restano mini-Ultron
+assert.equal(typeof bearerFor, 'function', 'bearerFor mancante nel blocco AUX-PURE');
+const chars = () => [{ id: 'coder', sub: null }, { id: 'valutatore', sub: null }, { id: 'jev-giuria', sub: null }];
+assert.equal(bearerFor('coder', chars()), 'coder');
+assert.equal(bearerFor('valutatore', chars()), 'valutatore');
+assert.equal(bearerFor('jev-giuria', chars()), 'jev-giuria');
+assert.equal(bearerFor('CODER', chars()), 'coder');                 // maiuscole o minuscole non contano
+assert.equal(bearerFor(' Jev-Giuria ', chars()), 'jev-giuria');
+{
+  const cs = chars(); cs[0].sub = 12;                                  // il coder fa già il sub-agente 12
+  assert.equal(bearerFor('coder', cs), null);                         // il secondo coder è un mini-Ultron
+  assert.equal(bearerFor('valutatore', cs), 'valutatore');            // gli altri due restano liberi
+  cs[0].sub = 0;                                                       // anche l'id 0 è un sub-agente in corso
+  assert.equal(bearerFor('coder', cs), null);
+}
+for (const other of ['produzione-1', 'ricerca-1', 'orchestratore', 'guardiano', 'general-purpose', 'coder-helper', '', null, undefined])
+  assert.equal(bearerFor(other, chars()), null, String(other));
+assert.equal(bearerFor('coder', []), null);
+assert.equal(bearerFor('coder', null), null);
 
 console.log('test_aux: tutti i controlli passati');

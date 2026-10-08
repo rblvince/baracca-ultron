@@ -4,25 +4,30 @@ import { SpriteSlot } from './SpriteSlot';
 import { useEngine, useSection } from './store';
 import type { LinkKey } from './types';
 
-type Who = { id: string; name: string; color: string; desc: string; state: string; busy: boolean; skill: boolean; uses?: number };
-type Filtro = 'tutti' | 'lavoro' | 'truppa' | 'specialisti';
+type Kind = 'truppa' | 'specialisti' | 'sub-agenti';
+type Who = { id: string; name: string; color: string; desc: string; state: string; busy: boolean; kind: Kind; uses?: number };
+type Filtro = 'tutti' | 'lavoro' | Kind;
 
-/** SQUADRA: truppa e specialisti in una lista sola, chi lavora in cima. Un clic la mostra nella base. */
+/** SQUADRA: truppa, specialisti e i tre sub-agenti con un nome in una lista sola, chi lavora in cima.
+ *  Un clic la mostra nella base. */
 export function Squadra() {
   const crew = useSection('crew') ?? [];
   const skills = useSection('skills') ?? [];
+  const agents = useSection('agents') ?? [];
   const { sprites, goActor } = useEngine();
   const [f, setF] = useState<Filtro>('tutti');
   const all: Who[] = [
-    ...crew.map((a) => ({ id: a.id, name: a.name, color: a.color, desc: a.desc, state: a.state, busy: a.busy, skill: false })),
-    ...skills.map((s) => ({ id: s.id, name: s.name, color: s.color, desc: s.desc, state: s.where, busy: s.busy, skill: true, uses: s.uses })),
+    ...agents.map((a) => ({ id: a.id, name: a.name, color: a.color, desc: a.desc, state: a.state, busy: a.busy, kind: 'sub-agenti' as const })),
+    ...crew.map((a) => ({ id: a.id, name: a.name, color: a.color, desc: a.desc, state: a.state, busy: a.busy, kind: 'truppa' as const })),
+    ...skills.map((s) => ({ id: s.id, name: s.name, color: s.color, desc: s.desc, state: s.where, busy: s.busy, kind: 'specialisti' as const, uses: s.uses })),
   ];
   const busy = all.filter((w) => w.busy).length;
   const list = all
-    .filter((w) => f === 'tutti' || (f === 'lavoro' ? w.busy : f === 'truppa' ? !w.skill : w.skill))
+    .filter((w) => f === 'tutti' || (f === 'lavoro' ? w.busy : w.kind === f))
     .sort((a, b) => Number(b.busy) - Number(a.busy));
   const chips: [Filtro, string][] = [['tutti', `tutti ${all.length}`], ['lavoro', `al lavoro ${busy}`],
     ['truppa', `truppa ${crew.length}`], ['specialisti', `specialisti ${skills.length}`]];
+  if (agents.length) chips.push(['sub-agenti', `sub-agenti ${agents.length}`]);
   return (
     <div className="dp c8">
       <h4>SQUADRA <em>clic su una persona: la vedi nella base</em></h4>
@@ -33,9 +38,11 @@ export function Squadra() {
         {!list.length && <div className="empty">nessuno qui</div>}
         {list.map((w) => (
           <button key={w.id} type="button" className={`who${w.busy ? ' busy' : ''}`} data-id={w.id} onClick={() => goActor(w.id)}>
-            <SpriteSlot make={() => (w.skill ? sprites.spec(w.id) : sprites.crew(w.id))} />
+            <SpriteSlot make={() => (w.kind === 'specialisti' ? sprites.spec(w.id) : sprites.crew(w.id))} />
             <span className="wtxt">
-              <span className="wn"><i style={{ background: w.color }} />{w.name}{w.skill && <em>{`skill · ${w.uses ?? 0} usi`}</em>}</span>
+              <span className="wn"><i style={{ background: w.color }} />{w.name}
+                {w.kind === 'specialisti' && <em>{`skill · ${w.uses ?? 0} usi`}</em>}
+                {w.kind === 'sub-agenti' && <em>sub-agente</em>}</span>
               <span className="wd">{w.desc}</span>
               <span className="ws">{w.state}</span>
             </span>
