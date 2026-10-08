@@ -62,6 +62,16 @@ SUBAGENT_CREW = {
     "pub": "orchestratore", "vault": "custode", "rs": "orchestratore",
 }
 
+# I tre sub-agenti che nella Baracca hanno un personaggio loro: il tipo esatto
+# (maiuscole o minuscole non contano) dà il reparto e, come agent, l'id del
+# personaggio, così la pagina sa chi è stato chiamato. Tutti gli altri tipi
+# restano mini-Ultron anonimi, classificati con SUBAGENT_ROOM come prima.
+SUBAGENT_CHARACTER = {
+    "coder": ("prod", "coder"),
+    "valutatore": ("qa", "valutatore"),
+    "jev-giuria": ("rs", "jev-giuria"),
+}
+
 # Il tool che lancia un sub-agente si chiamava "Task", oggi "Agent": vanno
 # riconosciuti entrambi, altrimenti la coda dei sub-agenti resta vuota.
 SUBAGENT_TOOLS = ("Task", "Agent")
@@ -291,8 +301,13 @@ def subagent_room_agent_task(ti):
     di partenza (PreToolUse, vedi 'spawning' in main()): stesso identico reparto.
     Chiavi più lunghe prima ("ricerca-e-sviluppo" non è "ricerca"); il tipo
     accetta anche un pezzo di parola lungo almeno 4 lettere ("code-researcher"),
-    la descrizione, testo libero, solo parole intere ("users" non è "rs")."""
+    la descrizione, testo libero, solo parole intere ("users" non è "rs").
+    I tipi di SUBAGENT_CHARACTER vengono prima di tutto, e solo col nome intero."""
     kind = str(ti.get("subagent_type") or "").lower()
+    task = ti.get("description") or ti.get("prompt", "")[:60]
+    if kind.strip() in SUBAGENT_CHARACTER:
+        room, agent = SUBAGENT_CHARACTER[kind.strip()]
+        return room, agent, task
     keys = sorted(SUBAGENT_ROOM, key=len, reverse=True)
     room = SUBAGENT_ROOM.get(kind)
     if room is None:
@@ -301,7 +316,6 @@ def subagent_room_agent_task(ti):
     if room is None and kind:
         room = next((SUBAGENT_ROOM[k] for k in keys if len(k) >= 4 and k in kind), None)
     room = room or "prod"
-    task = ti.get("description") or ti.get("prompt", "")[:60]
     return room, SUBAGENT_CREW.get(room), task
 
 
