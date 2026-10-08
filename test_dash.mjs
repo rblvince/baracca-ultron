@@ -20,10 +20,11 @@ function base(over = {}) {
     statusWord: 'scrive', statusColor: '#gold', taskText: '', clock: '01:02',
     moving: false, skfxName: null,
     events: 6, lastTool: 'Edit', lastToolLabel: 'modifica', lastNode: 'Active Priorities.md', lastState: null,
-    crew: [{ id: 'ricerca-1', n: 'RIC-1', col: '#a', room: 'ricerca', home: 'ricerca', moving: false }],
+    crew: [{ id: 'ricerca-1', n: 'RIC-1', col: '#a', room: 'ricerca', busyUntil: 121000 },
+           { id: 'portinaio', n: 'PORTINAIO', col: '#p', room: null }],
     crewRole: { 'ricerca-1': 'letture' }, activity: [], tokout: {}, queue: 0, terminals: 0, subagents: 0, rest: false, waitLine: null,
-    tasks: [{ id: 7, t: 'vetrina · revisione', p: 0.5, stage: 1, st: 'work', carrier: 'ricerca-1' }],
-    skills: [{ id: 'taste', n: 'TASTE', c: '#s', d: 'gusto', uses: 2, last: 119000, escort: null, moving: false }],
+    tasks: [{ id: 7, t: 'vetrina · revisione', p: 0.5, stage: 1, st: 'work', carrier: 'ULTRON' }],
+    skills: [{ id: 'taste', n: 'TASTE', c: '#s', d: 'gusto', uses: 2, last: 119000, cellName: 'ATTREZZI' }],
     rooms: ROOMS, roomTime: { ricerca: 1000, prod: 5000 }, stages: ['ricerca', 'prod'],
     deliveredLog: ['recapito · script'], delivered: 1,
     pulse: [0, 0.5, 1], link: { hit: { tool: true }, last: 'tool', at: 119000, seen: { tool: 60000 } },
@@ -49,13 +50,17 @@ function base(over = {}) {
     hit: { session: false, prompt: false, pre: false, tool: true, notify: false, sub: false, compact: false, stop: false },
     last: 'tool', hot: true,
     seen: { session: null, prompt: null, pre: null, tool: 60, notify: null, sub: null, compact: null, stop: null } });
-  assert.deepEqual(s.crew[0], { id: 'ricerca-1', name: 'RIC-1', color: '#a', desc: 'letture', role: 'PORTA CASSA', state: 'porta vetrina · revisione', busy: true });
+  // la truppa non cammina e non porta casse (le porta Ultron): al lavoro o in attesa, sempre alla sua postazione
+  assert.deepEqual(s.crew[0], { id: 'ricerca-1', name: 'RIC-1', color: '#a', desc: 'letture', role: 'RICERCA', state: 'al lavoro · ricerca', busy: true });
+  assert.deepEqual(s.crew[1], { id: 'portinaio', name: 'PORTINAIO', color: '#p', desc: '', role: 'PORTELLONE', state: 'alla postazione · portellone', busy: false });
   assert.equal(s.header.mode, 'demo');
   assert.equal(s.header.waiting, null);
   assert.deepEqual(s.board.scene, [{ id: 7, text: 'vetrina · revisione', p: 0.5, stage: 'OFFICINA', qa: false }]);
   assert.deepEqual(s.board.delivered, ['recapito · script']);
   assert.equal(s.board.sub, '1 IN CORSO · 1 CONSEGNATE');
-  assert.deepEqual(s.skills[0], { id: 'taste', name: 'TASTE', color: '#s', desc: 'gusto', uses: 2, hot: true, where: 'al posto', busy: false });
+  // lo specialista resta nella sua sottostanza: l'attrezzo vola a Ultron, lui no
+  assert.deepEqual(s.skills[0], { id: 'taste', name: 'TASTE', color: '#s', desc: 'gusto', uses: 2, hot: true, where: "passa l'attrezzo a Ultron · attrezzi", busy: true });
+  assert.equal(dashSnapshot(base({ now: 200000 })).skills[0].where, 'al posto · attrezzi');
   // reparti nell'ordine della pianta (il colore segue il reparto, non la classifica), quota del tempo, QUI
   assert.deepEqual(s.rooms.map((r) => [r.id, r.ms, Math.round(r.share * 100), r.here]), [['ricerca', 1000, 17, false], ['prod', 5000, 83, true]]);
   assert.equal(s.shelf.length, 6);

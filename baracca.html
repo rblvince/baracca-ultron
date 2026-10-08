@@ -1352,13 +1352,12 @@ function goTo(e, roomId, fx, fy, onArrive){
   var target = e.isUltron ? {x:c.x + c.w*(.35+Math.random()*.3), y:c.y + c.h*(.45+Math.random()*.25)}
                           : {x:clamp(p.x, c.x+30, c.x+c.w-30), y:clamp(p.y, c.y+40, c.y+c.h-24)};
   e.path = ringRoute(e, target.x, target.y); e.dest = roomId; e.onArrive = onArrive || null; e.noBeat = false;
-  e.calledAt = Date.now(); e.resting = false;
 }
 function goToPoint(e, x, y, cb){
   e.path = ringRoute(e, x, y); e.dest = null; e.onArrive = cb || null; e.noBeat = true;
 }
 
-/* il passo lungo il percorso (l'originale), più il giro libero per la truppa */
+/* il passo lungo il percorso: solo per chi cammina (Ultron, cloni, mini-Ultron) */
 function stepEntity(e, dt){
   if(e.path && e.path.length){
     var w = e.path[0], dx = w.x - e.x, dy = w.y - e.y, d = Math.sqrt(dx*dx + dy*dy), step = e.v * dt;
@@ -1377,7 +1376,6 @@ function stepEntity(e, dt){
       e.phase = (e.phase || 0) + step * 0.07;
     }
   } else e.moving = false;
-  if(CREW.indexOf(e) >= 0) stepWander(e);
 }
 
 /* -------------------------------------------------------- popolazione */
@@ -1422,22 +1420,21 @@ function drawBeats(t){
   }
 }
 var CREW = [
-  {id:"orchestratore",n:"ORCH", col:P.gold,  room:"prod",   x:940, y:340,face:1,v:250,phase:0,path:[]},
-  {id:"ricerca-1",    n:"RIC-1",col:P.cyan,  room:"ricerca",x:300, y:340,face:1,v:255,phase:0,path:[]},
-  {id:"produzione-1", n:"PRD-1",col:P.green, room:"prod",   x:820, y:360,face:1,v:255,phase:0,path:[]},
-  {id:"qualita-1",    n:"QA-1", col:P.red,   room:"qa",     x:1600,y:340,face:1,v:255,phase:0,path:[]},
-  {id:"custode",      n:"MEM",  col:P.violet,room:"vault",  x:400, y:900,face:1,v:245,phase:0,path:[]},
-  {id:"volt",         n:"VOLT", col:P.cyan,  room:"pub",  x:1120,y:960,face:1,v:270,phase:0,path:[]},
-  {id:"doc",          n:"DOC",  col:P.ink,   room:"rs",   x:1700,y:960,face:-1,v:235,phase:0,path:[]},
-  /* il radiotelegrafista: sta in CABINA e non si muove mai, è il filo con te (prompt, attesa, fine turno) */
-  {id:"marconi",      n:"MARCONI",col:P.blue,room:"rs",   x:180, y:760,face:1,v:220,phase:0,path:[]},
+  {id:"orchestratore",n:"ORCH", col:P.gold,  room:"rs",     x:0,y:0,face:1},
+  {id:"ricerca-1",    n:"RIC-1",col:P.cyan,  room:"ricerca",x:0,y:0,face:1},
+  {id:"produzione-1", n:"PRD-1",col:P.green, room:"prod",   x:0,y:0,face:1},
+  {id:"qualita-1",    n:"QA-1", col:P.red,   room:"qa",     x:0,y:0,face:1},
+  {id:"custode",      n:"MEM",  col:P.violet,room:"vault",  x:0,y:0,face:1},
+  {id:"volt",         n:"VOLT", col:P.cyan,  room:"pub",    x:0,y:0,face:1},
+  {id:"doc",          n:"DOC",  col:P.ink,   room:"rs",     x:0,y:0,face:-1},
+  /* il radiotelegrafista: sta in CABINA, è il filo con te (prompt, attesa, fine turno) */
+  {id:"marconi",      n:"MARCONI",col:P.blue,room:"rs",     x:0,y:0,face:1},
   /* 26/09: quattro mestieri per quattro momenti che prima non si vedevano */
-  {id:"spazzino",     n:"SPAZZINO",col:"#9fb04a",room:"prod",x:0,y:0,face:1,v:250,phase:0,path:[]},   /* PreCompact: pressa il contesto */
-  {id:"portinaio",    n:"PORTINAIO",col:"#8fa6d6",room:null, x:0,y:0,face:1,v:230,phase:0,path:[]},   /* SessionStart: apre il portellone */
-  {id:"guardiano",    n:"GUARDIANO",col:P.gold,room:"qa",  x:0,y:0,face:1,v:360,phase:0,path:[]},    /* permesso chiesto: abbassa la sbarra */
-  {id:"economo",      n:"ECONOMO",col:P.khaki,room:"vault",x:0,y:0,face:1,v:240,phase:0,path:[]}     /* cache riscritta: annota la spesa */
+  {id:"spazzino",     n:"SPAZZINO",col:"#9fb04a",room:"prod",x:0,y:0,face:1},   /* PreCompact: pressa il contesto */
+  {id:"portinaio",    n:"PORTINAIO",col:"#8fa6d6",room:null, x:0,y:0,face:1},   /* SessionStart: apre il portellone */
+  {id:"guardiano",    n:"GUARDIANO",col:P.gold,room:"qa",   x:0,y:0,face:1},    /* permesso chiesto: abbassa la sbarra */
+  {id:"economo",      n:"ECONOMO",col:P.khaki,room:"vault", x:0,y:0,face:1}     /* cache riscritta: annota la spesa */
 ];
-CREW.forEach(function(a){ a.home = a.room; a.v *= 1.25; });   /* il reparto di appartenenza, per i token: non si muove quando a.room cambia */
 function crewBy(id){ return CREW.filter(function(a){return a.id===id;})[0]; }
 
 var STAGES = ["ricerca","prod","qa","pub"];
@@ -1457,13 +1454,15 @@ var delivered = 0, nextId = 5, DELIVERED_LOG = [];
 function sceneTasks(){ return LIVE || REST ? [] : TASKS; }
 
 /* ================================================== GLI SPECIALISTI ==
-   Le skill di Ultron non sono attrezzi in una cassa: sono persone, in piedi al loro posto lungo il
-   corridoio. Dal 25/09 sono SOLO le skill vere (/api/skills: le cartelle con SKILL.md più quelle
-   usate, anche dei plugin): i quattro "di serie" (OFFICINA, RICOGNIZIONE, ARCHIVIO, REPARTI) doppiavano la truppa,
-   che già risponde a Bash, letture, vault e sub-agenti, e sono stati tolti. Le skill che hanno un
-   disegno loro (SKILL_CAST) lo tengono; le altre hanno un aspetto ricavato dal nome, sempre lo
-   stesso. Senza server (demo) resta il cast noto. Al massimo SK_MAX, i più usati (state/skills_used.json). */
-var POST_Y = CORR.y + 30;                 /* la fila dei posti, contro il muro alto */
+   Le skill di Ultron non sono attrezzi in una cassa: sono persone. Dal 25/09 sono SOLO le skill vere
+   (/api/skills: le cartelle con SKILL.md più quelle usate, anche dei plugin): i quattro "di serie"
+   (OFFICINA, RICOGNIZIONE, ARCHIVIO, REPARTI) doppiavano la truppa, che già risponde a Bash, letture,
+   vault e sub-agenti, e sono stati tolti. Le skill che hanno un disegno loro (SKILL_CAST) lo tengono;
+   le altre hanno un aspetto ricavato dal nome, sempre lo stesso. Senza server (demo) resta il cast
+   noto. Al massimo SK_MAX, i più usati (state/skills_used.json).
+   LA SQUADRA STA FERMA (07/10, scelta di Vincent): ogni specialista ha un posto fisso nella sottostanza
+   dove il ponte manda la sua skill (specCell) e non lo lascia mai. Quando Ultron la usa, lo
+   specialista gli passa l'attrezzo da lì: vola l'attrezzo, non la persona. */
 var SKILL_CAST = [
   {id:"taste",   n:"TASTE",       d:"anti-slop frontend",   c:P.violet, icon:"palette", match:["taste"]},
   {id:"guide",   n:"GUIDELINES",  d:"audit UI",             c:P.blue,   icon:"ruler",   match:["guideline"]},
@@ -1471,7 +1470,7 @@ var SKILL_CAST = [
   {id:"regia",   n:"REGIA",       d:"video, render, sceneggiatura", c:P.amber, icon:"reel",
    match:["resolve","davinci","blender","sceneggiat","screenwriter","render","shot","hailuo","animatic","video"]}
 ];
-var SKILLS = [], SK_MAX = 10, SK_V = 300;           /* passo degli specialisti chiamati (la pianta è più grande) */
+var SKILLS = [], SK_MAX = 10;
 var SK_SHIRTS = [P.violet, P.blue, P.gold, P.amber, P.cyan, P.green, "#c96f9a", "#8fa6d6", "#b0c04a", "#d9483a"];
 function hashName(t){ var h = 7; for(var i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) >>> 0; return h; }
 /* l'aspetto di uno specialista senza scheda: tutto dal nome, così non cambia da un giorno all'altro */
@@ -1489,6 +1488,28 @@ function shortDesc(t){
   var cut = first.slice(0, 48), sp = cut.lastIndexOf(" ");
   return (sp > 20 ? cut.slice(0, sp) : cut).replace(/[,;:]$/, "") + "…";
 }
+/* SPEC-PURE-START */
+/* la sottostanza di uno specialista è quella dove il ponte manda la sua skill (hooks/barracks.py,
+   QA_SKILL_WORDS): le skill di revisione e verifica in COLLAUDO, REVISIONE; tutte le altre in
+   LABORATORIO, ATTREZZI */
+function specCell(names){
+  return (names || []).some(function(n){ return /review|verification/.test(String(n).toLowerCase()); }) ? "qa:review" : "rs:skill";
+}
+/* i posti fissi di n specialisti in una sottostanza {x,y,w,h}: due per riga, tre da cinque in su;
+   la prima riga lascia sopra lo spazio di una persona (SPEC_TALL), l'ultima poggia SPEC_FOOT sopra
+   il muro. Il punto è dove poggiano i piedi: con dieci in ATTREZZI nessuno copre un altro. */
+var SPEC_TALL = 105, SPEC_FOOT = 24;
+function specSlots(c, n){
+  var cols = n <= 1 ? 1 : n <= 4 ? 2 : 3, rows = Math.ceil(n/cols), out = [];
+  var top = c.y + SPEC_TALL, bottom = c.y + c.h - SPEC_FOOT;
+  for(var i=0;i<n;i++){
+    var col = i % cols, row = Math.floor(i/cols);
+    out.push({x: Math.round(c.x + c.w*(col + .5)/cols),
+              y: Math.round(rows > 1 ? top + (bottom - top)*row/(rows - 1) : (top + bottom)/2)});
+  }
+  return out;
+}
+/* SPEC-PURE-END */
 function buildSkills(installed){
   var list = [];
   if(!installed || !installed.length) list = SKILL_CAST.slice();
@@ -1510,28 +1531,31 @@ function buildSkills(installed){
   list = list.slice(0, SK_MAX);
   var old = {}; SKILLS.forEach(function(sk){ old[sk.id] = sk; });
   SKILLS.length = 0;
-  list.forEach(function(base, i){
-    var sk = old[base.id] || Object.assign({}, base, {y:POST_Y, face:1, v:SK_V, phase:0, path:[], moving:false, uses:0, escort:null});
-    sk.homeX = Math.round(CORR.x + 40 + (list.length > 1 ? i*(CORR.w-80)/(list.length-1) : (CORR.w-80)/2));
-    if(!old[base.id]) sk.x = sk.homeX;
-    else if(!sk.escort) goToPoint(sk, sk.homeX, POST_Y, function(a){ a.face = 1; });
+  list.forEach(function(base){
+    var sk = old[base.id] || Object.assign({}, base, {face:1, uses:0});
+    sk.cell = specCell(sk.match);
     SKILLS.push(sk);
+  });
+  /* ognuno al suo posto nella sottostanza: ci compare, non ci cammina */
+  ["rs:skill", "qa:review"].forEach(function(k){
+    var c = RING.cells.filter(function(q){ return q.room + ":" + q.id === k; })[0];
+    var here = SKILLS.filter(function(sk){ return sk.cell === k; }), at = specSlots(c, here.length);
+    here.forEach(function(sk, i){ sk.x = at[i].x; sk.y = at[i].y; sk.room = c.room; sk.cellName = c.n; });
   });
 }
 buildSkills(null);
 
 function skillBy(id){ return SKILLS.filter(function(s){ return s.id===id; })[0]; }
 
-/* A RIPOSO OGNUNO STA AL SUO POSTO (25/09, prima giravano l'anello a caso). Un operativo si
-   muove solo perché è successo qualcosa: una chiamata (goTo), una cassa, un sub-agente, un errore.
-   Finito il lavoro (15 s dall'ultima chiamata, nessuna cassa in mano) torna alla postazione
-   del suo mestiere e lì resta: chi cammina nella base sta lavorando, chi è fermo aspetta.
-   Gli specialisti aspettano al loro posto nel corridoio (sendHome dopo la scorta). */
+/* LA TRUPPA STA FERMA (07/10, scelta di Vincent). Ogni operativo ha una postazione in STATION e lì
+   resta: non va dove succede, reagisce dal suo posto (si accende, fa il suo gesto, mostra l'emote o
+   l'attrezzo) e quello che racconta (la sbarra, il contesto pressato, il collaudo che respinge, la
+   spesa annotata) si legge da lì. Nella base camminano solo Ultron, i cloni e i mini-Ultron. */
 var STATION = {                                   /* [reparto, sottostanza, fx, fy] */
   "orchestratore":["rs","plan",.5,.55], "ricerca-1":["ricerca","search",.7,.55], "produzione-1":["prod","bash",.78,.62],
   "qualita-1":["qa","test",.72,.5], "custode":["vault","read",.8,.55], "volt":["pub","dock",.72,.5],
   "doc":["rs","browser",.72,.6], "marconi":["rs","booth",.5,.45],
-  "spazzino":["prod","forge",.3,.55], "guardiano":["qa","review",.5,.45], "economo":["vault","index",.5,.55],
+  "spazzino":["prod","forge",.3,.55], "guardiano":["qa","lint",.84,.55], "economo":["vault","index",.5,.55],
   "portinaio":["gate"]
 };
 /* il PORTELLONE: l'ingresso della base, sul bordo basso dell'anello. Da qui entrano i terminali nuovi e
@@ -1543,15 +1567,14 @@ function stationPoint(e){
   var c = RING.cells.filter(function(q){ return q.room === st[0] && q.id === st[1]; })[0]; if(!c) return null;
   return {room:st[0], x:c.x + c.w*st[2], y:c.y + c.h*st[3]};
 }
-function goStation(e){
-  var p = stationPoint(e); if(!p) return;
-  e.resting = true; e.path = ringRoute(e, p.x, p.y); e.dest = p.room; e.onArrive = function(a){ a.face = 1; };
-}
-function stepWander(e){
-  if(e.homeX || e.resting) return;                /* gli specialisti tornano al posto con sendHome */
-  var busy = (e.path && e.path.length) || (e.calledAt && Date.now()-e.calledAt < 15000) ||
-             TASKS.some(function(k){ return k.carrier === e.id; });
-  if(!busy) goStation(e);
+/* un operativo lavora dal suo posto: si accende nel suo colore (o in quello dell'evento) per qualche secondo */
+var BUSY_MS = 4000;
+function busyAt(a, col){ if(!a) return; a.busyUntil = Date.now() + BUSY_MS; a.busyCol = col || a.col; }
+function isBusy(a){ return !!a.busyUntil && Date.now() < a.busyUntil; }
+/* l'alone a terra di chi sta lavorando, a scatti */
+function drawHot(e, col, t){
+  ctx.globalAlpha = .16 + (Math.floor(t*.006)%2)*.12; ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(e.x, e.y, 26, 9, 0, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
 }
 
 /* l'attrezzo del mestiere, 12x10: sta in mano allo specialista e vola a Ultron */
@@ -1579,7 +1602,7 @@ function skIcon(g, kind, col, ox, oy){
 }
 
 /* lo specialista: stessa scheda degli operativi (Q_CAST, per id di SKILLS) */
-function specSprite(sk, f, give){ return qSprite(sk, Q_CAST[sk.id], false); }
+function specSprite(sk){ return qSprite(sk, Q_CAST[sk.id], false); }
 
 var SK_ITEM = {};
 function skItem(sk){
@@ -1592,59 +1615,24 @@ var BUBBLE = spr(20,16,function(g){
   g.r(7,12,4,3,P.out); g.r(8,12,2,2,P.paper);
 });
 
-/* --------------------------------------- andare a chiamare qualcuno
-   26/09: non è più Ultron a fare il giro dell'arsenale prima di ogni tool (una deviazione che
-   ritardava il lavoro vero di secondi). È lo specialista del mestiere a lasciare il suo posto e
-   raggiungerlo nel reparto: arrivato, gli passa l'attrezzo e resta lì finché il reparto lavora
-   (ogni evento in quel reparto lo trattiene SK_STAY); quando il reparto tace torna al posto.
-   Così chi cammina nel corridoio dice dove sta andando il lavoro, e chi è in un reparto dice
-   quali mestieri ci servono in questo momento. */
-var SKFX = null, SK_STAY = 20000;
-function sendHome(sk){
-  sk.escort = null; sk.hotUntil = 0; sk.v = SK_V; sk.wander = false;
-  goToPoint(sk, sk.homeX, POST_Y, function(){ sk.face = 1; });
-}
+/* ------------------------------------------ l'attrezzo passa a Ultron
+   Ultron va dritto al lavoro; lo specialista della skill, dal suo posto, alza l'attrezzo nella
+   nuvoletta e lo lancia a Ultron, ovunque sia: la linea del lancio dice chi l'ha mandato. */
+var SKFX = null;
 function handoff(sk){
-  if(SKFX || Math.hypot(sk.x - ULTRON.x, sk.y - ULTRON.y) > 420) return;
+  if(SKFX) return;
   SKFX = {sk:sk, t0:performance.now(), open:true};
   sk.face = ULTRON.x < sk.x ? -1 : 1;
   puff(sk.x, sk.y+16, sk.c, 10);
-  setTimeout(function(){ if(SKFX && SKFX.sk === sk){ sparks(ULTRON.x, ULTRON.y-40, sk.c, 12); SKFX = null; } }, reduce ? 50 : 1250);
+  setTimeout(function(){ if(SKFX && SKFX.sk === sk){ sparks(ULTRON.x, ULTRON.y-40, sk.c, 12); SKFX = null; } }, reduce ? 50 : 1700);
 }
-function useSkill(id, then, room, isSkill){
+function useSkill(id, then, isSkill){
   if(then) then();                                   /* Ultron va dritto al lavoro */
   var sk = skillBy(id); if(!sk) return;
-  sk.v = SK_V; sk.wander = false; sk.wanderAt = 0;          /* lascia la passeggiata */
   sk.uses++; sk.last = Date.now();
   if(isSkill) banner("SKILL", sk.n, sk.c);          /* la fascia solo per le skill vere, non per ogni Bash */
-  if(!room || !R(room)){ handoff(sk); return; }
-  sk.hotUntil = Date.now() + SK_STAY;
-  if(sk.escort === room){ if(!sk.moving) handoff(sk); return; }
-  sk.escort = room;
-  logEvent("skill", "<b>" + sk.n + "</b> raggiunge Ultron in " + R(room).n);
-  goTo(sk, room, .55 + Math.random()*.25, .62, function(a){ handoff(a); });
-}
-/* il reparto tace: gli specialisti tornano al loro posto nel corridoio */
-/* A RIPOSO GLI SPECIALISTI PASSEGGIANO (scelta di Vincent, 25/09): chi non è al lavoro fa due passi
-   lungo il corridoio verso un punto a caso, piano, si ferma qualche secondo e riparte. Una skill
-   usata lo richiama subito (useSkill); di notte (sleeping) tornano al loro posto e restano lì. */
-var RING_WALK = RING.segs.filter(function(q){ return DEMO.graph.nodes[q[0]] && DEMO.graph.nodes[q[1]]; });
-function corridorSpot(){
-  var q = RING_WALK[Math.floor(Math.random()*RING_WALK.length)], a = RING.pts[q[0]], b = RING.pts[q[1]], k = .1 + Math.random()*.8;
-  return {x:a.x + (b.x-a.x)*k + (Math.random()-.5)*30, y:a.y + (b.y-a.y)*k + (Math.random()-.5)*30};
-}
-function stepSpecs(){
-  var now = Date.now(), night = sleeping();
-  SKILLS.forEach(function(sk){
-    if(sk.escort){ if(sk.hotUntil && now > sk.hotUntil) sendHome(sk); return; }
-    if(sk.path && sk.path.length) return;                      /* sta già camminando */
-    if(night){ if(Math.hypot(sk.x - sk.homeX, sk.y - POST_Y) > 20) sendHome(sk); sk.wanderAt = 0; return; }
-    if(!sk.wanderAt){ sk.wanderAt = now + 1500 + Math.random()*6000; return; }
-    if(now < sk.wanderAt) return;
-    var p = corridorSpot();
-    sk.v = 100; sk.wander = true;
-    goToPoint(sk, p.x, p.y, function(a){ a.wander = false; a.v = SK_V; a.wanderAt = Date.now() + 3000 + Math.random()*7000; });
-  });
+  logEvent("skill", "<b>" + sk.n + "</b> passa l'attrezzo a Ultron da " + sk.cellName);
+  handoff(sk);
 }
 /* chi serve per l'evento che è appena arrivato dagli hook */
 /* solo le skill chiamano uno specialista: Bash, letture, vault e sub-agenti li fa la truppa */
@@ -1656,51 +1644,32 @@ function skillForEvent(s){
   return m ? m.id : null;
 }
 /* gli specialisti si disegnano con la truppa, prima di Ultron */
-/* il posto di ogni specialista nel corridoio: un tondo del suo colore con l'attrezzo. Quando lo
-   specialista è fuori a lavorare il posto resta lì, vuoto: si vede chi manca e perché */
-function drawPosts(){
-  SKILLS.forEach(function(sk){
-    var away = !!sk.escort;                                /* l'attrezzo sul posto vuoto solo se è fuori a lavorare */
-    ctx.save(); ctx.globalAlpha = away ? .95 : .55;
-    ctx.fillStyle = "rgba(4,16,24,.8)"; ctx.beginPath(); ctx.ellipse(sk.homeX, POST_Y + 2, 22, 9, 0, 0, 6.2832); ctx.fill();
-    ctx.strokeStyle = sk.c; ctx.lineWidth = 2; ctx.stroke();
-    if(away) drawSprite(skItem(sk), sk.homeX, POST_Y + 10, 1.6, false);
-    ctx.restore();
-  });
-}
-function drawSpecs(t, det){
-  drawPosts();
+function drawSpecs(t){
   SKILLS.forEach(function(sk){
     var give = SKFX && SKFX.sk === sk && SKFX.open;
-    var animWalk = sk.moving;
-    var f = animWalk ? 2 + (Math.floor(sk.phase)%4) : (Math.floor(t*.002 + sk.x)%2);
-    var hot = sk.last && (Date.now()-sk.last < 4000);
-    if(hot){
-      ctx.globalAlpha = .16 + (Math.floor(t*.006)%2)*.12; ctx.fillStyle = sk.c;
-      ctx.beginPath(); ctx.ellipse(sk.x, sk.y, 26, 9, 0, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
-    }
-    var img = specSprite(sk, f, give);
-    drawSprite(img, sk.x, sk.y, 2.2, sk.face<0);
+    if(sk.last && Date.now()-sk.last < 4000) drawHot(sk, sk.c, t);
+    drawSprite(specSprite(sk), sk.x, sk.y, 2.2, sk.face<0);
     if(give) drawSprite(BUBBLE, sk.x+14, sk.y-72, 2, false);
     if(give) drawSprite(skItem(sk), sk.x+14, sk.y-78, 1.4, false);
   });
 }
-/* il passaggio di consegne: dopo Ultron, così vola sopra tutti */
+/* il passaggio di consegne: dopo Ultron, così vola sopra tutti. Dal posto dello specialista
+   a Ultron c'è mezza base: il volo dura di più che quando gli stava accanto */
 function drawSkillFx(t){
   if(!SKFX || !SKFX.open) return;
   var age = performance.now() - SKFX.t0, sk = SKFX.sk;
   var img = skItem(sk);
   if(age < 620){
-    /* si parlano: l'attrezzo resta nella nuvoletta */
+    /* l'attrezzo resta nella nuvoletta */
     return;
-  } else if(age < 1150){
-    var k = (age-620)/530;
-    var ix = lerp(sk.x+14, ULTRON.x, k), iy = lerp(sk.y-78, ULTRON.y-52, k);
+  } else if(age < 1400){
+    var k = (age-620)/780;
+    var ix = lerp(sk.x+14, ULTRON.x, k), iy = lerp(sk.y-78, ULTRON.y-52, k) - Math.sin(k*Math.PI)*80;
     drawSprite(img, ix, iy, 2.2-k*.5, false);
     ctx.strokeStyle = sk.c; ctx.lineWidth = 2; ctx.globalAlpha = .45;
     ctx.beginPath(); ctx.moveTo(sk.x+14, sk.y-78); ctx.lineTo(ix, iy); ctx.stroke(); ctx.globalAlpha = 1;
   } else {
-    var k2 = Math.min(1,(age-1150)/240);
+    var k2 = Math.min(1,(age-1400)/240);
     ctx.strokeStyle = sk.c; ctx.lineWidth = 3; ctx.globalAlpha = 1-k2;
     ctx.beginPath(); ctx.arc(ULTRON.x, ULTRON.y-44, 20+k2*44, 0, 6.2832); ctx.stroke(); ctx.globalAlpha = 1;
   }
@@ -2028,23 +1997,15 @@ function drawMarconi(t){
   ctx.restore();
 }
 
-/* chiama un operativo accanto a Ultron, dove sta andando o dov'è (dx, dy dal suo punto d'arrivo) */
-function callTo(e, dx, dy, onArrive){
-  if(!e) return;
-  var end = ULTRON.path.length ? ULTRON.path[ULTRON.path.length-1] : ULTRON;
-  e.path = ringRoute(e, end.x + dx, end.y + dy); e.dest = STATE.target || STATE.room; e.calledAt = Date.now(); e.resting = false;
-  e.onArrive = function(a){ a.face = dx > 0 ? -1 : 1; if(onArrive) onArrive(a); };
-}
-
-/* SPAZZINO · PreCompact. Il contesto di Ultron è pieno: lo Spazzino lo raggiunge e ci pressa dentro
-   i fogli (la storia della conversazione) finché Claude Code non ha finito di riassumere; poi il
-   blocco torna a Ultron (il riassunto prende il posto della storia) e una copia va sulla sua pila. */
-var COMPACT = null, COMPACTS = 0;
+/* SPAZZINO · PreCompact. Il contesto di Ultron è pieno: i fogli (la storia della conversazione) volano
+   da Ultron alla FORGIA, dove lo Spazzino li pressa dal suo posto finché Claude Code non ha finito di
+   riassumere; poi il blocco torna in volo a Ultron (il riassunto prende il posto della storia). */
+var COMPACT = null, COMPACTS = 0, SHEET_FLY = 900;
 function onCompact(s){
   var sp = crewBy("spazzino"); if(!sp || (COMPACT && !COMPACT.done)) return;
   COMPACT = {t0:performance.now(), lastSheet:0, fly:[], done:0};
-  logEvent("write", "<b>SPAZZINO</b> arriva a pressare il contesto (" + esc((s.line || "").split("· ")[1] || "auto") + ")");
-  callTo(sp, -48, 4);
+  sp.face = ULTRON.x < sp.x ? -1 : 1; busyAt(sp);
+  logEvent("write", "<b>SPAZZINO</b> pressa il contesto in forgia (" + esc((s.line || "").split("· ")[1] || "auto") + ")");
 }
 function endCompact(){
   if(!COMPACT || COMPACT.done) return;
@@ -2053,21 +2014,21 @@ function endCompact(){
 }
 function drawCompact(t){
   var C = COMPACT, sp = crewBy("spazzino"); if(!C || !sp) return;
-  var now = performance.now(), near = Math.hypot(sp.x - ULTRON.x, sp.y - ULTRON.y) < 140 && !sp.moving;
-  var size = Math.min(26, 8 + (now - C.t0)/600);
+  var now = performance.now(), size = Math.min(26, 8 + (now - C.t0)/600);
   if(!C.done){
-    if(near && now - C.lastSheet > 260 && !reduce){ C.lastSheet = now; C.fly.push({x:ULTRON.x, y:ULTRON.y - 60, t0:now}); }
+    busyAt(sp);
+    if(now - C.lastSheet > 300 && !reduce){ C.lastSheet = now; C.fly.push({x:ULTRON.x, y:ULTRON.y - 60, t0:now}); }
     for(var i=C.fly.length-1;i>=0;i--){
-      var f = C.fly[i], k = (now - f.t0)/550; if(k >= 1){ C.fly.splice(i, 1); continue; }
-      drawSprite(SHEET, lerp(f.x, sp.x + 18, k), lerp(f.y, sp.y - 30, k) - Math.sin(k*Math.PI)*36, 1.6 - k*.8, false);
+      var f = C.fly[i], k = (now - f.t0)/SHEET_FLY; if(k >= 1){ C.fly.splice(i, 1); continue; }
+      drawSprite(SHEET, lerp(f.x, sp.x + 18, k), lerp(f.y, sp.y - 30, k) - Math.sin(k*Math.PI)*90, 1.6 - k*.8, false);
     }
-    if(near){ fillPx(sp.x + 8, sp.y - 30 - size/2, size, size, P.out); fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, size - 4, P.paper);
-              fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, 2, "#b9a47c"); }
+    fillPx(sp.x + 8, sp.y - 30 - size/2, size, size, P.out); fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, size - 4, P.paper);
+    fillPx(sp.x + 10, sp.y - 28 - size/2, size - 4, 2, "#b9a47c");
     return;
   }
-  var k2 = (now - C.done)/800;
+  var k2 = (now - C.done)/SHEET_FLY;
   if(k2 >= 1){ sparks(ULTRON.x, ULTRON.y - 50, "#9fb04a", 12); COMPACT = null; return; }
-  var bx = lerp(sp.x + 8, ULTRON.x, k2), by = lerp(sp.y - 30, ULTRON.y - 60, k2) - Math.sin(k2*Math.PI)*40;
+  var bx = lerp(sp.x + 8, ULTRON.x, k2), by = lerp(sp.y - 30, ULTRON.y - 60, k2) - Math.sin(k2*Math.PI)*90;
   fillPx(bx - 10, by - 10, 20, 20, P.out); fillPx(bx - 8, by - 8, 16, 16, P.paper); fillPx(bx - 8, by - 8, 16, 3, "#9fb04a");
 }
 
@@ -2092,52 +2053,52 @@ function drawGate(t){
   ctx.restore();
 }
 
-/* GUARDIANO · Notification di permesso. Claude chiede di usare uno strumento: il Guardiano si mette
-   davanti a Ultron con la sbarra abbassata e il nome dello strumento. Quando rispondi (arriva un evento
-   qualunque) la sbarra si alza e lui torna al suo posto. */
+/* GUARDIANO · Notification di permesso. Claude chiede di usare uno strumento: dalla sua postazione in
+   VERIFICHE il Guardiano abbassa la sbarra (alza il cartello, si accende di rosso) e sopra Ultron compare
+   il nome dello strumento. Quando rispondi (arriva un evento qualunque) la sbarra si rialza. */
 var BARRIER = null;
 function onPermission(line){
   var g = crewBy("guardiano"); if(!g) return;
-  BARRIER = {what:String(line).replace(/^permesso\s*·?\s*/, "") || "strumento", t0:0, up:0};
-  logEvent("fail", "<b>GUARDIANO</b> ferma Ultron: serve il tuo permesso" + (BARRIER.what !== "strumento" ? " per " + esc(BARRIER.what) : ""));
-  callTo(g, 52, 6, function(){ if(BARRIER && !BARRIER.up) BARRIER.t0 = performance.now(); });
+  BARRIER = {what:String(line).replace(/^permesso\s*·?\s*/, "") || "strumento", t0:performance.now(), up:0};
+  emote(g, "!", "#c8372d", 92);
+  logEvent("fail", "<b>GUARDIANO</b> abbassa la sbarra: serve il tuo permesso" + (BARRIER.what !== "strumento" ? " per " + esc(BARRIER.what) : ""));
 }
 function liftBarrier(){
   if(!BARRIER || BARRIER.up) return;
   BARRIER.up = performance.now();
-  var g = crewBy("guardiano"); if(g){ g.calledAt = Date.now() - 12000; emote(g, "v", "#2a9a5c", 92); }
+  var g = crewBy("guardiano"); if(g) emote(g, "v", "#2a9a5c", 92);
 }
 function drawBarrier(t){
   var B = BARRIER, g = crewBy("guardiano"); if(!B || !g) return;
-  if(!B.t0 && !B.up) return;                            /* ancora in cammino */
   var k = B.up ? Math.min(1, (performance.now() - B.up)/600) : 0;
   if(B.up && k >= 1){ BARRIER = null; return; }
-  /* la sbarra sta a terra davanti ai piedi di Ultron, dal palo accanto al Guardiano; si alza quando rispondi */
-  var px0 = g.x - 18, py0 = g.y - 14, ang = k*1.35, L = Math.max(70, px0 - ULTRON.x + 44);
+  if(!B.up) busyAt(g, "#e0483a");
+  /* la sbarra scende davanti al Guardiano, dal palo alla sua destra verso sinistra; si alza quando rispondi */
+  var down = reduce ? 1 : Math.min(1, (performance.now() - B.t0)/500);
+  var px0 = g.x + 30, py0 = g.y - 14, ang = B.up ? k*1.35 : (1 - down)*1.35, L = 110;
   ctx.save(); ctx.translate(px0, py0); ctx.rotate(ang);
   ctx.fillStyle = P.out; ctx.fillRect(-L, -5, L + 4, 10);
   for(var i=0;i*12 < L-2;i++){ ctx.fillStyle = i%2 ? "#f4f1e6" : (B.up ? "#2aa883" : "#d9483a"); ctx.fillRect(-L + 2 + i*12, -3, Math.min(12, L - 2 - i*12), 6); }
   ctx.restore();
   fillPx(px0 - 4, py0 - 26, 8, 34, P.out); fillPx(px0 - 2, py0 - 24, 4, 30, "#8d949a"); fillPx(px0 - 3, py0 - 28, 6, 4, B.up ? "#3fdc7a" : "#e0483a");
-  if(!B.up) label("PERMESSO · " + B.what, (g.x + ULTRON.x)/2, ULTRON.y - 124, "#e0483a");
+  if(!B.up) label("PERMESSO · " + B.what, ULTRON.x, ULTRON.y - 124, "#e0483a");
 }
 
 /* ECONOMO · cache riscritta. Ogni evento porta i token del turno; quando la cache si riscrive per
    intero (cache scaduta, contesto nuovo, dopo una compattazione) l'ingresso costa molto di più.
-   L'Economo raggiunge Ultron, batte l'abaco e annota la cifra. Sotto soglia resta al suo schedario. */
+   L'Economo, al suo SCHEDARIO, batte l'abaco e annota la cifra. Sotto soglia non si scompone. */
 var CACHE_BIG = 30000;
 function onCacheWrite(d){
   var e = crewBy("economo"); if(!e) return;
   logEvent("fail", "<b>ECONOMO</b> annota una riscrittura della cache: <b>" + fmtTok(d) + "</b> token");
-  callTo(e, -40, 40, function(a){
-    emote(a, "€", "#b8862a", 92);
-    FLOATS.push({txt:"cache +" + fmtTok(d), x:a.x, y:a.y + 30, t0:performance.now(), to:{x:a.x, y:a.y}});
-  });
+  busyAt(e); emote(e, "€", "#b8862a", 92);
+  FLOATS.push({txt:"cache +" + fmtTok(d), x:e.x, y:e.y + 30, t0:performance.now(), to:{x:e.x, y:e.y}});
 }
 
-/* il collaudo respinge: QA-1 raggiunge Ultron dov'è finito il lavoro e lo segnala */
+/* il collaudo respinge: QA-1, alle PROVE, si accende di rosso e lo segnala dal suo posto */
 function qaRejects(){
-  callTo(crewBy("qualita-1"), -44, 6, function(a){ emote(a, "!", "#c8372d", 92); });
+  var q = crewBy("qualita-1"); if(!q) return;
+  busyAt(q, "#e0483a"); emote(q, "!", "#c8372d", 92);
 }
 
 /* i sub-agenti: partono da Ultron con l'ordine sigillato, lavorano nel reparto, rientrano col rapporto */
@@ -2161,7 +2122,7 @@ function stepSleep(t){
   SLEEP_AT = t;
   for(var k=0;k<CREW.length;k++){
     var a = CREW[(SLEEP_I + k) % CREW.length];
-    if(a.resting && !(a.path && a.path.length)){ emote(a, "z", "#8fa6d6", 92); SLEEP_I = (SLEEP_I + k + 1) % CREW.length; return; }
+    if(!isBusy(a)){ emote(a, "z", "#8fa6d6", 92); SLEEP_I = (SLEEP_I + k + 1) % CREW.length; return; }
   }
 }
 
@@ -2499,17 +2460,17 @@ function renderTasks(){
 }
 function agentFor(stage){ return ({0:"ricerca-1",1:"produzione-1",2:"qualita-1",3:"volt"})[stage]; }
 
-/* la cassa la porta qualcuno: nessun oggetto vola da solo */
-function haul(task, fromAgent, toRoom, then){
-  task.carrier = fromAgent.id;
+/* la cassa la porta qualcuno, nessun oggetto vola da solo: la porta Ultron, l'unico della squadra che
+   cammina. L'operativo del reparto d'arrivo la riceve dal suo posto. */
+function haul(task, toRoom, then){
+  task.carrier = "ULTRON"; task.carriedAt = Date.now();
   renderTasks();
-  goTo(fromAgent, toRoom, .28+Math.random()*.4, .66+Math.random()*.16, function(a){
+  goTo(ULTRON, toRoom, .28+Math.random()*.4, .66+Math.random()*.16, function(a){
     task.carrier = null;
-    task.x = a.x + 26*a.face; task.y = a.y + 4;
+    task.x = a.x + 30*(a.face < 0 ? -1 : 1); task.y = a.y + 4;
+    STATE.room = toRoom;
+    busyAt(crewBy(task.who));
     if(then) then();
-    /* poi torna al suo settore */
-    var home = task.homeRoom;
-    if(home && home !== toRoom) setTimeout(function(){ goTo(a, home); }, 600);
     renderTasks();
   });
 }
@@ -2556,6 +2517,15 @@ function demoStep(){
   return true;
 }
 function simulate(){
+  /* Ultron ha una cassa in mano: finché non la posa niente lo manda altrove. Se non arriva (è passato
+     al lavoro vero e poi tornato in demo) la posa dov'è; una consegna mancata non torna in fila */
+  var held = TASKS.filter(function(k){ return k.carrier; })[0];
+  if(held){
+    if(Date.now() - held.carriedAt < 15000) return;
+    held.carrier = null; held.x = ULTRON.x + 30; held.y = ULTRON.y + 4;
+    if(held.stage >= STAGES.length) TASKS.splice(TASKS.indexOf(held), 1);
+    renderTasks();
+  }
   if(DEMO_TURN && demoStep()) return;
   if(DEMO_GAP-- > 0){ simulateScene(); return; }
   DEMO_GAP = 3; DEMO_TURN = demoTurn(); demoStep();
@@ -2575,7 +2545,7 @@ function simulateScene(){
       }
       STATE.room = "vault";
     });
-    if(Math.random()<.5) goTo(CREW[4], "vault");
+    if(Math.random()<.5) busyAt(crewBy("custode"));
   } else if(roll < .74){
     var t = TASKS[Math.floor(Math.random()*TASKS.length)];
     if(!t || t.carrier) return;
@@ -2585,9 +2555,9 @@ function simulateScene(){
       var oldAgent = crewBy(t.who) || CREW[0];
       t.stage++; t.p = .08;
       if(t.stage >= STAGES.length){
-        t.homeRoom = oldAgent.room;
-        logEvent("pub","<b>"+oldAgent.n+"</b> porta "+t.t+" alle spedizioni");
-        haul(t, oldAgent, "pub", function(){
+        t.who = "volt";
+        logEvent("pub","<b>"+oldAgent.n+"</b> consegna "+t.t+": Ultron la porta alle spedizioni");
+        haul(t, "pub", function(){
           delivered++;
           TASKS.splice(TASKS.indexOf(t),1);
           var r0 = R("ricerca"), p0 = inRoom(r0,.3,.72);
@@ -2598,30 +2568,22 @@ function simulateScene(){
           banner("CONSEGNATO", t.t.toUpperCase().slice(0,26), P.green);
           for(var q=0;q<14;q++) smoke(R("pub").x+72+Math.random()*20, R("pub").y+70, "#6d6a61");
         });
-        goTo(ULTRON, "pub", .5, .5, function(){ STATE.room = "pub"; });
         renderTasks(); return;
       }
       t.who = agentFor(t.stage);
-      t.homeRoom = oldAgent.room;
-      logEvent("deleg","<b>"+oldAgent.n+"</b> porta "+t.t+" in "+R(STAGES[t.stage]).n);
-      haul(t, oldAgent, STAGES[t.stage], function(){ STATE.room = STAGES[t.stage]; });
-      goTo(ULTRON, STAGES[t.stage], .42+Math.random()*.2, .5, function(){ STATE.room = STAGES[t.stage]; });
-      var next = crewBy(t.who); if(next && next.room !== STAGES[t.stage]) goTo(next, STAGES[t.stage]);
-    } else {
-      var ag = crewBy(t.who);
-      if(ag && ag.room !== STAGES[t.stage]) goTo(ag, STAGES[t.stage]);
-    }
+      logEvent("deleg","<b>"+oldAgent.n+"</b> consegna "+t.t+": Ultron la porta in "+R(STAGES[t.stage]).n);
+      busyAt(oldAgent);
+      haul(t, STAGES[t.stage]);
+    } else busyAt(crewBy(t.who));
   } else if(roll < .86){
     var q = TASKS.filter(function(x){return x.stage===2 && !x.carrier;})[0];
     if(q){
-      var qa = crewBy("qualita-1");
-      q.stage = 1; q.p = .3; q.st = "qa"; q.who = "produzione-1"; q.homeRoom = "qa";
+      q.stage = 1; q.p = .3; q.st = "qa"; q.who = "produzione-1";
       STATE.status = "failing"; STATE.target = "prod";
       logEvent("fail","collaudo respinge <b>"+q.t+"</b>: torna in officina");
       shake(); banner("RESPINTO", q.t.toUpperCase().slice(0,26), P.red);
-      sparks(R("qa").x+200, R("qa").y+120, P.red, 18);
-      haul(q, qa, "prod", function(){ STATE.room = "prod"; });
-      goTo(ULTRON, "prod", .5, .45, function(){ STATE.room = "prod"; });
+      qaRejects();
+      haul(q, "prod");
     }
   } else {
     STATE.status = "thinking"; STATE.target = null;
@@ -2784,6 +2746,7 @@ function enterRest(why){
   if(REST) return;
   REST = true; DEMO_TURN = null; QUEUE.length = 0;
   STATE.status = "idle"; STATE.target = null;
+  liftBarrier(); endCompact();               /* a riposo nessuno aspetta più un permesso o un riassunto */
   MINIS = MINIS.filter(function(m){ return !m.demo; });
   var p = document.getElementById("mode"); p.className = "pill rest"; p.textContent = "A RIPOSO";
   renderTasks();
@@ -2943,7 +2906,7 @@ function applyLive(s){
   if(s.status !== "compacting") endCompact();
   if(STATE.status === "spawning" && was !== "spawning" && s.agent){
     var spawned = crewBy(s.agent);
-    if(spawned){ banner("RINFORZO", spawned.n, P.gold); puff(spawned.x, spawned.y-20, P.gold, 14); }
+    if(spawned){ banner("RINFORZO", spawned.n, P.gold); puff(spawned.x, spawned.y-20, P.gold, 14); busyAt(spawned, P.gold); }
   }
   /* il reparto: Ultron ci va a piedi, e se l'evento richiede un attrezzo
      passa prima dall'arsenale a prenderlo. */
@@ -2954,11 +2917,9 @@ function applyLive(s){
     }
   };
   var skid = skillForEvent(s);
-  if(skid) useSkill(skid, go, s.room, s.tool === "Skill" || s.tool === "SlashCommand"); else go();
-  /* ogni evento in un reparto tiene lì gli specialisti che ci stanno lavorando */
-  if(s.room) SKILLS.forEach(function(sk){ if(sk.escort === s.room) sk.hotUntil = Date.now() + SK_STAY; });
+  if(skid) useSkill(skid, go, s.tool === "Skill" || s.tool === "SlashCommand"); else go();
 
-  /* chi si muove per questo evento: dopo go(), così sanno dove sta andando Ultron */
+  /* chi reagisce a questo evento, ognuno dal suo posto */
   if(STATE.status === "failing" && was !== "failing"){ shake(); banner("RESPINTO", "COLLAUDO", P.red); qaRejects(); uGlitch(); }
   if(isPromptEvent(s)) onPrompt();
   if(s.status === "idle" && was !== "idle" && line.indexOf("sessione") < 0){ LINE_CLOSED = performance.now(); uYawn(); logEvent("deleg", "<b>MARCONI</b> chiude la linea: turno finito"); }
@@ -2968,18 +2929,12 @@ function applyLive(s){
   if(s.status === "waiting" && (was !== "waiting" || line.indexOf("permesso") === 0)) notifyWaiting(line);
   if(s.tokens){ onTokens(s); STATE.tokens = s.tokens; }
 
-  /* un subagente al lavoro è un operativo che si sposta nel suo reparto */
+  /* l'operativo di quel lavoro si accende alla sua postazione, senza lasciarla */
   if(s.agent){
-    var a = crewBy(s.agent) || crewBy(({ricerca:"ricerca-1", prod:"produzione-1",
-      qa:"qualita-1", pub:"orchestratore", vault:"custode", rs:"orchestratore"})[s.room] || "");
-    /* già lì a lavorare: resta al suo posto, l'evento lo trattiene; altrimenti ci va */
-    if(a && s.room && R(s.room)){
-      if(a.room === s.room && !(a.path && a.path.length)){ a.calledAt = Date.now(); a.resting = false; }
-      else goTo(a, s.room);
-    }
-    /* Volt e Doc abitano spedizioni e laboratorio: se il reparto lavora, si muovono anche loro */
-    var res = ({pub:"volt", rs:"doc"})[s.room];
-    if(res && crewBy(res) && crewBy(res).room !== s.room) goTo(crewBy(res), s.room);
+    busyAt(crewBy(s.agent) || crewBy(({ricerca:"ricerca-1", prod:"produzione-1",
+      qa:"qualita-1", pub:"orchestratore", vault:"custode", rs:"orchestratore"})[s.room] || ""));
+    /* Volt e Doc abitano spedizioni e laboratorio: se il reparto lavora, lavorano anche loro */
+    busyAt(crewBy(({pub:"volt", rs:"doc"})[s.room] || ""));
   }
 
   /* una nota toccata si accende nell'archivio quando lui ci arriva */
@@ -3075,13 +3030,12 @@ function dashSnapshot(m){
       keys.forEach(function(k){ h[k] = !!hit[k]; seen[k] = sn[k] ? Math.max(0, Math.round((m.now - sn[k])/1000)) : null; });
       return {hit: h, last: m.link.last || null, hot: m.now - m.link.at < 1600, seen: seen};
     })(),
+    /* la truppa non cammina: è alla sua postazione, al lavoro o in attesa */
     crew: m.crew.map(function(a){
-      var carrying = m.tasks.filter(function(k){ return k.carrier === a.id; })[0];
-      var busy = !!carrying || !!a.moving;
+      var busy = !!a.busyUntil && m.now < a.busyUntil, where = a.room ? m.R(a.room).n.toLowerCase() : "portellone";
       return {id: a.id, name: a.n, color: a.col, desc: (m.crewRole || {})[a.id] || "",
-              role: carrying ? "PORTA CASSA" : a.moving ? "IN CAMMINO" : a.room ? m.R(a.room).n : "PORTELLONE",
-              state: carrying ? "porta " + carrying.t : a.moving ? "in cammino" + (a.dest ? " verso " + m.R(a.dest).n.toLowerCase() : "")
-                     : "alla postazione · " + (a.room ? m.R(a.room).n.toLowerCase() : "portellone"),
+              role: a.room ? m.R(a.room).n : "PORTELLONE",
+              state: (busy ? "al lavoro · " : "alla postazione · ") + where,
               busy: busy};
     }),
     board: {
@@ -3098,10 +3052,10 @@ function dashSnapshot(m){
       sub: live ? realMs.length+" ATTIVE" : m.tasks.length+" IN CORSO · "+m.delivered+" CONSEGNATE"
     },
     skills: m.skills.map(function(sk){
-      return {id: sk.id, name: sk.n, color: sk.c, desc: sk.d, uses: sk.uses||0,
-              hot: !!(sk.last && m.now - sk.last < 4000),
-              where: sk.escort ? "al lavoro · "+m.R(sk.escort).n.toLowerCase() : sk.wander ? "a spasso nel corridoio" : sk.moving ? "in cammino" : "al posto",
-              busy: !!sk.escort};
+      var hot = !!(sk.last && m.now - sk.last < 4000), where = (sk.cellName || "").toLowerCase();
+      return {id: sk.id, name: sk.n, color: sk.c, desc: sk.d, uses: sk.uses||0, hot: hot,
+              where: hot ? "passa l'attrezzo a Ultron" + (where ? " · " + where : "") : "al posto" + (where ? " · " + where : ""),
+              busy: hot};
     }),
     shelf: [
       {label:"00 INBOX",     count: v ? n(v.inbox) : 0, color: m.P.cyan},
@@ -3649,7 +3603,7 @@ var EMO_GLYPH = {
   "z": ["#####","...#.","..#..",".#...","#####","....."],
   "€": ["..###",".#...","####.",".#...","####.","..###"]
 };
-var EMO = [], EMO_PREV = {status:null, room:null, carry:{}, uses:{}};
+var EMO = [], EMO_PREV = {status:null, room:null, uses:{}};
 function emoSprite(kind, col){
   var k = "emo"+kind+col; if(SPRITES[k]) return SPRITES[k];
   return SPRITES[k] = spr(11, 12, function(g){
@@ -3670,11 +3624,6 @@ function watchEmotes(){
     EMO_PREV.status = st;
   }
   if(STATE.room !== EMO_PREV.room){ if(STATE.room === "pub") emote(ULTRON, "n", "#2d7fc8", 104); EMO_PREV.room = STATE.room; }
-  CREW.forEach(function(a){
-    var c = TASKS.some(function(k){ return k.carrier === a.id; });
-    if(EMO_PREV.carry[a.id] && !c) emote(a, "v", "#2a9a5c", 92);
-    EMO_PREV.carry[a.id] = c;
-  });
   SKILLS.forEach(function(sk){
     if(EMO_PREV.uses[sk.id] !== undefined && sk.uses > EMO_PREV.uses[sk.id]) emote(sk, "!", "#c98a1c", 96);
     EMO_PREV.uses[sk.id] = sk.uses;
@@ -3940,13 +3889,11 @@ function hoverAt(p){
   test(ULTRON.x, ULTRON.y, "ULTRON", nowDoing() + (WORK && WORK.text ? " · cerca «" + WORK.text + "»" : "") +
        (PRIMARY_KEY && CLONES.length ? " · progetto " + projectName(PRIMARY_KEY, HOME_DIR) : "") + (QUEUE.length ? " · " + QUEUE.length + " in coda" : ""));
   CREW.forEach(function(a){
-    var carry = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
-    test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (carry ? "porta " + carry.t : a.moving ? "in cammino" : a.room ? R(a.room).n.toLowerCase() : "al portellone"));
+    test(a.x, a.y, a.n, (CREW_ROLE[a.id] || a.id) + " · " + (isBusy(a) ? "al lavoro" : "alla postazione") + " · " + (a.room ? R(a.room).n.toLowerCase() : "al portellone"));
   });
   SKILLS.forEach(function(k){
-    var here = Math.hypot(k.x - k.homeX, k.y - POST_Y) < 20;
-    test(k.x, k.y, k.n, k.d + " · " + (k.escort ? (k.moving ? "va in " : "al lavoro in ") + R(k.escort).n.toLowerCase()
-      : k.wander ? "a spasso nel corridoio" : k.moving ? "torna al posto" : here ? "al posto" : "in pausa nel corridoio"));
+    var hot = k.last && Date.now() - k.last < 4000;
+    test(k.x, k.y, k.n, k.d + " · " + (hot ? "passa l'attrezzo a Ultron" : "al posto") + " · " + String(k.cellName || "").toLowerCase());
   });
   CLONES.forEach(function(c){ test(c.x, c.y, "ULTRON · " + (projectName(c.key, HOME_DIR) || "altro terminale"), (c.leaving ? "esce: terminale fermo" : STATE_LIVE[c.status] || c.status || "") + (c.room ? " · " + R(c.room).n.toLowerCase() : "")); });
   MINIS.forEach(function(m){ test(m.x, m.y, "SUB-AGENTE", (m.back ? "rientra col rapporto" : m.carry ? "porta l'ordine" : "al lavoro") + (m.task ? " · " + String(m.task).slice(0, 60) : "")); });
@@ -4051,9 +3998,6 @@ function loop(t){
     stepQueue();
     stepSleep(t);
     stepEntity(ULTRON, dt);
-    CREW.forEach(function(a){ stepEntity(a, dt); });
-    SKILLS.forEach(function(a){ stepEntity(a, dt); });
-    stepSpecs();
     CLONES.forEach(function(a){ stepEntity(a, dt); });
     MINIS.forEach(function(a){ stepEntity(a, dt); });
     stepTube(dt);
@@ -4354,8 +4298,8 @@ var THEME = {
 /* server.py serve solo .jpg piatti in assets/: ring_<nome>.jpg */
 function img(n){ return ENV_IMG[THEME.dir + "_" + n]; }
 
-/* la truppa apre il turno alla sua postazione */
-CREW.forEach(function(a){ var p = stationPoint(a); if(p){ a.x = p.x; a.y = p.y; a.room = p.room; a.resting = true; } });
+/* la truppa sta alla sua postazione dall'apertura del turno, e lì resta */
+CREW.forEach(function(a){ var p = stationPoint(a); if(p){ a.x = p.x; a.y = p.y; a.room = p.room; } });
 ULTRON.x = CORR.x + CORR.w/2; ULTRON.y = CORR_Y;
 
 /* il reparto cotto una volta sola: pavimento dell'atrio con la trama del corridoio tinta del
@@ -4528,16 +4472,10 @@ function drawWorld(t){
     ctx.fillStyle = k.st==="qa" ? P.red : P.gold; ctx.fillRect(k.x-19,k.y-45,38*k.p,5);
   });
   drawPiles(det);
-  drawSpecs(t, det);
+  drawSpecs(t);
   CREW.forEach(function(a){
-    var carrying = TASKS.filter(function(k){ return k.carrier === a.id; })[0];
-    var f = a.moving ? 2 + (Math.floor(a.phase)%4) : 0;
-    var im = crewSprite(a,f,!!carrying);
-    drawSprite(im, a.x, a.y, 2.2, a.face<0);
-    if(carrying){
-      var cy = a.y - 62 - (a.moving ? Math.abs(Math.sin(a.phase*1.6))*2 : 0);
-      drawSprite(OBJ.crate, a.x, cy, 2, false);
-    }
+    if(isBusy(a)) drawHot(a, a.busyCol || a.col, t);
+    drawSprite(crewSprite(a, 0, false), a.x, a.y, 2.2, a.face<0);
   });
   var uf = ULTRON.moving ? 2 + (Math.floor(ULTRON.phase)%4) : (Math.floor(t*.003)%2);
   ctx.globalAlpha = .2; ctx.fillStyle = stColor();
@@ -4545,6 +4483,9 @@ function drawWorld(t){
   ctx.globalAlpha = 1;
   stepTrail(performance.now()); drawTrail(uf, performance.now());
   drawSprite(ultronSprite(uf, actionOf(), STATE.status), ULTRON.x, ULTRON.y, 2.6, ULTRON.face<0);
+  /* in demo è Ultron a portare le casse da un reparto all'altro: sopra la testa, come faceva la truppa */
+  if(sceneTasks().some(function(k){ return k.carrier === "ULTRON"; }))
+    drawSprite(OBJ.crate, ULTRON.x, ULTRON.y - 100 - (ULTRON.moving ? Math.abs(Math.sin(ULTRON.phase*1.6))*2 : 0), 2, false);
   drawUltronFx(t);
   CLONES.forEach(function(c){
     var cf = c.moving ? 2 + (Math.floor(c.phase)%4) : (Math.floor(t*.003)%2), tc = termColor(c.key);
@@ -4600,7 +4541,6 @@ function drawWorld(t){
 function boot(){
   bakeAll(); resize(); renderTasks();
   ULTRON.room = null;
-  CREW.forEach(function(a){ a.moving = false; a.dest = a.room; });
   logEvent("read","sessione aperta · <b>CLAUDE.md</b>");
   setTimeout(function(){ banner("BASE", "LA BARACCA · TURNO APERTO", P.gold); }, 500);
   goTo(ULTRON, "prod", .5, .5, function(){ STATE.room = "prod"; });
