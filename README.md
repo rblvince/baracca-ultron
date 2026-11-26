@@ -84,4 +84,6 @@ Vitest tests plus a type-check). It exits with 1 if any of them fails.
 Written and directed by **Vincent** ([@rblvince](https://github.com/rblvince)), built with
 Claude Code as an AI pair programmer. Claude Code is a product of Anthropic.
 
+Released under the [MIT License](LICENSE).
+
 <p align="center"><img src="docs/brand/logo.png" alt="rblvince clapperboard mark" width="32"></p>
