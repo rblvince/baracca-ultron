@@ -1,100 +1,87 @@
-# La Baracca di Ultron
+<p align="center">
+  <img src="docs/brand/banner.png" alt="La Baracca di Ultron: a live pixel-art base for an AI agent at work." width="100%">
+</p>
 
-Dashboard locale in pixel-art che rappresenta visivamente l'attività reale di una sessione Claude Code: un robot che si sposta tra 6 settori (ricerca, produzione, test, archivio/vault, deploy, laboratorio) man mano che arrivano eventi veri dagli hook della sessione — non una demo, i dati vengono dal lavoro reale mentre succede.
+<p align="center">
+  <img src="https://img.shields.io/badge/Canvas-vanilla_JS-3446c4" alt="Canvas, vanilla JavaScript">
+  <img src="https://img.shields.io/badge/Python-stdlib_only-3446c4" alt="Python standard library only">
+  <img src="https://img.shields.io/badge/React-19-3446c4" alt="React 19">
+  <img src="https://img.shields.io/badge/Claude_Code-hooks-3446c4" alt="Claude Code hooks">
+  <img src="https://img.shields.io/badge/checks-13%20suites%20passing-1e7a4f" alt="13 test suites passing">
+</p>
 
-**Snapshot pre-migrazione (2026-09-22):** questo commit fotografa l'app così com'è oggi, prima di iniziare a spostare il livello dati su Supabase. Serve come punto di ripristino sicuro.
+> **Logline.** An AI coding agent works in silence inside a terminal. La Baracca di Ultron turns
+> that work into a living pixel-art base: every real event from a Claude Code session (a file
+> read, a test run, a sub-agent sent off, a permission request) moves a crew of characters
+> through the rooms, as it happens. Not a canned animation: the data is the session itself.
+> The interface is in Italian.
 
-## Stack
+## On screen
 
-- `baracca.html` — frontend canvas/JS puro, nessuna dipendenza.
-- `server.py` — server Python stdlib-only, legge lo stato locale e la sessione, nessuna dipendenza esterna. Senza Supabase manda stato, sessioni e sub-agenti alla pagina via Server-Sent Events (`/api/events`); il polling resta solo come ripiego.
-- `hooks/soglie.py` — le soglie di tempo (stato fermo, LIVE, sub-agenti), in un posto solo: la pagina le riceve con `/api/config`.
-- `hooks/` — script Python richiamati dagli hook di Claude Code (`PostToolUse`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `Notification`, `PreToolUse`, `PreCompact`, `SessionStart`) che scrivono lo stato osservato.
+![Demo mode: the crew moving through the base, crates carried from room to room](docs/screenshots/demo.gif)
+*Demo mode: Ultron walks the corridors carrying the missions; each department receives them at its post.*
 
-### Hook da aggiungere (26/09)
+| Close up | The whole base |
+| --- | --- |
+| ![The base seen up close, with the status bar: state, department, work, tokens, signal](docs/screenshots/base-close.png) | ![The whole base: rooms, corridors and the crew at their stations](docs/screenshots/base-overview.png) |
 
-Due personaggi nuovi vivono di hook che prima non erano registrati. In `settings.json`, accanto agli altri che chiamano `set_state.py` (percorso come per quelli):
+<sub>Screenshots in demo mode: no real session data.</sub>
 
-```json
-"PreCompact":   [{"hooks": [{"type": "command", "command": "python3 <baracca>/hooks/set_state.py compacting"}]}],
-"SessionStart": [{"hooks": [{"type": "command", "command": "python3 <baracca>/hooks/set_state.py idle"}]}]
-```
+## Cast
 
-- `PreCompact` → i fogli del contesto volano da Ultron alla FORGIA, dove lo SPAZZINO li pressa; `SessionStart` con `source: compact` chiude la compattazione e il blocco torna a Ultron.
-- `SessionStart` → il PORTINAIO apre il portellone; i terminali nuovi entrano da lì, quelli fermi escono da lì.
-- `Notification` (già registrato) ora distingue il permesso (il GUARDIANO abbassa la sbarra in VERIFICHE) dall'attesa semplice (MARCONI trasmette).
-- L'ECONOMO non ha bisogno di hook: legge la cache scritta dai token che già arrivano.
+| Role | Technology |
+|---|---|
+| Scene | One HTML page on a `<canvas>`, vanilla JavaScript, no dependencies |
+| Bridge | Python scripts called by eight Claude Code hooks (`PreToolUse`, `PostToolUse`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `Notification`, `PreCompact`, `SessionStart`) |
+| Server | Python standard library only, Server-Sent Events to the page, polling as a fallback |
+| History panels | A React 19 island (Vite, TypeScript, Vitest), shipped as a single prebuilt file |
+| Data (optional) | Supabase: events, sessions, sub-agents and token costs, with SQL migrations |
 
-### Chi si muove
+## Behind the scenes
 
-Camminano solo **Ultron**, i **cloni** degli altri terminali (entrano ed escono dal portellone) e i **sub-agenti**: i mini-Ultron e i tre personaggi qui sotto. Chi cammina sta portando qualcosa da un posto all'altro; tutto il resto della squadra sta fermo, ognuno nella sua stanza, e fa il suo mestiere da lì.
+- **Real events only.** The hooks write what the session actually did; the page draws it. When
+  nothing is happening the base rests, dims its lights and, after a while, goes to sleep.
+- **Who walks carries something.** Only Ultron, the clones of other terminals and the sub-agents
+  move; the twelve crew members keep a fixed post and act from there. Motion always means work
+  moving from one place to another.
+- **Sub-agents get a face.** Three sub-agent types (`coder`, `valutatore`, `jev-giuria`) have
+  their own character, who collects the sealed order, works in their department and brings the
+  report back. Every other type becomes a mini-Ultron, so the count on screen stays true.
+- **Skills are specialists.** The installed skills (folders with a `SKILL.md`) appear as
+  specialists in the lab; when the agent uses one, its specialist throws it the tool.
+- **No build step to run it.** The scene is plain JavaScript and the server is stdlib Python; the
+  React panels are committed prebuilt, so the base starts without Node.
+- **One home for the timings.** Idle, live and sub-agent thresholds live in `hooks/soglie.py`
+  and reach the page through `/api/config`, so server and scene never disagree.
+- **Local by design.** It listens on `127.0.0.1` only and is never published; runtime state stays
+  out of the repository.
 
-- **La truppa** (i dodici operativi) ha una postazione fissa (`STATION` in `baracca.html`) e non la lascia mai. Quando tocca a loro si accendono al loro posto, si girano, mostrano l'emote o l'attrezzo: il collaudo respinge alle PROVE, la sbarra del permesso scende in VERIFICHE, il contesto si pressa in FORGIA, la spesa della cache si annota allo SCHEDARIO.
-- **In demo** le casse delle missioni le porta Ultron, da un reparto all'altro; l'operativo del reparto d'arrivo le riceve dal suo posto.
+## Shoot it yourself
 
-### Tre sub-agenti con un personaggio
-
-Tre tipi di sub-agente hanno un aspetto loro. Il ponte li riconosce dal `subagent_type` esatto (maiuscole o minuscole non contano, `SUBAGENT_CHARACTER` in `hooks/barracks.py`) e manda alla pagina il loro id come `agent`:
-
-| `subagent_type` | Personaggio | Reparto | Aspetto |
-|---|---|---|---|
-| `coder` | CODER, scrive codice, script, test e config | OFFICINA, BANCO | felpa col cappuccio, occhiali, portatile |
-| `valutatore` | VALUTATORE, rilegge il codice e cerca bug veri | COLLAUDO, CONFRONTO | lente da orologiaio, barattolo col bug |
-| `jev-giuria` | JEV GIURIA, mette ai voti le strade e dà il verdetto | LABORATORIO, PIANI | parrucca da giudice, martelletto |
-
-- Il corridoio alto è loro: ognuno ha un posto fisso, col tondo del suo colore e l'attrezzo. A riposo passeggiano piano lungo il corridoio; di notte tornano al posto e restano lì. Ci sono sempre, anche in demo e senza server.
-- Quando parte un sub-agente del loro tipo esce la fascia RINFORZO col nome. Il personaggio raggiunge Ultron, prende l'ordine sigillato, lo porta nel suo reparto e lavora lì, sul posto, finché il sub-agente è in corso. Poi porta il rapporto a Ultron e torna al posto. Per quel sub-agente non nasce un mini-Ultron.
-- Un personaggio fa un sub-agente alla volta: il secondo dello stesso tipo resta un mini-Ultron, così il conto di quelli in corso è vero. Tutti gli altri tipi restano mini-Ultron, negli stessi reparti di prima.
-- In sala comando stanno in SQUADRA, sotto il filtro «sub-agenti».
-
-### Specialisti = skill installate
-
-Gli specialisti sono le skill installate davvero: `/api/skills` legge le cartelle con `SKILL.md` in `~/.claude/skills`, `~/.agents/skills` e nelle stesse cartelle di `~/my-agent` (al massimo 10 in scena, prima quelle con un disegno loro: taste, guidelines, marketing, regia). Bash, letture, vault e sub-agenti li fa la truppa.
-
-Ognuno sta fermo nella sottostanza dove il ponte manda la sua skill: le skill di revisione e verifica in COLLAUDO, REVISIONE; tutte le altre in LABORATORIO, ATTREZZI. I posti sono fissi, in righe da due (da tre con cinque o più), e con dieci specialisti nessuno copre un altro (`test_squadra.mjs`). Quando Ultron usa la loro skill esce la fascia SKILL e lo specialista gli lancia l'attrezzo dal suo posto, senza muoversi.
-
-I nomi nella scena si leggono passando il cursore su persone, stanze, casse e portellone.
-
-### Come si guarda
-
-- **A RIPOSO / DEMO**: se Ultron ha già lavorato qui ma non negli ultimi 15 minuti, la base riposa (luci basse, dopo 10 minuti si dorme). La demo parte solo cliccando la pillola, o se non c'è mai stata una sessione.
-- **Coda**: gli eventi passano in ordine; con la fila lunga Ultron cammina fino a 3 volte più svelto. Il ritratto dice quanti eventi sono in coda.
-- **Pianta**: le stanze sono grandi il 50% in più di quelle di progetto; all'apertura la base si vede da vicino e si esplora trascinando o con la rotella. ESC mostra tutta la base (e di nuovo ESC torna da vicino).
-- **U** segue Ultron di reparto in reparto; esc o trascinare smettono.
-- **AVVISI**: un avviso di sistema quando Ultron ti aspetta e la pagina non è davanti (il browser chiede il permesso al primo clic).
-- **Ponte** in sala comando: gli otto hook, ognuno con l'ultima volta che si è fatto vivo con un evento vero. "Mai visto" vuol dire che quell'hook non è registrato.
-
-## Avvio
+Requirements: macOS, Python 3, Google Chrome and Claude Code.
 
 ```sh
-./start.sh
+./start.sh   # server on :8795, the page in Chrome, a Claude Code session in Terminal
 ```
 
-Avvia il server (porta 8795 se non già attivo), apre la pagina in Chrome e una sessione Claude Code in un terminale.
+Without a session the page opens in demo mode. To see your own work, register the hooks in
+Claude Code's `settings.json`: the exact entries, the characters and the controls (drag, scroll,
+`ESC` for the whole base, `U` to follow Ultron) are in the [Italian guide](docs/guida.md).
+Supabase is optional; its migrations are in `supabase/migrations/`, applied in order.
 
-## Test
+## Dailies
 
-    ./run_tests.sh
+```sh
+./run_tests.sh
+```
 
-Lancia tutti i controlli: hook e server (Python), blocchi puri della pagina (Node) e, se `panels/node_modules` c'è, vitest e typecheck dei pannelli. Esce con 1 se anche uno solo fallisce.
+13 suites in one command: the hooks and the server (five Python suites), the pure logic of the
+scene (six Node suites: dashboard, layout, crew positions, sub-agents), and the React panels (80
+Vitest tests plus a type-check). It exits with 1 if any of them fails.
 
-## Migrazioni Supabase
+## Credits
 
-Le migrazioni in `supabase/migrations/` si applicano a mano dall'editor SQL, in ordine; `supabase/schema.sql` è lo schema completo dopo l'ultima.
+Written and directed by **Vincent** ([@rblvince](https://github.com/rblvince)), built with
+Claude Code as an AI pair programmer. Claude Code is a product of Anthropic.
 
-- `009_record_event_tokens_isolated.sql` — i token in un sottoblocco di `record_event`: se falliscono non si portano via stato, sessione e avviso Discord. Si può applicare con gli hook attivi.
-- `010_subagents_indici.sql` — solo indici, si può rilanciare.
-
-## Nota
-
-Pensata per girare solo su `127.0.0.1`, mai pubblicata esternamente. I file in `state/` sono runtime, esclusi dal repo.
-
-## Pannelli STORICO (React)
-
-I pannelli del gruppo STORICO in DASHBOARD sono un'isola React in `panels/`, servita come un solo file `panels/dist/panels.js` (committato: la Baracca parte senza Node).
-
-Dopo ogni modifica a `panels/src/`:
-
-    cd panels && npm install && npm test && npm run build
-
-e committare anche `panels/dist/panels.js`. Senza build la pagina continua a servire la versione vecchia.
+<p align="center"><img src="docs/brand/logo.png" alt="rblvince clapperboard mark" width="32"></p>
